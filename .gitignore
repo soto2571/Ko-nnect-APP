@@ -1,0 +1,18 @@
+# Dependencies
+frontend/node_modules/
+
+# Expo
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+
+# Logs
+*.log
