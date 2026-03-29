@@ -99,11 +99,10 @@ export async function updateBusiness(
 
 export async function addEmployee(payload: {
   businessId: string;
-  email: string;
   firstName: string;
   lastName: string;
-}): Promise<Employee> {
-  return request<Employee>('/employees', {
+}): Promise<{ employee: Employee; credentials: { email: string; password: string } }> {
+  return request<{ employee: Employee; credentials: { email: string; password: string } }>('/employees', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
