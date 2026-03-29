@@ -26,6 +26,7 @@ export interface Employee {
   firstName: string;
   lastName: string;
   email: string;
+  tempPassword?: string;
   createdAt: string;
 }
 

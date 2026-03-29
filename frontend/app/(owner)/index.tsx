@@ -75,7 +75,7 @@ function groupByDay(shifts: Shift[]) {
     });
 }
 
-// ─── Time Picker (grid, no scroll) ───────────────────────────────────────────
+// ─── Time Picker (scroll hours, grid minutes) ────────────────────────────────
 
 function TimePicker({ label, hour, minute, ampm, onHour, onMinute, onAmpm, color }: {
   label: string; hour: number; minute: number; ampm: 'AM'|'PM';
@@ -85,29 +85,32 @@ function TimePicker({ label, hour, minute, ampm, onHour, onMinute, onAmpm, color
   return (
     <View style={tp.wrap}>
       <Text style={tp.label}>{label}</Text>
-      {/* Hour grid 4×3 */}
-      <View style={tp.grid}>
-        {hours.map(h => (
-          <TouchableOpacity key={h} style={[tp.cell, hour===h && {backgroundColor:color}]} onPress={()=>onHour(h)}>
-            <Text style={[tp.cellText, hour===h && {color:'#fff',fontWeight:'700'}]}>{h}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      {/* Minute row */}
-      <View style={tp.minRow}>
-        {MINUTES.map(m => (
-          <TouchableOpacity key={m} style={[tp.minCell, minute===m && {backgroundColor:color}]} onPress={()=>onMinute(m)}>
-            <Text style={[tp.cellText, minute===m && {color:'#fff',fontWeight:'700'}]}>:{String(m).padStart(2,'0')}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      {/* AM/PM toggle */}
-      <View style={tp.ampmRow}>
-        {(['AM','PM'] as const).map(a => (
-          <TouchableOpacity key={a} style={[tp.ampmBtn, ampm===a && {backgroundColor:color}]} onPress={()=>onAmpm(a)}>
-            <Text style={[tp.ampmText, ampm===a && {color:'#fff',fontWeight:'700'}]}>{a}</Text>
-          </TouchableOpacity>
-        ))}
+      <View style={tp.row}>
+        {/* Scrollable hours */}
+        <ScrollView style={tp.scroll} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+          {hours.map(h => (
+            <TouchableOpacity key={h} style={[tp.item, hour===h && {backgroundColor:color, borderRadius:8}]} onPress={()=>onHour(h)}>
+              <Text style={[tp.itemText, hour===h && {color:'#fff',fontWeight:'700'}]}>{h}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <Text style={tp.colon}>:</Text>
+        {/* Minute column (4 buttons, no scroll needed) */}
+        <View style={tp.minCol}>
+          {MINUTES.map(m => (
+            <TouchableOpacity key={m} style={[tp.minItem, minute===m && {backgroundColor:color, borderRadius:8}]} onPress={()=>onMinute(m)}>
+              <Text style={[tp.itemText, minute===m && {color:'#fff',fontWeight:'700'}]}>{String(m).padStart(2,'0')}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {/* AM/PM */}
+        <View style={tp.ampmCol}>
+          {(['AM','PM'] as const).map(a => (
+            <TouchableOpacity key={a} style={[tp.ampmBtn, ampm===a && {backgroundColor:color, borderRadius:8}]} onPress={()=>onAmpm(a)}>
+              <Text style={[tp.ampmText, ampm===a && {color:'#fff',fontWeight:'700'}]}>{a}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -294,7 +297,8 @@ export default function ShiftsScreen() {
           endTime:   new Date(`${dateStr}T${String(e24).padStart(2,'0')}:${String(endM).padStart(2,'0')}:00`).toISOString(),
         }).then(shift=>api.assignShift(shift.shiftId,{ employeeId: selEmp.userId||selEmp.employeeId, status:'assigned' }))
       ));
-      setModalVisible(false); load();
+      setModalVisible(false);
+      await load();
     } catch(err:any) { Alert.alert('Error',err.message); }
     finally { setSaving(false); }
   };
@@ -305,8 +309,9 @@ export default function ShiftsScreen() {
     setSaving(true);
     try {
       await api.assignShift(editShift.shiftId, { employeeId: selEmp.userId||selEmp.employeeId, status:'assigned' });
-      setModalVisible(false); load();
-    } catch(err:any) { Alert.alert('Error',err.message); }
+      setModalVisible(false);
+      await load();
+    } catch(err:any) { Alert.alert('Error', err.message); }
     finally { setSaving(false); }
   };
 
@@ -619,12 +624,14 @@ const cal = StyleSheet.create({
 const tp = StyleSheet.create({
   wrap:{gap:8},
   label:{fontSize:13,fontWeight:'600',color:COLORS.textSecondary},
-  grid:{flexDirection:'row',flexWrap:'wrap',gap:6},
-  cell:{width:'22%',paddingVertical:9,alignItems:'center',borderRadius:10,backgroundColor:COLORS.background},
-  cellText:{fontSize:15,color:COLORS.text},
-  minRow:{flexDirection:'row',gap:6},
-  minCell:{flex:1,paddingVertical:9,alignItems:'center',borderRadius:10,backgroundColor:COLORS.background},
-  ampmRow:{flexDirection:'row',gap:6},
-  ampmBtn:{flex:1,paddingVertical:9,alignItems:'center',borderRadius:10,backgroundColor:COLORS.background},
+  row:{flexDirection:'row',alignItems:'center',gap:6,height:130},
+  scroll:{flex:1,backgroundColor:COLORS.background,borderRadius:10},
+  item:{paddingVertical:9,alignItems:'center'},
+  itemText:{fontSize:16,color:COLORS.text},
+  colon:{fontSize:20,fontWeight:'700',color:COLORS.text},
+  minCol:{justifyContent:'space-around',height:130,backgroundColor:COLORS.background,borderRadius:10,paddingVertical:4},
+  minItem:{paddingVertical:8,paddingHorizontal:12,alignItems:'center'},
+  ampmCol:{justifyContent:'space-around',height:130},
+  ampmBtn:{paddingVertical:12,paddingHorizontal:10,alignItems:'center'},
   ampmText:{fontSize:14,fontWeight:'600',color:COLORS.textSecondary},
 });
