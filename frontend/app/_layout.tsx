@@ -41,6 +41,17 @@ function RootNavigator() {
     );
   }
 
+  // While a redirect is pending, render nothing to avoid wrong-route hooks firing
+  const inAuthGroup     = segments[0] === '(auth)';
+  const inOwnerGroup    = segments[0] === '(owner)';
+  const inEmployeeGroup = segments[0] === '(employee)';
+  const redirectPending =
+    (!user && !inAuthGroup) ||
+    (user?.role === 'owner'    && !inOwnerGroup) ||
+    (user?.role === 'employee' && !inEmployeeGroup);
+
+  if (redirectPending) return null;
+
   return <Slot />;
 }
 

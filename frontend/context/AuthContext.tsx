@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
 import * as api from '@/services/api';
+import { supabase } from '@/lib/supabase';
+import { SUPABASE_FUNCTIONS_URL } from '@/constants';
 import type { Business, User } from '@/types';
+
+WebBrowser.maybeCompleteAuthSession();
 
 interface AuthState {
   user: User | null;
@@ -18,6 +23,7 @@ interface AuthContextType extends AuthState {
     lastName: string;
     role: 'owner' | 'employee';
   }) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   refreshBusiness: () => Promise<void>;
   setBusiness: (b: Business) => void;
@@ -39,29 +45,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const token = await api.getToken();
-        if (!token) {
+        const user = await api.getSavedUser();
+        if (!token || !user) {
           setState((s) => ({ ...s, isLoading: false }));
           return;
         }
-        // Decode token payload (base64)
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const user: User = {
-          userId: payload.userId,
-          email: payload.email,
-          role: payload.role,
-          firstName: '',
-          lastName: '',
-          businessId: payload.businessId,
-        };
         let business: Business | null = null;
-        if (payload.businessId) {
+        if (user.businessId) {
           try {
-            business = await api.getBusiness(payload.businessId);
+            business = await api.getBusiness(user.businessId);
           } catch {}
         }
         setState({ user, token, business, isLoading: false });
       } catch {
         await api.removeToken();
+        await api.removeUser();
         setState({ user: null, token: null, business: null, isLoading: false });
       }
     })();
@@ -70,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     const { user, token } = await api.login({ email, password });
     await api.saveToken(token);
+    await api.saveUser(user);
     let business: Business | null = null;
     if (user.businessId) {
       try {
@@ -88,11 +87,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     const { user, token } = await api.signup(payload);
     await api.saveToken(token);
+    await api.saveUser(user);
     setState({ user, token, business: null, isLoading: false });
+  };
+
+  const signInWithGoogle = async () => {
+    const redirectTo = 'konnect://';
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: true },
+    });
+
+    if (error || !data.url) throw new Error(error?.message ?? 'Could not start Google sign-in');
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+    if (result.type !== 'success') return; // user cancelled
+
+    // Parse access_token and refresh_token from the redirect URL fragment/query
+    const raw = result.url;
+    const fragment = raw.includes('#') ? raw.split('#')[1] : raw.split('?')[1] ?? '';
+    const params = new URLSearchParams(fragment);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token') ?? '';
+
+    if (!accessToken) throw new Error('Google sign-in failed — no token received');
+
+    const { data: sessionData, error: sessionErr } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (sessionErr || !sessionData?.session) throw new Error(sessionErr?.message ?? 'Google sign-in failed');
+
+    const token = sessionData.session.access_token;
+
+    // Fetch user profile (created by DB trigger on first sign-in)
+    // Retry once to handle edge function cold start
+    let profileJson: any = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const profileRes = await fetch(`${SUPABASE_FUNCTIONS_URL}/auth-profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      profileJson = await profileRes.json();
+      if (profileJson.success) break;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    if (!profileJson?.success) throw new Error(profileJson?.message ?? 'Could not load profile');
+
+    const user: User = { ...profileJson.data, provider: 'google' };
+
+    await api.saveToken(token);
+    await api.saveUser(user);
+
+    let business: Business | null = null;
+    if (user.businessId) {
+      try { business = await api.getBusiness(user.businessId); } catch {}
+    }
+
+    setState({ user, token, business, isLoading: false });
   };
 
   const logout = async () => {
     await api.removeToken();
+    await api.removeUser();
+    try { await supabase.auth.signOut(); } catch {}
     setState({ user: null, token: null, business: null, isLoading: false });
   };
 
@@ -103,18 +161,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setBusiness = (business: Business) => {
-    setState((s) => ({
-      ...s,
-      business,
-      user: s.user ? { ...s.user, businessId: business.businessId } : s.user,
-    }));
+    setState((s) => {
+      const updatedUser = s.user ? { ...s.user, businessId: business.businessId } : s.user;
+      if (updatedUser) api.saveUser(updatedUser);
+      return { ...s, business, user: updatedUser };
+    });
   };
 
   const primaryColor = state.business?.color ?? '#4F46E5';
 
   return (
     <AuthContext.Provider
-      value={{ ...state, login, signup, logout, refreshBusiness, setBusiness, primaryColor }}
+      value={{ ...state, login, signup, signInWithGoogle, logout, refreshBusiness, setBusiness, primaryColor }}
     >
       {children}
     </AuthContext.Provider>

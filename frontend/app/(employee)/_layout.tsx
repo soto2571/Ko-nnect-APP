@@ -7,13 +7,10 @@ export default function EmployeeLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: primaryColor,
         tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: { backgroundColor: '#FFFFFF', borderTopColor: '#E5E7EB' },
-        headerStyle: { backgroundColor: '#FFFFFF' },
-        headerTintColor: primaryColor,
-        headerTitleStyle: { fontWeight: '700' },
-        headerShadowVisible: false,
       }}
     >
       <Tabs.Screen

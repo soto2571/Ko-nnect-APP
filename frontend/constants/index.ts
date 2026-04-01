@@ -1,6 +1,6 @@
-export const API_BASE_URL = 'https://u8vltp3464.execute-api.us-east-1.amazonaws.com/dev';
+export const SUPABASE_FUNCTIONS_URL = 'https://izfcsiqucpkroylkgjei.supabase.co/functions/v1';
 
-export const DEFAULT_PRIMARY_COLOR = '#4F46E5';
+export const DEFAULT_PRIMARY_COLOR = '#E11D48';
 
 export const COLORS = {
   background: '#F9FAFB',

@@ -8,6 +8,7 @@ export default function OwnerLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: primaryColor,
         tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {
@@ -15,10 +16,6 @@ export default function OwnerLayout() {
           borderTopColor: '#E5E7EB',
           paddingBottom: 4,
         },
-        headerStyle: { backgroundColor: '#FFFFFF' },
-        headerTintColor: primaryColor,
-        headerTitleStyle: { fontWeight: '700' },
-        headerShadowVisible: false,
       }}
     >
       <Tabs.Screen
@@ -36,6 +33,15 @@ export default function OwnerLayout() {
           title: 'Employees',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="timeclock"
+        options={{
+          title: 'Timeclock',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="timer-outline" size={size} color={color} />
           ),
         }}
       />
