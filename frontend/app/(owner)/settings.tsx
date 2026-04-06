@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ActivityIndicator, Alert, ScrollView,
+  ActivityIndicator, Alert, ScrollView, Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
@@ -21,6 +21,10 @@ export default function SettingsScreen() {
   const [payPeriodType, setPayPeriodType]           = useState<'weekly'|'biweekly'|'semi-monthly'>(business?.payPeriodType ?? 'weekly');
   const [payPeriodStartDay, setPayPeriodStartDay]   = useState(business?.payPeriodStartDay ?? 0);
   const [payPeriodAnchorDate, setPayPeriodAnchorDate] = useState(business?.payPeriodAnchorDate ?? '');
+  const [openDays, setOpenDays]                   = useState<number[]>(business?.openDays ?? [0,1,2,3,4,5,6]);
+  const [maxHoursPerDay, setMaxHoursPerDay]       = useState(business?.maxHoursPerDay ?? 0);
+  const [autoClockOut, setAutoClockOut]           = useState(business?.autoClockOut ?? false);
+  const [autoClockOutMinutes, setAutoClockOutMinutes] = useState(business?.autoClockOutMinutes ?? 30);
   const [saving, setSaving]   = useState(false);
   const [isNew, setIsNew]     = useState(!business);
   const isGoogleUser = user?.provider === 'google';
@@ -37,6 +41,10 @@ export default function SettingsScreen() {
       setPayPeriodType(business.payPeriodType ?? 'weekly');
       setPayPeriodStartDay(business.payPeriodStartDay ?? 0);
       setPayPeriodAnchorDate(business.payPeriodAnchorDate ?? '');
+      setOpenDays(business.openDays ?? [0,1,2,3,4,5,6]);
+      setMaxHoursPerDay(business.maxHoursPerDay ?? 0);
+      setAutoClockOut(business.autoClockOut ?? false);
+      setAutoClockOutMinutes(business.autoClockOutMinutes ?? 30);
       setIsNew(false);
     }
   }, [business]);
@@ -46,10 +54,16 @@ export default function SettingsScreen() {
     setSaving(true);
     try {
       let updated;
+      const payload = {
+        name: name.trim(), color, payPeriodType, payPeriodStartDay,
+        payPeriodAnchorDate: payPeriodAnchorDate || undefined,
+        openDays, maxHoursPerDay,
+        autoClockOut, autoClockOutMinutes: autoClockOut ? autoClockOutMinutes : 30,
+      };
       if (isNew) {
-        updated = await api.createBusiness({ name: name.trim(), color, payPeriodType, payPeriodStartDay, payPeriodAnchorDate: payPeriodAnchorDate || undefined });
+        updated = await api.createBusiness(payload);
       } else {
-        updated = await api.updateBusiness(business!.businessId, { name: name.trim(), color, payPeriodType, payPeriodStartDay, payPeriodAnchorDate: payPeriodAnchorDate || undefined });
+        updated = await api.updateBusiness(business!.businessId, payload);
       }
       setBusiness(updated); setIsNew(false);
       Alert.alert('Saved','Business profile updated.');
@@ -182,6 +196,71 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Scheduling Rules */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Scheduling Rules</Text>
+
+          <Text style={s.label}>Open Days</Text>
+          <View style={s.segRow}>
+            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => {
+              const on = openDays.includes(i);
+              return (
+                <TouchableOpacity key={i}
+                  style={[s.dayBtn, on && { backgroundColor: color, borderColor: color }]}
+                  onPress={() => setOpenDays(on ? openDays.filter(x => x !== i) : [...openDays, i].sort())}>
+                  <Text style={[s.dayBtnText, on && { color: '#fff' }]}>{d}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={s.label}>Max Hours Per Day <Text style={{ color:'#C4C4CE' }}>(0 = no limit)</Text></Text>
+          <View style={s.stepperRow}>
+            <TouchableOpacity style={s.stepperBtn} onPress={() => setMaxHoursPerDay(Math.max(0, maxHoursPerDay - 1))}>
+              <Ionicons name="remove" size={18} color="#374151" />
+            </TouchableOpacity>
+            <Text style={s.stepperVal}>{maxHoursPerDay === 0 ? 'No limit' : `${maxHoursPerDay}h`}</Text>
+            <TouchableOpacity style={s.stepperBtn} onPress={() => setMaxHoursPerDay(Math.min(24, maxHoursPerDay + 1))}>
+              <Ionicons name="add" size={18} color="#374151" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={s.switchRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.switchLabel}>Auto Clock-Out</Text>
+              <Text style={s.switchSub}>Automatically clock out employees after a set time</Text>
+            </View>
+            <Switch
+              value={autoClockOut}
+              onValueChange={setAutoClockOut}
+              trackColor={{ false: '#E5E7EB', true: color }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          {autoClockOut && (
+            <>
+              <Text style={s.label}>Clock Out After (minutes past shift end)</Text>
+              <View style={s.stepperRow}>
+                <TouchableOpacity style={s.stepperBtn} onPress={() => setAutoClockOutMinutes(Math.max(5, autoClockOutMinutes - 5))}>
+                  <Ionicons name="remove" size={18} color="#374151" />
+                </TouchableOpacity>
+                <Text style={s.stepperVal}>{autoClockOutMinutes} min</Text>
+                <TouchableOpacity style={s.stepperBtn} onPress={() => setAutoClockOutMinutes(Math.min(240, autoClockOutMinutes + 5))}>
+                  <Ionicons name="add" size={18} color="#374151" />
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          <TouchableOpacity style={[s.saveBtn, { backgroundColor: color }]} onPress={handleSave} disabled={saving}>
+            {saving
+              ? <ActivityIndicator color="#fff"/>
+              : <Text style={s.saveBtnText}>Save Changes</Text>
+            }
+          </TouchableOpacity>
+        </View>
+
         {/* Account */}
         <View style={s.card}>
           <Text style={s.cardTitle}>Account</Text>
@@ -283,4 +362,15 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#FECACA',
   },
   logoutText: { color: '#EF4444', fontWeight: '600', fontSize: 15 },
+
+  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  stepperBtn: {
+    width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  stepperVal: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', color: '#111827' },
+
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  switchLabel: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  switchSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
 });

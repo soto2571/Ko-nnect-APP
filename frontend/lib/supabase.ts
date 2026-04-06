@@ -14,7 +14,7 @@ const SecureStoreAdapter = {
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: false,   // We manage our own token storage via SecureStore
-    autoRefreshToken: false,
+    autoRefreshToken: true,  // Supabase refreshes in-memory session automatically
     detectSessionInUrl: false,
     flowType: 'implicit',
   },

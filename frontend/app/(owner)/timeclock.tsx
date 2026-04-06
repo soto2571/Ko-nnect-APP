@@ -219,6 +219,7 @@ export default function TimeclockScreen() {
   const [editLog, setEditLog] = useState<TimeLog | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [tick, setTick] = useState(0);
+  const [empFilter, setEmpFilter] = useState<string | null>(null); // null = all employees
 
   // Live timer tick
   useEffect(() => {
@@ -469,11 +470,19 @@ export default function TimeclockScreen() {
     if (!editLog) return;
     setEditSaving(true);
     try {
+      // Convert legacy breakStart/breakEnd fields into the breaks array the API expects
+      let breaks = editLog.breaks && editLog.breaks.length > 0 ? [...editLog.breaks] : [];
+      if (breaks.length === 0 && editLog.breakStart) {
+        breaks = [{ start: editLog.breakStart, end: editLog.breakEnd }];
+      } else if (breaks.length === 1) {
+        // Keep the array but update from the edit fields if they changed
+        if (editLog.breakStart) breaks[0] = { start: editLog.breakStart, end: editLog.breakEnd };
+      }
+
       const updated = await api.updateTimeLog(editLog.logId, {
         clockIn: editLog.clockIn,
         clockOut: editLog.clockOut,
-        breakStart: editLog.breakStart,
-        breakEnd: editLog.breakEnd,
+        breaks,
       });
       setPeriodLogs(prev => prev.map(l => l.logId === updated.logId ? updated : l));
       setEditLog(null);
@@ -590,99 +599,155 @@ export default function TimeclockScreen() {
         )}
 
         {/* ── LOGS TAB ── */}
-        {tab === 'logs' && (
-          <>
-            <Text style={s.periodLabel}>Pay period: {period?.label}</Text>
+        {tab === 'logs' && (() => {
+          // Filter logs by selected employee
+          const visibleLogs = empFilter
+            ? periodLogs.filter(l => l.employeeId === empFilter)
+            : periodLogs;
 
-            {periodLogs.length === 0 ? (
-              <View style={s.emptyCard}><Text style={s.emptyText}>No records for this period.</Text></View>
-            ) : periodLogs.sort((a,b) => a.date.localeCompare(b.date)).map(log => (
-              <View key={log.logId} style={s.logCard}>
-                <View style={s.logHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.logName}>{empName(log.employeeId)}</Text>
-                    <Text style={s.logDate}>{fmtDate(log.clockIn)}</Text>
-                  </View>
-                  <StatusBadge status={log.status} />
-                  <TouchableOpacity onPress={() => setEditLog({ ...log })} style={s.editBtn}>
-                    <Ionicons name="create-outline" size={16} color="#6B7280" />
-                  </TouchableOpacity>
-                </View>
-                {/* 3-column: In | Breaks | Out */}
-                <View style={s.logTimes}>
-                  <View style={s.logTimeItem}>
-                    <Text style={s.logTimeLabel}>In</Text>
-                    <Text style={s.logTimeValue}>{log.clockIn ? fmt12(log.clockIn) : '—'}</Text>
-                  </View>
-                  <Ionicons name="arrow-forward" size={12} color="#E5E7EB" />
-                  {/* Middle column: all breaks stacked vertically */}
-                  <View style={s.logBreaksCol}>
-                    {(log.breaks && log.breaks.length > 0 ? log.breaks : (
-                      log.breakStart ? [{ start: log.breakStart, end: log.breakEnd }] : []
-                    )).length > 0 ? (
-                      (log.breaks && log.breaks.length > 0 ? log.breaks : [{ start: log.breakStart!, end: log.breakEnd }])
-                        .map((b, i) => {
-                          const multi = (log.breaks?.length ?? 0) > 1;
-                          return (
-                            <View key={i} style={s.logTimeItem}>
-                              <Text style={s.logTimeLabel}>{multi ? `Break ${i + 1}` : 'Break'}</Text>
-                              <Text style={s.logTimeValue}>{fmt12(b.start)}{b.end ? ` – ${fmt12(b.end)}` : ' …'}</Text>
-                            </View>
-                          );
-                        })
-                    ) : (
-                      <View style={s.logTimeItem}>
-                        <Text style={s.logTimeLabel}>Break</Text>
-                        <Text style={[s.logTimeValue, { color: '#6B7280' }]}>—</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Ionicons name="arrow-forward" size={12} color="#E5E7EB" />
-                  <View style={s.logTimeItem}>
-                    <Text style={s.logTimeLabel}>Out</Text>
-                    <Text style={s.logTimeValue}>{log.clockOut ? fmt12(log.clockOut) : '—'}</Text>
-                  </View>
-                </View>
-                <View style={s.logFooter}>
-                  {log.totalMinutes != null && (
-                    <Text style={[s.logTotal, log.overtimeDay && { color: '#EF4444' }]}>
-                      {fmtHours(log.totalMinutes)}{log.overtimeDay ? ' ⚠ OT' : ''}
-                    </Text>
-                  )}
-                  {log.missedBreakPunch && (
-                    <View style={s.missedRow}>
-                      <Ionicons name="warning-outline" size={12} color="#991B1B" />
-                      <Text style={s.missedText}>Missed break punch</Text>
+          // Group by date (YYYY-MM-DD from clockIn)
+          const byDate = new Map<string, TimeLog[]>();
+          for (const log of visibleLogs.slice().sort((a, b) => a.clockIn.localeCompare(b.clockIn))) {
+            const key = log.date ?? new Date(log.clockIn).toISOString().slice(0, 10);
+            if (!byDate.has(key)) byDate.set(key, []);
+            byDate.get(key)!.push(log);
+          }
+          const sortedDates = Array.from(byDate.keys()).sort();
+
+          return (
+            <>
+              {/* Period label */}
+              <Text style={s.periodLabel}>Pay period: {period?.label}</Text>
+
+              {/* Employee filter chips */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, paddingHorizontal: 16 }} contentContainerStyle={{ gap: 8, paddingRight: 16 }}>
+                <TouchableOpacity
+                  style={[s.empChip, !empFilter && { backgroundColor: primaryColor }]}
+                  onPress={() => setEmpFilter(null)}
+                >
+                  <Text style={[s.empChipText, !empFilter && { color: '#fff' }]}>All</Text>
+                </TouchableOpacity>
+                {employees.map(emp => {
+                  const id = emp.userId || emp.employeeId;
+                  const active = empFilter === id;
+                  return (
+                    <TouchableOpacity key={emp.employeeId}
+                      style={[s.empChip, active && { backgroundColor: primaryColor }]}
+                      onPress={() => setEmpFilter(active ? null : id)}
+                    >
+                      <View style={[s.empChipDot, { backgroundColor: active ? 'rgba(255,255,255,0.6)' : primaryColor }]} />
+                      <Text style={[s.empChipText, active && { color: '#fff' }]}>{emp.firstName} {emp.lastName}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {sortedDates.length === 0 ? (
+                <View style={s.emptyCard}><Text style={s.emptyText}>No records for this period.</Text></View>
+              ) : sortedDates.map(dateKey => {
+                const dayLogs = byDate.get(dateKey)!;
+                const dayDate = new Date(dateKey + 'T12:00:00');
+                const dayLabel = dayDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+                const dayTotalMin = dayLogs.filter(l => l.status === 'clocked_out').reduce((s, l) => s + (l.totalMinutes ?? 0), 0);
+
+                return (
+                  <View key={dateKey}>
+                    {/* Day header */}
+                    <View style={s.dayHeaderRow}>
+                      <Text style={s.dayHeaderLabel}>{dayLabel}</Text>
+                      {dayTotalMin > 0 && (
+                        <Text style={[s.dayHeaderTotal, { color: primaryColor }]}>{fmtHours(dayTotalMin)}</Text>
+                      )}
                     </View>
-                  )}
-                </View>
-              </View>
-            ))}
 
-            {/* Edit log inline */}
-            {editLog && (
-              <View style={[s.editCard, { borderColor: primaryColor }]}>
-                <Text style={[s.editTitle, { color: primaryColor }]}>Edit Time Record</Text>
-                <Text style={s.editEmpName}>{empName(editLog.employeeId)} · {fmtDate(editLog.clockIn)}</Text>
-                <View style={s.editGrid}>
-                  <InlineTimePicker label="Clock In"    value={editLog.clockIn}    color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockIn: v }    : l)} />
-                  <InlineTimePicker label="Break Start" value={editLog.breakStart} color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakStart: v } : l)} />
-                  <InlineTimePicker label="Break End"   value={editLog.breakEnd}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakEnd: v }   : l)} />
-                  <InlineTimePicker label="Clock Out"   value={editLog.clockOut}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockOut: v }   : l)} />
+                    {/* Log cards for this day */}
+                    {dayLogs.map(log => (
+                      <View key={log.logId} style={s.logCard}>
+                        <View style={s.logHeader}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={s.logName}>{empName(log.employeeId)}</Text>
+                          </View>
+                          <StatusBadge status={log.status} />
+                          <TouchableOpacity onPress={() => setEditLog({ ...log })} style={s.editBtn}>
+                            <Ionicons name="create-outline" size={16} color="#6B7280" />
+                          </TouchableOpacity>
+                        </View>
+                        {/* 3-column: In | Breaks | Out */}
+                        <View style={s.logTimes}>
+                          <View style={s.logTimeItem}>
+                            <Text style={s.logTimeLabel}>In</Text>
+                            <Text style={s.logTimeValue}>{log.clockIn ? fmt12(log.clockIn) : '—'}</Text>
+                          </View>
+                          <Ionicons name="arrow-forward" size={12} color="#E5E7EB" />
+                          <View style={s.logBreaksCol}>
+                            {(log.breaks && log.breaks.length > 0 ? log.breaks : (log.breakStart ? [{ start: log.breakStart, end: log.breakEnd }] : [])).length > 0 ? (
+                              (log.breaks && log.breaks.length > 0 ? log.breaks : [{ start: log.breakStart!, end: log.breakEnd }])
+                                .map((b, i) => {
+                                  const multi = (log.breaks?.length ?? 0) > 1;
+                                  return (
+                                    <View key={i} style={s.logTimeItem}>
+                                      <Text style={s.logTimeLabel}>{multi ? `Break ${i + 1}` : 'Break'}</Text>
+                                      <Text style={s.logTimeValue}>{fmt12(b.start)}{b.end ? ` – ${fmt12(b.end)}` : ' …'}</Text>
+                                    </View>
+                                  );
+                                })
+                            ) : (
+                              <View style={s.logTimeItem}>
+                                <Text style={s.logTimeLabel}>Break</Text>
+                                <Text style={[s.logTimeValue, { color: '#6B7280' }]}>—</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Ionicons name="arrow-forward" size={12} color="#E5E7EB" />
+                          <View style={s.logTimeItem}>
+                            <Text style={s.logTimeLabel}>Out</Text>
+                            <Text style={s.logTimeValue}>{log.clockOut ? fmt12(log.clockOut) : '—'}</Text>
+                          </View>
+                        </View>
+                        <View style={s.logFooter}>
+                          {log.totalMinutes != null && (
+                            <Text style={[s.logTotal, log.overtimeDay && { color: '#EF4444' }]}>
+                              {fmtHours(log.totalMinutes)}{log.overtimeDay ? ' ⚠ OT' : ''}
+                            </Text>
+                          )}
+                          {log.missedBreakPunch && (
+                            <View style={s.missedRow}>
+                              <Ionicons name="warning-outline" size={12} color="#991B1B" />
+                              <Text style={s.missedText}>Missed break punch</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+
+              {/* Edit log inline */}
+              {editLog && (
+                <View style={[s.editCard, { borderColor: primaryColor }]}>
+                  <Text style={[s.editTitle, { color: primaryColor }]}>Edit Time Record</Text>
+                  <Text style={s.editEmpName}>{empName(editLog.employeeId)} · {fmtDate(editLog.clockIn)}</Text>
+                  <View style={s.editGrid}>
+                    <InlineTimePicker label="Clock In"    value={editLog.clockIn}    color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockIn: v }    : l)} />
+                    <InlineTimePicker label="Break Start" value={editLog.breakStart} color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakStart: v } : l)} />
+                    <InlineTimePicker label="Break End"   value={editLog.breakEnd}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakEnd: v }   : l)} />
+                    <InlineTimePicker label="Clock Out"   value={editLog.clockOut}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockOut: v }   : l)} />
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                    <TouchableOpacity style={s.editCancelBtn} onPress={() => setEditLog(null)}>
+                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[s.editSaveBtn, { backgroundColor: primaryColor }]}
+                      onPress={handleSaveEdit} disabled={editSaving}>
+                      {editSaving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text>}
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-                  <TouchableOpacity style={s.editCancelBtn} onPress={() => setEditLog(null)}>
-                    <Text style={{ color: '#6B7280', fontWeight: '600' }}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[s.editSaveBtn, { backgroundColor: primaryColor }]}
-                    onPress={handleSaveEdit} disabled={editSaving}>
-                    {editSaving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text>}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </>
-        )}
+              )}
+            </>
+          );
+        })()}
 
         {/* ── REPORT TAB ── */}
         {tab === 'report' && (
@@ -868,4 +933,22 @@ const s = StyleSheet.create({
   reportFlags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   flagBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEE2E2', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   flagText: { fontSize: 11, fontWeight: '700' },
+
+  // Employee filter chips
+  empChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
+  },
+  empChipDot: { width: 7, height: 7, borderRadius: 4 },
+  empChipText: { fontSize: 13, fontWeight: '600', color: '#374151' },
+
+  // Day grouping header
+  dayHeaderRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 4, paddingTop: 8, paddingBottom: 4,
+  },
+  dayHeaderLabel: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.90)' },
+  dayHeaderTotal: { fontSize: 13, fontWeight: '800' },
 });

@@ -21,8 +21,22 @@ Deno.serve(async (req) => {
 
     const sb = getServiceClient();
     const tempPassword = generatePassword(firstName, lastName);
-    const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}.${Date.now()}@${businessId.substring(0,8)}.konnect`;
 
+    // Build email: john.smith@acmecorp.app — deduplicate with numeric suffix if needed
+    const domainBase = (businessName ?? 'business').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const localBase  = `${firstName.toLowerCase().replace(/[^a-z0-9]/g,'')}.${lastName.toLowerCase().replace(/[^a-z0-9]/g,'')}`;
+    let email = `${localBase}@${domainBase}.app`;
+
+    // Check for collision and find the next available suffix
+    const { data: existing } = await sb.from('employees')
+      .select('email')
+      .ilike('email', `${localBase}%@${domainBase}.app`);
+    if (existing && existing.length > 0) {
+      const taken = new Set(existing.map((r: { email: string }) => r.email));
+      let n = 2;
+      while (taken.has(`${localBase}${n}@${domainBase}.app`)) n++;
+      email = `${localBase}${n}@${domainBase}.app`;
+    }
     // Create auth user for employee
     const { data: authData, error: authErr } = await sb.auth.admin.createUser({
       email, password: tempPassword, email_confirm: true,

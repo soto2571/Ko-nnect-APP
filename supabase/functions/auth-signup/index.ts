@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
       data: {
         user: { userId, email, firstName, lastName, role },
         token: signIn.session?.access_token,
+        refreshToken: signIn.session?.refresh_token,
       },
     }, 201);
   } catch (e) {

@@ -245,6 +245,8 @@ export default function ShiftsScreen() {
     Animated.spring(headerAnim, { toValue: 1, tension: 60, friction: 9, useNativeDriver: true }).start();
   }, []);
 
+  const [activeFilter, setActiveFilter] = useState<'all'|'clocked_in'|'today'|'late'>('all');
+
   const [modalMode, setModalMode]       = useState<ModalMode>('create');
   const [modalVisible, setModalVisible] = useState(false);
   const [editShift, setEditShift]       = useState<Shift|null>(null);
@@ -273,7 +275,10 @@ export default function ShiftsScreen() {
     finally { setLoading(false); }
   }, [business?.businessId]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    hasScrolled.current = false;
+    load();
+  }, [load]));
 
   // Week strip uses the selected week offset (for the calendar header)
   const weekDates  = getWeekDates(weekOffset, business?.payPeriodStartDay ?? 0);
@@ -281,9 +286,33 @@ export default function ShiftsScreen() {
   const weekEnd    = new Date(weekDates[6]); weekEnd.setHours(23,59,59);
   const weekShifts = shifts.filter(s => { const d=new Date(s.startTime); return d>=weekStart && d<=weekEnd; });
 
-  // The flat list shows only the selected week's shifts
-  const allGrouped = groupByDay(weekShifts);
   const empById = (id?: string) => id ? employees.find(e => e.userId===id||e.employeeId===id) : undefined;
+
+  // Quick filter counts (always based on today's data regardless of week offset)
+  const todayShifts = shifts.filter(s => isSameDay(new Date(s.startTime), new Date()));
+  const clockedInCount = activeLogs.filter(l => l.status === 'clocked_in' || l.status === 'on_break').length;
+  const scheduledTodayCount = todayShifts.length;
+  const lateShifts = todayShifts.filter(s => {
+    const started = new Date(s.startTime) < new Date();
+    const hasLog  = activeLogs.some(l => l.shiftId === s.shiftId && (l.status === 'clocked_in' || l.status === 'on_break'));
+    const hasClockedOut = activeLogs.some(l => l.shiftId === s.shiftId && l.status === 'clocked_out');
+    return started && !hasLog && !hasClockedOut;
+  });
+  const lateCount = lateShifts.length;
+
+  // Apply active filter to shift list
+  const filteredShifts = (() => {
+    if (activeFilter === 'clocked_in') {
+      const activeShiftIds = new Set(activeLogs.filter(l => l.status === 'clocked_in' || l.status === 'on_break').map(l => l.shiftId));
+      return weekShifts.filter(s => activeShiftIds.has(s.shiftId));
+    }
+    if (activeFilter === 'today') return todayShifts;
+    if (activeFilter === 'late') return lateShifts;
+    return weekShifts;
+  })();
+
+  // The flat list shows only the selected week's shifts (filtered)
+  const allGrouped = groupByDay(filteredShifts);
 
   // Approximate item heights for scroll-to-today calculation
   const HEADER_H = 54;  // day header pill row
@@ -455,6 +484,30 @@ export default function ShiftsScreen() {
               </Text>
             </View>
           )}
+        </View>
+
+        {/* Quick filters */}
+        <View style={s.filterRow}>
+          {([
+            { key: 'clocked_in', label: 'Clocked In', count: clockedInCount, icon: 'pulse-outline', activeColor: '#10B981' },
+            { key: 'today',      label: 'Today',      count: scheduledTodayCount, icon: 'today-outline',  activeColor: color },
+            { key: 'late',       label: 'Late',       count: lateCount,       icon: 'alert-circle-outline', activeColor: '#EF4444' },
+          ] as const).map(f => {
+            const isActive = activeFilter === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                style={[s.filterChip, isActive && { backgroundColor: f.activeColor }]}
+                onPress={() => setActiveFilter(isActive ? 'all' : f.key)}
+              >
+                <Ionicons name={f.icon} size={13} color={isActive ? '#fff' : '#6B7280'} />
+                <Text style={[s.filterChipText, isActive && { color: '#fff' }]}>{f.label}</Text>
+                <View style={[s.filterBadge, isActive && { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+                  <Text style={[s.filterBadgeText, isActive && { color: '#fff' }]}>{f.count}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Weekly calendar */}
@@ -880,6 +933,18 @@ const s = StyleSheet.create({
   breakChipText: { fontSize:12, fontWeight:'600', color:'#374151' },
   breakHint: { flexDirection:'row', alignItems:'center', gap:6, paddingHorizontal:4 },
   breakHintText: { fontSize:12, color:'#9CA3AF' },
+  filterRow: { flexDirection:'row', gap:8, paddingHorizontal:16, paddingBottom:10 },
+  filterChip: {
+    flexDirection:'row', alignItems:'center', gap:5,
+    backgroundColor:'rgba(255,255,255,0.55)', borderRadius:20,
+    paddingHorizontal:10, paddingVertical:6,
+  },
+  filterChipText: { fontSize:12, fontWeight:'600', color:'#6B7280' },
+  filterBadge: {
+    backgroundColor:'rgba(0,0,0,0.08)', borderRadius:10,
+    minWidth:18, height:18, alignItems:'center', justifyContent:'center', paddingHorizontal:4,
+  },
+  filterBadgeText: { fontSize:11, fontWeight:'700', color:'#374151' },
 });
 
 const wk = StyleSheet.create({

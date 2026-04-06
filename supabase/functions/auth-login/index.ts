@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
           businessId: profile.businessId,
         },
         token: data.session?.access_token,
+        refreshToken: data.session?.refresh_token,
       },
     });
   } catch (e) {

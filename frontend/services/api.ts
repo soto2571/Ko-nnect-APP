@@ -1,9 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
 import { SUPABASE_FUNCTIONS_URL } from '@/constants';
-import type { AuthResponse, Business, Employee, Shift, TimeLog, User } from '@/types';
+import { supabase } from '@/lib/supabase';
+import type { AuthResponse, Availability, Business, Employee, PTO, Shift, TimeLog, User } from '@/types';
 
-const TOKEN_KEY = 'konnect_token';
-const USER_KEY = 'konnect_user';
+const TOKEN_KEY   = 'konnect_token';
+const REFRESH_KEY = 'konnect_refresh';
+const USER_KEY    = 'konnect_user';
 
 // ─── Token + Session helpers ──────────────────────────────────────────────────
 
@@ -17,6 +19,18 @@ export async function getToken(): Promise<string | null> {
 
 export async function removeToken() {
   await SecureStore.deleteItemAsync(TOKEN_KEY);
+}
+
+export async function saveRefreshToken(token: string) {
+  await SecureStore.setItemAsync(REFRESH_KEY, token);
+}
+
+export async function getRefreshToken(): Promise<string | null> {
+  return SecureStore.getItemAsync(REFRESH_KEY);
+}
+
+export async function removeRefreshToken() {
+  await SecureStore.deleteItemAsync(REFRESH_KEY);
 }
 
 export async function saveUser(user: User) {
@@ -33,13 +47,44 @@ export async function removeUser() {
   await SecureStore.deleteItemAsync(USER_KEY);
 }
 
+// ─── Token resolution (handles expiry + session restore) ─────────────────────
+
+async function getValidToken(): Promise<string | null> {
+  // 1. Check in-memory session (kept fresh by autoRefreshToken)
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) return session.access_token;
+
+  // 2. Session not in memory (hot-reload / cold start) — restore from SecureStore.
+  //    setSession() will auto-refresh the access_token if it's expired,
+  //    as long as the refresh_token is still valid.
+  const storedToken   = await getToken();
+  const storedRefresh = await getRefreshToken();
+  if (storedToken && storedRefresh) {
+    try {
+      const { data } = await supabase.auth.setSession({
+        access_token:  storedToken,
+        refresh_token: storedRefresh,
+      });
+      if (data.session?.access_token) {
+        // Persist any newly issued tokens
+        await saveToken(data.session.access_token);
+        if (data.session.refresh_token) await saveRefreshToken(data.session.refresh_token);
+        return data.session.access_token;
+      }
+    } catch {}
+  }
+
+  // 3. Last resort: return whatever is stored (may be expired, caller will get 401)
+  return storedToken;
+}
+
 // ─── Base fetch ──────────────────────────────────────────────────────────────
 
 async function request<T>(
   functionName: string,
   options: RequestInit & { query?: Record<string, string> } = {}
 ): Promise<T> {
-  const token = await getToken();
+  const token = await getValidToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
@@ -171,8 +216,10 @@ export async function updateEmployee(
   employeeId: string,
   payload: { firstName?: string; lastName?: string }
 ): Promise<Employee> {
-  // Not yet a dedicated endpoint — placeholder that avoids calling AWS
-  throw new Error('updateEmployee not implemented in Supabase backend yet');
+  return request<Employee>(`employees-update/${employeeId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
 }
 
 // ─── Shifts ───────────────────────────────────────────────────────────────────
@@ -285,6 +332,62 @@ export async function updateTimeLog(
 ): Promise<TimeLog> {
   return request<TimeLog>(`timelog-update/${logId}`, {
     method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+// ─── Availability ─────────────────────────────────────────────────────────────
+
+export async function getAvailability(businessId: string, employeeId?: string): Promise<Availability[]> {
+  return request<Availability[]>('availability-get', {
+    query: employeeId ? { businessId, employeeId } : { businessId },
+  });
+}
+
+export async function setAvailability(payload: {
+  employeeId: string;
+  businessId: string;
+  type: 'vacation' | 'unavailable' | 'recurring_days' | 'recurring_hours';
+  startDate?: string;
+  endDate?: string;
+  daysOfWeek?: number[];
+  startTime?: string;
+  endTime?: string;
+  note?: string;
+}): Promise<Availability> {
+  return request<Availability>('availability-set', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAvailability(availabilityId: string, employeeId: string, businessId: string): Promise<void> {
+  return request<void>('availability-set', {
+    method: 'DELETE',
+    body: JSON.stringify({ availabilityId, employeeId, businessId, type: 'vacation' }),
+  });
+}
+
+// ─── PTO ──────────────────────────────────────────────────────────────────────
+
+export async function getPTOList(businessId: string, startDate: string, endDate: string, employeeId?: string): Promise<PTO[]> {
+  return request<PTO[]>('pto-list', {
+    query: employeeId
+      ? { businessId, startDate, endDate, employeeId }
+      : { businessId, startDate, endDate },
+  });
+}
+
+export async function addPTO(payload: {
+  employeeId: string;
+  businessId: string;
+  date: string;
+  hours: number;
+  type: 'sick' | 'vacation' | 'holiday' | 'other';
+  note?: string;
+}): Promise<PTO> {
+  return request<PTO>('pto-add', {
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 }

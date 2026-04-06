@@ -19,6 +19,10 @@ export interface Business {
   payPeriodType?: 'weekly' | 'biweekly' | 'semi-monthly';
   payPeriodStartDay?: number;    // 0=Sun … 6=Sat (for weekly/biweekly)
   payPeriodAnchorDate?: string;  // YYYY-MM-DD — a known real start date (biweekly only)
+  openDays?: number[];           // 0=Sun … 6=Sat, days the business is open
+  maxHoursPerDay?: number;       // 0 = no limit
+  autoClockOut?: boolean;
+  autoClockOutMinutes?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -80,4 +84,30 @@ export interface TimeLog {
 export interface AuthResponse {
   user: User;
   token: string;
+  refreshToken?: string;
+}
+
+export interface Availability {
+  availabilityId: string;
+  employeeId: string;
+  businessId: string;
+  type: 'vacation' | 'unavailable' | 'recurring_days' | 'recurring_hours';
+  startDate?: string;
+  endDate?: string;
+  daysOfWeek?: number[];
+  startTime?: string;
+  endTime?: string;
+  note?: string;
+  createdAt: string;
+}
+
+export interface PTO {
+  ptoId: string;
+  employeeId: string;
+  businessId: string;
+  date: string;
+  hours: number;
+  type: 'sick' | 'vacation' | 'holiday' | 'other';
+  note?: string;
+  createdAt: string;
 }

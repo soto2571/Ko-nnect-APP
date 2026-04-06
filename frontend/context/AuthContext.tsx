@@ -45,10 +45,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const token = await api.getToken();
+        const refreshToken = await api.getRefreshToken();
         const user = await api.getSavedUser();
         if (!token || !user) {
           setState((s) => ({ ...s, isLoading: false }));
           return;
+        }
+        // Load the session into the Supabase SDK so autoRefreshToken works
+        if (refreshToken) {
+          await supabase.auth.setSession({ access_token: token, refresh_token: refreshToken });
         }
         let business: Business | null = null;
         if (user.businessId) {
@@ -59,16 +64,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setState({ user, token, business, isLoading: false });
       } catch {
         await api.removeToken();
+        await api.removeRefreshToken();
         await api.removeUser();
         setState({ user: null, token: null, business: null, isLoading: false });
       }
     })();
   }, []);
 
+  // Keep stored tokens in sync when Supabase auto-refreshes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED' && session) {
+        api.saveToken(session.access_token);
+        api.saveRefreshToken(session.refresh_token);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const login = async (email: string, password: string) => {
-    const { user, token } = await api.login({ email, password });
+    const { user, token, refreshToken } = await api.login({ email, password });
     await api.saveToken(token);
+    if (refreshToken) await api.saveRefreshToken(refreshToken);
     await api.saveUser(user);
+    if (token && refreshToken) {
+      await supabase.auth.setSession({ access_token: token, refresh_token: refreshToken });
+    }
     let business: Business | null = null;
     if (user.businessId) {
       try {
@@ -85,9 +106,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     lastName: string;
     role: 'owner' | 'employee';
   }) => {
-    const { user, token } = await api.signup(payload);
+    const { user, token, refreshToken } = await api.signup(payload);
     await api.saveToken(token);
+    if (refreshToken) await api.saveRefreshToken(refreshToken);
     await api.saveUser(user);
+    if (token && refreshToken) {
+      await supabase.auth.setSession({ access_token: token, refresh_token: refreshToken });
+    }
     setState({ user, token, business: null, isLoading: false });
   };
 
@@ -137,7 +162,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const user: User = { ...profileJson.data, provider: 'google' };
 
     await api.saveToken(token);
+    await api.saveRefreshToken(refreshToken);
     await api.saveUser(user);
+    // Session is already set via supabase.auth.setSession() above
 
     let business: Business | null = null;
     if (user.businessId) {
@@ -149,6 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await api.removeToken();
+    await api.removeRefreshToken();
     await api.removeUser();
     try { await supabase.auth.signOut(); } catch {}
     setState({ user: null, token: null, business: null, isLoading: false });

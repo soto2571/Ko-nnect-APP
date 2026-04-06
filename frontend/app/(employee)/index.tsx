@@ -77,7 +77,10 @@ function TodayClockCard({
   const btnScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (!log || log.status === 'clocked_out') { setElapsed(0); return; }
+    if (!log || log.status === 'clocked_out' || log.status === 'missed_punch') {
+      setElapsed(0);
+      return;
+    }
     const ref = setInterval(() => {
       const breaks = log.breaks || [];
       const lastBreak = breaks[breaks.length - 1];
@@ -85,10 +88,11 @@ function TodayClockCard({
         .filter(b => b.start && b.end)
         .reduce((sum, b) => sum + (new Date(b.end!).getTime() - new Date(b.start).getTime()), 0);
       if (log.status === 'on_break' && lastBreak?.start) {
-        setElapsed(Math.max(0, Math.floor((Date.now() - new Date(lastBreak.start).getTime()) / 1000)));
+        const raw = Math.floor((Date.now() - new Date(lastBreak.start).getTime()) / 1000);
+        setElapsed(isNaN(raw) || raw < 0 ? 0 : raw);
       } else {
-        const shiftMs = Date.now() - new Date(log.clockIn).getTime() - completedBreakMs;
-        setElapsed(Math.max(0, Math.floor(shiftMs / 1000)));
+        const raw = Math.floor((Date.now() - new Date(log.clockIn).getTime() - completedBreakMs) / 1000);
+        setElapsed(isNaN(raw) || raw < 0 ? 0 : raw);
       }
     }, 1000);
     return () => clearInterval(ref);
@@ -98,7 +102,7 @@ function TodayClockCard({
   const missed  = log?.missedBreakPunch;
   const onBreak = status === 'on_break';
   const active  = status === 'clocked_in';
-  const done    = status === 'clocked_out';
+  const done    = status === 'clocked_out' || status === 'missed_punch';
 
   // Pulsing dot for active/break
   const pulse = useRef(new Animated.Value(1)).current;

@@ -21,6 +21,12 @@ Deno.serve(async (req) => {
     const { data: emp } = await sb.from('employees').select('userId')
       .eq('employeeId', employeeId).single();
 
+    // Delete upcoming (future) shifts assigned to this employee
+    const now = new Date().toISOString();
+    await sb.from('shifts').delete()
+      .eq('employeeId', employeeId)
+      .gt('startTime', now);
+
     await sb.from('employees').delete().eq('employeeId', employeeId);
 
     // Delete their auth account too
