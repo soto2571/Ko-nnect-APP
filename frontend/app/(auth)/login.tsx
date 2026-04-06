@@ -4,12 +4,13 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator,
   Animated, Pressable,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { useAuth } from '@/context/AuthContext';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GoogleLogo } from '@/components/GoogleLogo';
 
 const BRAND   = '#E11D48';
 const BRAND_L = '#FF6B8A';
@@ -60,23 +61,9 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      {/* Full-screen brand gradient — stays colored throughout, no white fade */}
-      <LinearGradient
-        colors={['#7A0020', '#C4002B', '#E11D48', '#FF6B8A', '#FFB3C6']}
-        locations={[0, 0.2, 0.5, 0.78, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* Subtle diagonal overlay for depth */}
-      <LinearGradient
-        colors={['rgba(0,0,0,0.18)', 'transparent', 'rgba(0,0,0,0.10)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <AnimatedBackground primaryColor={BRAND} />
 
       <View style={[s.outer, { paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}>
 
@@ -146,7 +133,7 @@ export default function LoginScreen() {
               <ActivityIndicator color="#111827" />
             ) : (
               <>
-                <Text style={s.googleIcon}>G</Text>
+                <GoogleLogo size={22} />
                 <Text style={s.googleBtnText}>Continue with Google</Text>
               </>
             )}
@@ -186,19 +173,19 @@ const s = StyleSheet.create({
     gap: 8,
   },
   logoText: {
-    fontSize: 48, fontWeight: '800', color: '#fff',
+    fontSize: 48, fontWeight: '800', color: BRAND,
     letterSpacing: -2,
   },
   tagline: {
-    fontSize: 15, color: 'rgba(255,255,255,0.82)',
+    fontSize: 15, color: '#6B7280',
     letterSpacing: 0.1,
   },
 
   card: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.75)',
     borderRadius: 28, padding: 24, gap: 14,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
-    shadowColor: '#000', shadowOpacity: 0.20,
+    borderWidth: 1, borderColor: 'rgba(225,29,72,0.12)',
+    shadowColor: BRAND, shadowOpacity: 0.10,
     shadowRadius: 32, shadowOffset: { width: 0, height: 12 },
     elevation: 10,
   },
@@ -228,15 +215,14 @@ const s = StyleSheet.create({
     fontSize: 15, paddingVertical: 0,
   },
 
-  // White solid button — brand text, pops on the glass card
   btn: {
     height: 54, borderRadius: 16,
-    backgroundColor: '#fff',
+    backgroundColor: BRAND,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.15,
+    shadowColor: BRAND, shadowOpacity: 0.35,
     shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
   },
-  btnText: { color: BRAND, fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
 
   googleBtn: {
     height: 52, borderRadius: 14,
@@ -246,29 +232,26 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.10,
     shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
   },
-  googleIcon: {
-    fontSize: 18, fontWeight: '800', color: '#4285F4',
-  },
   googleBtnText: { color: '#111827', fontSize: 15, fontWeight: '600' },
 
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  divLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.30)' },
-  divText: { color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '500' },
+  divLine: { flex: 1, height: 1, backgroundColor: 'rgba(0,0,0,0.08)' },
+  divText: { color: '#9CA3AF', fontSize: 12, fontWeight: '500' },
 
   secondaryBtn: {
     height: 50, borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(225,29,72,0.06)',
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.40)',
+    borderWidth: 1.5, borderColor: 'rgba(225,29,72,0.20)',
   },
-  secondaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  secondaryBtnText: { color: BRAND, fontSize: 15, fontWeight: '600' },
 
   footer: {
     alignItems: 'center',
     paddingBottom: 8,
   },
   footerText: {
-    fontSize: 12, color: 'rgba(255,255,255,0.50)',
+    fontSize: 12, color: '#9CA3AF',
     letterSpacing: 0.2,
   },
 });

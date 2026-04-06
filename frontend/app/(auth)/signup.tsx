@@ -4,12 +4,13 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator,
   Animated, ScrollView, Pressable,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { useAuth } from '@/context/AuthContext';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GoogleLogo } from '@/components/GoogleLogo';
 
 const BRAND = '#E11D48';
 
@@ -110,23 +111,9 @@ export default function SignupScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      {/* Same full-brand gradient as login — no white fade */}
-      <LinearGradient
-        colors={['#7A0020', '#C4002B', '#E11D48', '#FF6B8A', '#FFB3C6']}
-        locations={[0, 0.2, 0.5, 0.78, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* Subtle diagonal overlay for depth */}
-      <LinearGradient
-        colors={['rgba(0,0,0,0.18)', 'transparent', 'rgba(0,0,0,0.10)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <AnimatedBackground primaryColor={BRAND} />
 
       <ScrollView
         contentContainerStyle={[s.scroll, { paddingTop: insets.top + 16 }]}
@@ -140,7 +127,7 @@ export default function SignupScreen() {
           paddingHorizontal: 24, marginBottom: 8,
         }}>
           <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.9)" />
+            <Ionicons name="chevron-back" size={20} color={BRAND} />
           </TouchableOpacity>
         </Animated.View>
 
@@ -225,7 +212,7 @@ export default function SignupScreen() {
                 <ActivityIndicator color="#111827" />
               ) : (
                 <>
-                  <Text style={s.googleIcon}>G</Text>
+                  <GoogleLogo size={22} />
                   <Text style={s.googleBtnText}>Continue with Google</Text>
                 </>
               )}
@@ -254,31 +241,31 @@ const s = StyleSheet.create({
 
   backBtn: {
     width: 38, height: 38, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(225,29,72,0.08)',
+    borderWidth: 1, borderColor: 'rgba(225,29,72,0.20)',
     alignItems: 'center', justifyContent: 'center',
     alignSelf: 'flex-start',
   },
 
   header: { alignItems: 'center', gap: 8 },
   logoText: {
-    fontSize: 38, fontWeight: '800', color: '#fff',
+    fontSize: 38, fontWeight: '800', color: BRAND,
     letterSpacing: -1.5,
   },
   title: {
     fontSize: 22, fontWeight: '700',
-    color: 'rgba(255,255,255,0.90)', letterSpacing: -0.3,
+    color: '#111827', letterSpacing: -0.3,
   },
   sub: {
-    fontSize: 13, color: 'rgba(255,255,255,0.72)',
+    fontSize: 13, color: '#6B7280',
     textAlign: 'center', lineHeight: 18,
   },
 
   card: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.75)',
     borderRadius: 28, padding: 22, gap: 14,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
-    shadowColor: '#000', shadowOpacity: 0.20,
+    borderWidth: 1, borderColor: 'rgba(225,29,72,0.12)',
+    shadowColor: BRAND, shadowOpacity: 0.10,
     shadowRadius: 32, shadowOffset: { width: 0, height: 12 },
     elevation: 10,
   },
@@ -293,16 +280,16 @@ const s = StyleSheet.create({
 
   btn: {
     height: 54, borderRadius: 16,
-    backgroundColor: '#fff',
+    backgroundColor: BRAND,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.15,
+    shadowColor: BRAND, shadowOpacity: 0.35,
     shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
   },
-  btnText: { color: BRAND, fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
 
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  divLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.30)' },
-  divText: { color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: '500' },
+  divLine: { flex: 1, height: 1, backgroundColor: 'rgba(0,0,0,0.08)' },
+  divText: { color: '#9CA3AF', fontSize: 12, fontWeight: '500' },
 
   googleBtn: {
     height: 52, borderRadius: 14,
@@ -312,9 +299,8 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.10,
     shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
   },
-  googleIcon: { fontSize: 18, fontWeight: '800', color: '#4285F4' },
   googleBtnText: { color: '#111827', fontSize: 15, fontWeight: '600' },
 
-  loginText: { fontSize: 14, color: 'rgba(255,255,255,0.75)' },
-  loginLink: { color: '#fff', fontWeight: '700' },
+  loginText: { fontSize: 14, color: '#6B7280' },
+  loginLink: { color: BRAND, fontWeight: '700' },
 });
