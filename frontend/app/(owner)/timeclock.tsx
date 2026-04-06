@@ -493,7 +493,7 @@ export default function TimeclockScreen() {
   if (!business) return (
     <View style={{ flex:1, alignItems:'center', justifyContent:'center' }}>
       <AnimatedBackground primaryColor={primaryColor} />
-      <Text style={{ color:'rgba(255,255,255,0.85)', fontSize:14, textAlign:'center' }}>Set up your business in Settings first.</Text>
+      <Text style={{ color:'#374151', fontSize:14, textAlign:'center' }}>Set up your business in Settings first.</Text>
     </View>
   );
 
@@ -506,7 +506,7 @@ export default function TimeclockScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <AnimatedBackground primaryColor={primaryColor} />
 
       {/* Tabs */}
@@ -755,7 +755,7 @@ export default function TimeclockScreen() {
             <View style={s.periodRow}>
               <Text style={s.periodLabel}>Pay period: {period?.label}</Text>
               <TouchableOpacity onPress={handleExport} style={s.exportBtn}>
-                <Ionicons name="download-outline" size={14} color="#fff" />
+                <Ionicons name="download-outline" size={14} color="#374151" />
                 <Text style={s.exportText}>PDF</Text>
               </TouchableOpacity>
             </View>
@@ -831,29 +831,29 @@ export default function TimeclockScreen() {
 const s = StyleSheet.create({
   emptyText: { color: '#374151', fontSize: 14, textAlign: 'center' },
   emptyCard: {
-    backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 16, padding: 24, alignItems: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
+    backgroundColor: '#fff', borderRadius: 16, padding: 24, alignItems: 'center',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
   },
 
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.55)',
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
   },
   tab: { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabText: { fontSize: 13, color: '#374151', fontWeight: '600' },
 
   periodRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  periodLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 0.4 },
-  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.60)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: 'rgba(255,255,255,0.15)' },
-  exportText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  periodLabel: { fontSize: 12, fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.4 },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#F9FAFB' },
+  exportText: { fontSize: 12, fontWeight: '700', color: '#374151' },
 
   // Live card
   liveCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 16, padding: 14,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.10, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+    backgroundColor: '#fff', borderRadius: 16, padding: 14,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
   liveAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   liveAvatarText: { color: '#fff', fontWeight: '800', fontSize: 15 },
@@ -870,9 +870,9 @@ const s = StyleSheet.create({
 
   // Log card
   logCard: {
-    backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 16, padding: 14, gap: 10,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.10, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+    backgroundColor: '#fff', borderRadius: 16, padding: 14, gap: 10,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
   logHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   logName: { fontSize: 14, fontWeight: '700', color: '#111827' },
@@ -917,9 +917,9 @@ const s = StyleSheet.create({
 
   // Report card
   reportCard: {
-    backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 16, padding: 14, gap: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.10, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+    backgroundColor: '#fff', borderRadius: 16, padding: 14, gap: 12,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
   reportHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   reportWeeks: { gap: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 10 },
@@ -937,9 +937,9 @@ const s = StyleSheet.create({
   // Employee filter chips
   empChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 20,
+    backgroundColor: '#F3F4F6', borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 7,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
+    borderWidth: 1, borderColor: '#E5E7EB',
   },
   empChipDot: { width: 7, height: 7, borderRadius: 4 },
   empChipText: { fontSize: 13, fontWeight: '600', color: '#374151' },

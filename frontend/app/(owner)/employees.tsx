@@ -99,14 +99,14 @@ export default function EmployeesScreen() {
     return (
       <View style={{ flex:1, alignItems:'center', justifyContent:'center' }}>
         <AnimatedBackground primaryColor={color} />
-        <Text style={{ color:'rgba(255,255,255,0.85)', fontSize:15, textAlign:'center' }}>Set up your business in Settings first.</Text>
+        <Text style={{ color:'#374151', fontSize:15, textAlign:'center' }}>Set up your business in Settings first.</Text>
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1 }}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <AnimatedBackground primaryColor={color} />
 
@@ -125,7 +125,7 @@ export default function EmployeesScreen() {
           }
           ListEmptyComponent={
             <View style={s.emptyState}>
-              <Ionicons name="people-outline" size={44} color="rgba(255,255,255,0.60)" />
+              <Ionicons name="people-outline" size={44} color="#D1D5DB" />
               <Text style={s.emptyText}>No employees yet.{'\n'}Tap + to add one.</Text>
             </View>
           }
@@ -266,16 +266,16 @@ function CredRow({ label, value, color }: { label: string; value: string; color:
 }
 
 const s = StyleSheet.create({
-  count:      { fontSize:13, fontWeight:'600', color:'rgba(255,255,255,0.80)', marginBottom:4 },
+  count:      { fontSize:13, fontWeight:'600', color:'#6B7280', marginBottom:4 },
   emptyState: { alignItems:'center', justifyContent:'center', paddingTop:60, gap:10 },
-  emptyText:  { color:'rgba(255,255,255,0.80)', fontSize:15, textAlign:'center', lineHeight:22 },
+  emptyText:  { color:'#6B7280', fontSize:15, textAlign:'center', lineHeight:22 },
 
   card: {
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: '#fff',
     borderRadius: 16, padding: 14,
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.10,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.06,
     shadowRadius: 20, shadowOffset: { width:0, height:4 }, elevation: 2,
   },
   avatar:     { width:44, height:44, borderRadius:22, alignItems:'center', justifyContent:'center' },

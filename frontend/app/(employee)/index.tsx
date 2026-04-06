@@ -453,7 +453,7 @@ export default function MyShiftsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <AnimatedBackground primaryColor={color} />
 
@@ -540,14 +540,14 @@ export default function MyShiftsScreen() {
           transform: [{ translateY: cardAnim.interpolate({ inputRange:[0,1], outputRange:[16,0] }) }],
         }]}>
           {tomorrowShift ? (
-            <View style={[st.tomorrowChip, { borderColor: 'rgba(255,255,255,0.75)', backgroundColor: 'rgba(255,255,255,0.55)' }]}>
+            <View style={[st.tomorrowChip, { borderColor: 'rgba(0,0,0,0.08)', backgroundColor: '#fff' }]}>
               <Ionicons name="sunny-outline" size={15} color={color} />
               <Text style={[st.tomorrowLabel, { color }]}>Tomorrow</Text>
               <Text style={[st.tomorrowTitle, { color: '#111827' }]}>{tomorrowShift.title}</Text>
               <Text style={[st.tomorrowTime, { color }]}>{fmt12(tomorrowShift.startTime)}</Text>
             </View>
           ) : (
-            <View style={[st.tomorrowChip, { borderColor: '#F3F4F6', backgroundColor: 'rgba(255,255,255,0.7)' }]}>
+            <View style={[st.tomorrowChip, { borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' }]}>
               <Ionicons name="moon-outline" size={15} color="#6B7280" />
               <Text style={[st.tomorrowLabel, { color: '#374151' }]}>Tomorrow</Text>
               <Text style={[st.tomorrowTitle, { color: '#374151' }]}>No shift scheduled</Text>
@@ -587,7 +587,7 @@ export default function MyShiftsScreen() {
             ))
           ) : (
             <View style={st.emptyState}>
-              <Ionicons name="calendar-outline" size={30} color="rgba(255,255,255,0.60)" />
+              <Ionicons name="calendar-outline" size={30} color="#D1D5DB" />
               <Text style={st.emptyText}>No shifts this week</Text>
             </View>
           )}
@@ -625,17 +625,17 @@ const st = StyleSheet.create({
   },
   greetSection: { paddingHorizontal: 24, paddingBottom: 4 },
   calendarSection: { paddingHorizontal: 20, marginTop: 12, marginBottom: 4 },
-  greeting: { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
-  bizName:  { fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: 3 },
+  greeting: { fontSize: 28, fontWeight: '800', color: '#111827', letterSpacing: -0.5 },
+  bizName:  { fontSize: 14, color: '#6B7280', marginTop: 3 },
 
   section: { paddingHorizontal: 20, marginTop: 20 },
 
   noTodayCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: '#fff',
     borderRadius: 20, padding: 18,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.10,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.06,
     shadowRadius: 24, shadowOffset: { width: 0, height: 6 }, elevation: 4,
   },
   noTodayIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
@@ -651,7 +651,7 @@ const st = StyleSheet.create({
   tomorrowTime:  { fontSize: 13, fontWeight: '700' },
 
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sectionTitle:  { fontSize: 15, fontWeight: '700', color: '#fff' },
+  sectionTitle:  { fontSize: 15, fontWeight: '700', color: '#111827' },
   navBtn: {
     width: 32, height: 32, borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.8)',
@@ -662,33 +662,33 @@ const st = StyleSheet.create({
   },
 
   listLabel: {
-    fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.80)',
+    fontSize: 12, fontWeight: '700', color: '#6B7280',
     textTransform: 'uppercase', letterSpacing: 0.6,
   },
   emptyState: { alignItems: 'center', paddingVertical: 28, gap: 8 },
-  emptyText:  { fontSize: 14, color: 'rgba(255,255,255,0.80)' },
+  emptyText:  { fontSize: 14, color: '#6B7280' },
 
   dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 16 },
   dot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E5E7EB' },
 
   dayHeaderRow:  { paddingTop: 14, paddingBottom: 6 },
-  dayHeaderPill: { alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: 'rgba(255,255,255,0.20)' },
-  dayHeaderText: { fontSize: 12, fontWeight: '700', color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 },
+  dayHeaderPill: { alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: 'rgba(0,0,0,0.06)' },
+  dayHeaderText: { fontSize: 12, fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.5 },
 
   listLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   currentWeekBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
   currentWeekDot:   { width: 6, height: 6, borderRadius: 3 },
-  currentWeekText:  { fontSize: 11, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
+  currentWeekText:  { fontSize: 11, fontWeight: '800', color: '#fff', letterSpacing: 0.3 }, // white on colored badge — intentional
   backTodayBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.90)', borderWidth: 1.5 },
   backTodayText: { fontSize: 11, fontWeight: '700' },
 });
 
 const wk = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: '#fff',
     borderRadius: 20, padding: 14,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.10,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.06,
     shadowRadius: 24, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
   row: { flexDirection: 'row' },
@@ -702,12 +702,12 @@ const wk = StyleSheet.create({
 
 const sc = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: '#fff',
     borderRadius: 16, flexDirection: 'row', alignItems: 'center',
     marginBottom: 10, overflow: 'hidden',
     paddingVertical: 14, paddingRight: 14,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.10,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.06,
     shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
   dimmed: { opacity: 0.5 },
@@ -722,10 +722,10 @@ const sc = StyleSheet.create({
 
 const cc = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: '#fff',
     borderRadius: 24, padding: 20, gap: 14,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.12,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.07,
     shadowRadius: 28, shadowOffset: { width: 0, height: 10 }, elevation: 6,
   },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
@@ -771,7 +771,7 @@ const cc = StyleSheet.create({
   outlineBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, borderRadius: 14, paddingVertical: 12,
-    borderWidth: 1.5, backgroundColor: 'rgba(255,255,255,0.7)',
+    borderWidth: 1.5, backgroundColor: '#fff',
   },
   outlineBtnText: { fontWeight: '700', fontSize: 14 },
   closedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center', paddingVertical: 6 },

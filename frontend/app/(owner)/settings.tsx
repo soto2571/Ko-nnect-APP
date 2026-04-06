@@ -86,7 +86,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <AnimatedBackground primaryColor={primaryColor} />
 
@@ -303,10 +303,10 @@ export default function SettingsScreen() {
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: '#fff',
     borderRadius: 24, padding: 20, gap: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.10,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.06,
     shadowRadius: 20, shadowOffset: { width:0, height:8 }, elevation: 4,
   },
   cardTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 2 },

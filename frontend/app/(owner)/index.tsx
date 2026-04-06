@@ -399,7 +399,7 @@ export default function ShiftsScreen() {
     return (
       <View style={{ flex:1, alignItems:'center', justifyContent:'center', paddingHorizontal:24 }}>
         <AnimatedBackground primaryColor={color} />
-        <Text style={{ fontSize:15, color:'rgba(255,255,255,0.85)', textAlign:'center' }}>Set up your business in Settings first.</Text>
+        <Text style={{ fontSize:15, color:'#374151', textAlign:'center' }}>Set up your business in Settings first.</Text>
       </View>
     );
   }
@@ -458,9 +458,9 @@ export default function ShiftsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      {/* Pearl background */}
+      {/* Animated background */}
       <AnimatedBackground primaryColor={color} />
 
       {/* Fixed header: greeting + calendar */}
@@ -577,11 +577,11 @@ export default function ShiftsScreen() {
                 <View style={s.dayHeader}>
                   <View style={[s.dayHeaderPill,
                     item.past
-                      ? { backgroundColor: 'rgba(255,255,255,0.12)' }
-                      : { backgroundColor: 'rgba(255,255,255,0.20)' }
+                      ? { backgroundColor: 'rgba(0,0,0,0.05)' }
+                      : { backgroundColor: 'rgba(0,0,0,0.07)' }
                   ]}>
                     <Text style={[s.dayHeaderText,
-                      item.past ? { color: 'rgba(255,255,255,0.50)' } : { color: '#fff' }
+                      item.past ? { color: '#9CA3AF' } : { color: '#374151' }
                     ]}>{item.label}</Text>
                   </View>
                 </View>
@@ -805,7 +805,7 @@ export default function ShiftsScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  emptyText: { color:'rgba(255,255,255,0.80)', fontSize:15, marginTop:8, textAlign:'center' },
+  emptyText: { color:'#6B7280', fontSize:15, marginTop:8, textAlign:'center' },
   emptyWeek: { alignItems:'center', paddingTop:40, gap:8 },
 
   fixedHeader: {
@@ -816,19 +816,20 @@ const s = StyleSheet.create({
     flexDirection:'row', alignItems:'center',
     paddingHorizontal:20, paddingBottom:16,
   },
-  greeting: { fontSize:28, fontWeight:'800', color:'#fff', letterSpacing:-0.5 },
-  bizName:  { fontSize:14, color:'rgba(255,255,255,0.75)', marginTop:2 },
+  greeting: { fontSize:28, fontWeight:'800', color:'#111827', letterSpacing:-0.5 },
+  bizName:  { fontSize:14, color:'#6B7280', marginTop:2 },
   activePill: {
     flexDirection:'row', alignItems:'center', gap:6,
     borderRadius:20, paddingHorizontal:12, paddingVertical:7,
-    marginLeft:12, backgroundColor:'rgba(255,255,255,0.22)',
+    marginLeft:12, backgroundColor:'rgba(0,0,0,0.05)',
+    borderWidth:1, borderColor:'rgba(0,0,0,0.08)',
   },
   activeDot: { width:7, height:7, borderRadius:4 },
-  activeCount: { fontSize:13, fontWeight:'700', color:'#fff' },
+  activeCount: { fontSize:13, fontWeight:'700' },
 
   calendarSection: { paddingHorizontal: 20, marginTop: 8, marginBottom: 4 },
   calSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  calSectionTitle: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  calSectionTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
   calNavBtn: {
     width: 32, height: 32, borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.80)',
@@ -837,7 +838,7 @@ const s = StyleSheet.create({
   },
 
   listHeader: { paddingHorizontal:20, paddingTop:12, paddingBottom:6, flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
-  listHeaderText: { fontSize:12, fontWeight:'700', color:'rgba(255,255,255,0.80)', textTransform:'uppercase', letterSpacing:0.6 },
+  listHeaderText: { fontSize:12, fontWeight:'700', color:'#6B7280', textTransform:'uppercase', letterSpacing:0.6 },
   currentWeekBadge: { flexDirection:'row', alignItems:'center', gap:5, borderRadius:20, paddingHorizontal:12, paddingVertical:6 },
   currentWeekDot: { width:6, height:6, borderRadius:3 },
   currentWeekText: { fontSize:11, fontWeight:'800', color:'#fff', letterSpacing:0.3 },
@@ -849,11 +850,11 @@ const s = StyleSheet.create({
   dayHeaderText: { fontSize:12, fontWeight:'700', textTransform:'uppercase', letterSpacing:0.5 },
 
   card: {
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: '#fff',
     flexDirection:'row', alignItems:'center',
     marginHorizontal:16, marginBottom:8, borderRadius:16, overflow:'hidden',
     paddingVertical:14, paddingRight:8,
-    borderWidth:1, borderColor:'rgba(255,255,255,0.9)',
+    borderWidth:1, borderColor:'rgba(0,0,0,0.06)',
     shadowColor:'#000', shadowOpacity:0.06, shadowRadius:12, shadowOffset:{ width:0, height:4 }, elevation:3,
   },
   colorBar: { width:5, alignSelf:'stretch' },
@@ -936,10 +937,11 @@ const s = StyleSheet.create({
   filterRow: { flexDirection:'row', gap:8, paddingHorizontal:16, paddingBottom:10 },
   filterChip: {
     flexDirection:'row', alignItems:'center', gap:5,
-    backgroundColor:'rgba(255,255,255,0.55)', borderRadius:20,
+    backgroundColor:'#F3F4F6', borderRadius:20,
     paddingHorizontal:10, paddingVertical:6,
+    borderWidth:1, borderColor:'#E5E7EB',
   },
-  filterChipText: { fontSize:12, fontWeight:'600', color:'#6B7280' },
+  filterChipText: { fontSize:12, fontWeight:'600', color:'#374151' },
   filterBadge: {
     backgroundColor:'rgba(0,0,0,0.08)', borderRadius:10,
     minWidth:18, height:18, alignItems:'center', justifyContent:'center', paddingHorizontal:4,
@@ -949,10 +951,10 @@ const s = StyleSheet.create({
 
 const wk = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: '#fff',
     borderRadius: 20, padding: 14,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.10,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.06,
     shadowRadius: 24, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
   grid:  { flexDirection:'row' },

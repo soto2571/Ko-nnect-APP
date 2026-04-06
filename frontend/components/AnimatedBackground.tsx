@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Dimensions, Easing, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Stop, Ellipse } from 'react-native-svg';
 
 const { width: W, height: H } = Dimensions.get('window');
 
@@ -18,7 +19,7 @@ function parseHex(hex: string): [number, number, number] {
 
 function clamp(v: number) { return Math.max(0, Math.min(255, v)); }
 
-// ─── Single blob (3-layer glow to approximate CSS blur) ───────────────────────
+// ─── Single blob — true radial gradient, fades to transparent ─────────────────
 
 function Blob({
   left, top, size, color, duration, dx, dy, delay = 0,
@@ -41,52 +42,38 @@ function Blob({
       Animated.timing(ty, { toValue: 0,  duration: Math.round(duration * 1.25), useNativeDriver: true, easing: ease }),
     ]));
 
-    // Stagger start to simulate framer-motion delay
     const timer = setTimeout(() => { xa.start(); ya.start(); }, delay);
     return () => { clearTimeout(timer); xa.stop(); ya.stop(); };
   }, []);
 
-  // Three concentric circles at decreasing opacity to fake blur
-  const outerSize = size * 1.8;
-  const midSize   = size * 1.25;
+  // Unique gradient ID per blob (color-based to avoid collisions)
+  const gradId = `rg_${color.replace(/[^a-z0-9]/gi, '')}`;
 
   return (
     <Animated.View
       style={{
         position: 'absolute',
-        left: left - outerSize / 2,
-        top:  top  - outerSize / 2,
-        width: outerSize,
-        height: outerSize,
+        left: left - size / 2,
+        top:  top  - size / 2,
+        width: size,
+        height: size,
         transform: [{ translateX: tx }, { translateY: ty }],
       }}
     >
-      {/* Outermost glow — very faint */}
-      <View style={{
-        position: 'absolute',
-        width: outerSize, height: outerSize,
-        borderRadius: outerSize / 2,
-        backgroundColor: color,
-        opacity: 0.18,
-      }} />
-      {/* Mid glow */}
-      <View style={{
-        position: 'absolute',
-        left: (outerSize - midSize) / 2, top: (outerSize - midSize) / 2,
-        width: midSize, height: midSize,
-        borderRadius: midSize / 2,
-        backgroundColor: color,
-        opacity: 0.30,
-      }} />
-      {/* Core */}
-      <View style={{
-        position: 'absolute',
-        left: (outerSize - size) / 2, top: (outerSize - size) / 2,
-        width: size, height: size,
-        borderRadius: size / 2,
-        backgroundColor: color,
-        opacity: 0.45,
-      }} />
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <Defs>
+          <RadialGradient id={gradId} cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+            <Stop offset="0%"   stopColor={color} stopOpacity="0.55" />
+            <Stop offset="60%"  stopColor={color} stopOpacity="0.20" />
+            <Stop offset="100%" stopColor={color} stopOpacity="0"    />
+          </RadialGradient>
+        </Defs>
+        <Ellipse
+          cx={size / 2} cy={size / 2}
+          rx={size / 2} ry={size / 2}
+          fill={`url(#${gradId})`}
+        />
+      </Svg>
     </Animated.View>
   );
 }
@@ -96,10 +83,9 @@ function Blob({
 export function AnimatedBackground({ primaryColor }: { primaryColor: string }) {
   const [r, g, b] = parseHex(primaryColor);
 
-  // Blob colors — use the actual brand color with subtle variations
-  const blob1 = `rgb(${r}, ${g}, ${b})`;                                         // brand color
-  const blob2 = `rgb(${clamp(r - 20)}, ${clamp(g + 10)}, ${clamp(b + 30)})`;    // slight warm shift
-  const blob3 = `rgb(${clamp(r + 40)}, ${clamp(g + 40)}, ${clamp(b + 40)})`;    // lighter tint
+  const blob1 = `rgb(${r}, ${g}, ${b})`;                                       // brand color
+  const blob2 = `rgb(${clamp(r - 20)}, ${clamp(g + 10)}, ${clamp(b + 30)})`;  // slight warm shift
+  const blob3 = `rgb(${clamp(r + 40)}, ${clamp(g + 40)}, ${clamp(b + 40)})`;  // lighter tint
 
   return (
     <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' } as any]}>
@@ -115,21 +101,21 @@ export function AnimatedBackground({ primaryColor }: { primaryColor: string }) {
       {/* Blob 1 — top-left */}
       <Blob
         left={-20} top={-20}
-        size={300} dx={40} dy={30}
+        size={340} dx={40} dy={30}
         color={blob1} duration={8000} delay={0}
       />
 
       {/* Blob 2 — right-center */}
       <Blob
         left={W - 60} top={H * 0.45}
-        size={220} dx={-35} dy={45}
+        size={260} dx={-35} dy={45}
         color={blob2} duration={9500} delay={2000}
       />
 
       {/* Blob 3 — bottom-center */}
       <Blob
         left={W * 0.5} top={H - 60}
-        size={260} dx={30} dy={-50}
+        size={300} dx={30} dy={-50}
         color={blob3} duration={11000} delay={4000}
       />
     </View>

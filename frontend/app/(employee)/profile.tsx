@@ -11,7 +11,7 @@ export default function EmployeeProfileScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <AnimatedBackground primaryColor={primaryColor} />
 
@@ -61,10 +61,10 @@ const s = StyleSheet.create({
   container: { flex:1, padding:20, gap:14 },
 
   card: {
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: '#fff',
     borderRadius: 24, padding: 28, alignItems: 'center', gap: 6,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.10,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.06,
     shadowRadius: 20, shadowOffset: { width:0, height:8 }, elevation: 4,
   },
   avatar: { width:76, height:76, borderRadius:38, alignItems:'center', justifyContent:'center', marginBottom:4 },
@@ -75,10 +75,10 @@ const s = StyleSheet.create({
   bizText: { fontSize:13, fontWeight:'700' },
 
   infoCard: {
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: '#fff',
     borderRadius: 18, padding: 16,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#000', shadowOpacity: 0.10,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000', shadowOpacity: 0.06,
     shadowRadius: 20, shadowOffset: { width:0, height:4 }, elevation: 2,
     gap: 12,
   },
@@ -93,7 +93,7 @@ const s = StyleSheet.create({
   logoutBtn: {
     flexDirection:'row', alignItems:'center', gap:10,
     padding:14, borderRadius:16,
-    backgroundColor:'rgba(255,255,255,0.55)',
+    backgroundColor:'#FEF2F2',
     borderWidth:1, borderColor:'#FECACA',
     shadowColor:'#EF4444', shadowOpacity:0.08,
     shadowRadius:8, shadowOffset:{ width:0, height:3 },
