@@ -20,7 +20,7 @@ function RootNavigator() {
     if (!user) {
       // Not logged in → send to login
       if (!inAuthGroup) {
-        router.replace('/(auth)/login');
+        router.replace('/(auth)/role-select');
       }
     } else if (user.role === 'owner') {
       if (!inOwnerGroup) {

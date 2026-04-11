@@ -58,16 +58,16 @@ export default function EmployeesScreen() {
   };
 
   const handleResetPin = async (emp: Employee) => {
-    Alert.alert('Reset PIN', `Generate a new PIN for ${emp.firstName}?`, [
-      { text:'Cancel', style:'cancel' },
-      { text:'Reset', onPress: async () => {
+    Alert.alert('Resetear Contraseña', `¿Generar una nueva contraseña para ${emp.firstName}?`, [
+      { text:'Cancelar', style:'cancel' },
+      { text:'Resetear', onPress: async () => {
         setResetting(true);
         try {
           const creds = await api.resetEmployeePin(emp.employeeId);
           const updated = { ...emp, tempPassword: creds.password };
           setDetailEmp(updated);
           setEmployees(prev => prev.map(e => e.employeeId===emp.employeeId ? updated : e));
-          Alert.alert('PIN Reset', `New credentials ready. Share them with ${emp.firstName}.`);
+          Alert.alert('Contraseña Reseteada', `Nuevas credenciales listas. Compártelas con ${emp.firstName}.`);
         } catch(err: any) { Alert.alert('Error', err.message); }
         finally { setResetting(false); }
       }},
@@ -86,9 +86,9 @@ export default function EmployeesScreen() {
   };
 
   const handleDelete = (emp: Employee) => {
-    Alert.alert('Remove Employee', `Remove ${emp.firstName} ${emp.lastName}?`, [
-      { text:'Cancel', style:'cancel' },
-      { text:'Remove', style:'destructive', onPress: async () => {
+    Alert.alert('Eliminar Empleado', `¿Eliminar a ${emp.firstName} ${emp.lastName}?`, [
+      { text:'Cancelar', style:'cancel' },
+      { text:'Eliminar', style:'destructive', onPress: async () => {
         await api.deleteEmployee(emp.employeeId);
         setDetailEmp(null); load();
       }},
@@ -99,7 +99,7 @@ export default function EmployeesScreen() {
     return (
       <View style={{ flex:1, alignItems:'center', justifyContent:'center' }}>
         <AnimatedBackground primaryColor={color} />
-        <Text style={{ color:'#374151', fontSize:15, textAlign:'center' }}>Set up your business in Settings first.</Text>
+        <Text style={{ color:'#374151', fontSize:15, textAlign:'center' }}>Configura tu negocio en Ajustes primero.</Text>
       </View>
     );
   }
@@ -126,7 +126,7 @@ export default function EmployeesScreen() {
           ListEmptyComponent={
             <View style={s.emptyState}>
               <Ionicons name="people-outline" size={44} color="#D1D5DB" />
-              <Text style={s.emptyText}>No employees yet.{'\n'}Tap + to add one.</Text>
+              <Text style={s.emptyText}>Sin empleados aún.{'\n'}Toca + para agregar uno.</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -157,20 +157,20 @@ export default function EmployeesScreen() {
               <TouchableOpacity style={s.closeBtn} onPress={() => setAddModal(false)}>
                 <Ionicons name="close" size={20} color="#374151" />
               </TouchableOpacity>
-              <Text style={s.sheetTitle}>Add Employee</Text>
+              <Text style={s.sheetTitle}>Agregar Empleado</Text>
               <View style={{ width: 32 }} />
             </View>
             <Text style={s.sheetNote}>
-              Ko-nnect will auto-generate login credentials. Tap the employee to view or share them.
+              Ko-nnecta' va a generar las credenciales automáticamente. Toca el empleado para verlas o compartirlas.
             </Text>
             <View style={{ flexDirection:'row', gap:10 }}>
-              <TextInput style={[s.input, { flex:1 }]} placeholder="First name"
+              <TextInput style={[s.input, { flex:1 }]} placeholder="Nombre"
                 placeholderTextColor="#C4C4CE" value={firstName} onChangeText={setFirstName} />
-              <TextInput style={[s.input, { flex:1 }]} placeholder="Last name"
+              <TextInput style={[s.input, { flex:1 }]} placeholder="Apellido"
                 placeholderTextColor="#C4C4CE" value={lastName} onChangeText={setLastName} />
             </View>
             <TouchableOpacity style={[s.primaryBtn, { backgroundColor: color }]} onPress={handleAdd} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryBtnText}>Create Employee</Text>}
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryBtnText}>Crear Empleado</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -186,7 +186,7 @@ export default function EmployeesScreen() {
                   <TouchableOpacity style={s.closeBtn} onPress={() => { setDetailEmp(null); setEditMode(false); }}>
                     <Ionicons name="close" size={20} color="#374151" />
                   </TouchableOpacity>
-                  <Text style={s.sheetTitle}>Employee Details</Text>
+                  <Text style={s.sheetTitle}>Detalles del Empleado</Text>
                   <TouchableOpacity onPress={() => handleDelete(detailEmp)} style={s.deleteBtn}>
                     <Ionicons name="trash-outline" size={17} color="#EF4444" />
                   </TouchableOpacity>
@@ -195,17 +195,17 @@ export default function EmployeesScreen() {
                 {editMode ? (
                   <View style={{ gap: 10 }}>
                     <View style={{ flexDirection:'row', gap:10 }}>
-                      <TextInput style={[s.input, { flex:1 }]} placeholder="First name"
+                      <TextInput style={[s.input, { flex:1 }]} placeholder="Nombre"
                         placeholderTextColor="#C4C4CE" value={editFirst} onChangeText={setEditFirst} />
-                      <TextInput style={[s.input, { flex:1 }]} placeholder="Last name"
+                      <TextInput style={[s.input, { flex:1 }]} placeholder="Apellido"
                         placeholderTextColor="#C4C4CE" value={editLast} onChangeText={setEditLast} />
                     </View>
                     <View style={{ flexDirection:'row', gap:10 }}>
                       <TouchableOpacity style={[s.primaryBtn, { flex:1, backgroundColor:'#F3F4F6' }]} onPress={() => setEditMode(false)}>
-                        <Text style={[s.primaryBtnText, { color:'#374151' }]}>Cancel</Text>
+                        <Text style={[s.primaryBtnText, { color:'#374151' }]}>Cancelar</Text>
                       </TouchableOpacity>
                       <TouchableOpacity style={[s.primaryBtn, { flex:1, backgroundColor: color }]} onPress={handleUpdateName} disabled={editSaving}>
-                        {editSaving ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryBtnText}>Save</Text>}
+                        {editSaving ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryBtnText}>Guardar</Text>}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -216,7 +216,7 @@ export default function EmployeesScreen() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={s.detailName}>{detailEmp.firstName} {detailEmp.lastName}</Text>
-                      <Text style={s.detailSub}>Employee</Text>
+                      <Text style={s.detailSub}>Empleado</Text>
                     </View>
                     <TouchableOpacity onPress={() => { setEditFirst(detailEmp.firstName); setEditLast(detailEmp.lastName); setEditMode(true); }}>
                       <Ionicons name="pencil-outline" size={18} color={color} />
@@ -225,8 +225,8 @@ export default function EmployeesScreen() {
                 )}
 
                 <View style={s.credSection}>
-                  <Text style={s.credTitle}>Login Credentials</Text>
-                  <Text style={s.credSub}>Share these with the employee so they can log in.</Text>
+                  <Text style={s.credTitle}>Credenciales de Acceso</Text>
+                  <Text style={s.credSub}>Comparte estas credenciales con el empleado para que pueda entrar.</Text>
                   <CredRow label="Email"    value={detailEmp.email}              color={color} />
                   <CredRow label="Password" value={detailEmp.tempPassword ?? '—'} color={color} />
                 </View>
@@ -235,7 +235,7 @@ export default function EmployeesScreen() {
                   onPress={() => handleResetPin(detailEmp)} disabled={resetting}>
                   {resetting
                     ? <ActivityIndicator color={color} />
-                    : <><Ionicons name="refresh-outline" size={16} color={color} /><Text style={[s.outlineBtnText, { color }]}>Reset PIN</Text></>
+                    : <><Ionicons name="refresh-outline" size={16} color={color} /><Text style={[s.outlineBtnText, { color }]}>Resetear Contraseña</Text></>
                   }
                 </TouchableOpacity>
               </>
@@ -250,7 +250,7 @@ export default function EmployeesScreen() {
 function CredRow({ label, value, color }: { label: string; value: string; color: string }) {
   const copy = () => {
     Clipboard.setString(value);
-    Alert.alert('Copied!', `${label} copied to clipboard.`);
+    Alert.alert('¡Copiado!', `${label} copiado al portapapeles.`);
   };
   return (
     <View style={cr.field}>

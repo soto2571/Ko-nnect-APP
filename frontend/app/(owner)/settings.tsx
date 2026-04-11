@@ -25,6 +25,7 @@ export default function SettingsScreen() {
   const [maxHoursPerDay, setMaxHoursPerDay]       = useState(business?.maxHoursPerDay ?? 0);
   const [autoClockOut, setAutoClockOut]           = useState(business?.autoClockOut ?? false);
   const [autoClockOutMinutes, setAutoClockOutMinutes] = useState(business?.autoClockOutMinutes ?? 30);
+  const [schedulingWeeks, setSchedulingWeeks]     = useState(business?.schedulingWeeks ?? 6);
   const [saving, setSaving]   = useState(false);
   const [isNew, setIsNew]     = useState(!business);
   const isGoogleUser = user?.provider === 'google';
@@ -45,12 +46,13 @@ export default function SettingsScreen() {
       setMaxHoursPerDay(business.maxHoursPerDay ?? 0);
       setAutoClockOut(business.autoClockOut ?? false);
       setAutoClockOutMinutes(business.autoClockOutMinutes ?? 30);
+      setSchedulingWeeks(business.schedulingWeeks ?? 6);
       setIsNew(false);
     }
   }, [business]);
 
   const handleSave = async () => {
-    if (!name.trim()) { Alert.alert('Error','Business name is required.'); return; }
+    if (!name.trim()) { Alert.alert('Error','El nombre del negocio es requerido.'); return; }
     setSaving(true);
     try {
       let updated;
@@ -59,6 +61,7 @@ export default function SettingsScreen() {
         payPeriodAnchorDate: payPeriodAnchorDate || undefined,
         openDays, maxHoursPerDay,
         autoClockOut, autoClockOutMinutes: autoClockOut ? autoClockOutMinutes : 30,
+        schedulingWeeks,
       };
       if (isNew) {
         updated = await api.createBusiness(payload);
@@ -66,20 +69,20 @@ export default function SettingsScreen() {
         updated = await api.updateBusiness(business!.businessId, payload);
       }
       setBusiness(updated); setIsNew(false);
-      Alert.alert('Saved','Business profile updated.');
+      Alert.alert('Guardado','Perfil del negocio actualizado.');
     } catch(err:any) { Alert.alert('Error', err.message); }
     finally { setSaving(false); }
   };
 
   const handleChangePassword = async () => {
-    if (!currentPw || !newPw || !confirmPw) { Alert.alert('Error','Please fill in all password fields.'); return; }
-    if (newPw !== confirmPw) { Alert.alert('Error','New passwords do not match.'); return; }
-    if (newPw.length < 6) { Alert.alert('Error','New password must be at least 6 characters.'); return; }
+    if (!currentPw || !newPw || !confirmPw) { Alert.alert('Error','Por favor llena todos los campos de contraseña.'); return; }
+    if (newPw !== confirmPw) { Alert.alert('Error','Las contraseñas nuevas no coinciden.'); return; }
+    if (newPw.length < 6) { Alert.alert('Error','La nueva contraseña debe tener al menos 6 caracteres.'); return; }
     setChangingPw(true);
     try {
       await api.changePassword({ currentPassword: currentPw, newPassword: newPw });
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
-      Alert.alert('Success','Password updated successfully.');
+      Alert.alert('Éxito','Contraseña actualizada correctamente.');
     } catch(err:any) { Alert.alert('Error', err.message); }
     finally { setChangingPw(false); }
   };
@@ -96,18 +99,18 @@ export default function SettingsScreen() {
       >
         {/* Business Profile */}
         <View style={s.card}>
-          <Text style={s.cardTitle}>Business Profile</Text>
+          <Text style={s.cardTitle}>Perfil del Negocio</Text>
 
-          <Text style={s.label}>Business Name</Text>
+          <Text style={s.label}>Nombre del Negocio</Text>
           <TextInput
             style={s.input}
-            placeholder="Your business name"
+            placeholder="Nombre de tu negocio"
             placeholderTextColor="#C4C4CE"
             value={name}
             onChangeText={setName}
           />
 
-          <Text style={s.label}>Brand Color</Text>
+          <Text style={s.label}>Color del Negocio</Text>
           <View style={s.colorRow}>
             {PRESET_COLORS.map(c => (
               <TouchableOpacity
@@ -119,17 +122,17 @@ export default function SettingsScreen() {
           </View>
 
           <View style={[s.preview, { backgroundColor: color }]}>
-            <Text style={s.previewText}>Ko-nnect — {name || 'Your Business'}</Text>
+            <Text style={s.previewText}>Ko-nnecta' — {name || 'Tu Negocio'}</Text>
           </View>
 
-          <Text style={s.label}>Pay Period</Text>
+          <Text style={s.label}>Período de Pago</Text>
           <View style={s.segRow}>
             {(['weekly','biweekly','semi-monthly'] as const).map(t => (
               <TouchableOpacity key={t}
                 style={[s.seg, payPeriodType===t && { backgroundColor: color, borderColor: color }]}
                 onPress={() => setPayPeriodType(t)}>
                 <Text style={[s.segText, payPeriodType===t && { color:'#fff' }]}>
-                  {t==='semi-monthly' ? 'Semi-mo.' : t.charAt(0).toUpperCase()+t.slice(1)}
+                  {t==='semi-monthly' ? 'Quincenal' : t==='weekly' ? 'Semanal' : 'Bisemanal'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -137,9 +140,9 @@ export default function SettingsScreen() {
 
           {(payPeriodType==='weekly' || payPeriodType==='biweekly') && (
             <>
-              <Text style={s.label}>Week starts on</Text>
+              <Text style={s.label}>La semana empieza el</Text>
               <View style={s.segRow}>
-                {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d,i) => (
+                {['Do','Lu','Ma','Mi','Ju','Vi','Sa'].map((d,i) => (
                   <TouchableOpacity key={i}
                     style={[s.dayBtn, payPeriodStartDay===i && { backgroundColor: color, borderColor: color }]}
                     onPress={() => setPayPeriodStartDay(i)}>
@@ -159,7 +162,7 @@ export default function SettingsScreen() {
             const fmtLabel = (d: Date) => d.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' });
             return (
               <>
-                <Text style={s.label}>Which day did your current period start?</Text>
+                <Text style={s.label}>¿Cuándo comenzó tu período actual?</Text>
                 <View style={s.anchorRow}>
                   {[last, prev].map(d => {
                     const val = fmt(d);
@@ -168,14 +171,14 @@ export default function SettingsScreen() {
                         style={[s.anchorBtn, payPeriodAnchorDate===val && { backgroundColor: color, borderColor: color }]}
                         onPress={() => setPayPeriodAnchorDate(val)}>
                         <Text style={[s.anchorBtnText, payPeriodAnchorDate===val && { color:'#fff' }]}>{fmtLabel(d)}</Text>
-                        {payPeriodAnchorDate===val && <Text style={[s.anchorBtnSub, { color:'rgba(255,255,255,0.9)' }]}>Current period</Text>}
+                        {payPeriodAnchorDate===val && <Text style={[s.anchorBtnSub, { color:'rgba(255,255,255,0.9)' }]}>Período actual</Text>}
                       </TouchableOpacity>
                     );
                   })}
                 </View>
                 <View style={s.hintRow}>
                   <Ionicons name="information-circle-outline" size={14} color="#9CA3AF" />
-                  <Text style={s.hintText}>Pick the day that your most recent pay period actually started on.</Text>
+                  <Text style={s.hintText}>Selecciona el día en que realmente comenzó tu período de pago más reciente.</Text>
                 </View>
               </>
             );
@@ -184,25 +187,25 @@ export default function SettingsScreen() {
           {payPeriodType==='semi-monthly' && (
             <View style={s.hintRow}>
               <Ionicons name="information-circle-outline" size={14} color="#9CA3AF" />
-              <Text style={s.hintText}>Pay periods: 1st–15th and 16th–end of month</Text>
+              <Text style={s.hintText}>Períodos de pago: 1–15 y 16–fin de mes</Text>
             </View>
           )}
 
           <TouchableOpacity style={[s.saveBtn, { backgroundColor: color }]} onPress={handleSave} disabled={saving}>
             {saving
               ? <ActivityIndicator color="#fff"/>
-              : <Text style={s.saveBtnText}>{isNew ? 'Create Business' : 'Save Changes'}</Text>
+              : <Text style={s.saveBtnText}>{isNew ? 'Crear Negocio' : 'Guardar Cambios'}</Text>
             }
           </TouchableOpacity>
         </View>
 
         {/* Scheduling Rules */}
         <View style={s.card}>
-          <Text style={s.cardTitle}>Scheduling Rules</Text>
+          <Text style={s.cardTitle}>Reglas de Horario</Text>
 
-          <Text style={s.label}>Open Days</Text>
+          <Text style={s.label}>Días Laborables</Text>
           <View style={s.segRow}>
-            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => {
+            {['Do','Lu','Ma','Mi','Ju','Vi','Sa'].map((d, i) => {
               const on = openDays.includes(i);
               return (
                 <TouchableOpacity key={i}
@@ -214,21 +217,32 @@ export default function SettingsScreen() {
             })}
           </View>
 
-          <Text style={s.label}>Max Hours Per Day <Text style={{ color:'#C4C4CE' }}>(0 = no limit)</Text></Text>
+          <Text style={s.label}>Horas Máx. por Día <Text style={{ color:'#C4C4CE' }}>(0 = sin límite)</Text></Text>
           <View style={s.stepperRow}>
             <TouchableOpacity style={s.stepperBtn} onPress={() => setMaxHoursPerDay(Math.max(0, maxHoursPerDay - 1))}>
               <Ionicons name="remove" size={18} color="#374151" />
             </TouchableOpacity>
-            <Text style={s.stepperVal}>{maxHoursPerDay === 0 ? 'No limit' : `${maxHoursPerDay}h`}</Text>
+            <Text style={s.stepperVal}>{maxHoursPerDay === 0 ? 'Sin límite' : `${maxHoursPerDay}h`}</Text>
             <TouchableOpacity style={s.stepperBtn} onPress={() => setMaxHoursPerDay(Math.min(24, maxHoursPerDay + 1))}>
+              <Ionicons name="add" size={18} color="#374151" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={s.label}>Ventana de Horario <Text style={{ color:'#C4C4CE' }}>(semanas hacia adelante que puedes programar)</Text></Text>
+          <View style={s.stepperRow}>
+            <TouchableOpacity style={s.stepperBtn} onPress={() => setSchedulingWeeks(Math.max(1, schedulingWeeks - 1))}>
+              <Ionicons name="remove" size={18} color="#374151" />
+            </TouchableOpacity>
+            <Text style={s.stepperVal}>{schedulingWeeks} {schedulingWeeks === 1 ? 'semana' : 'semanas'}</Text>
+            <TouchableOpacity style={s.stepperBtn} onPress={() => setSchedulingWeeks(Math.min(26, schedulingWeeks + 1))}>
               <Ionicons name="add" size={18} color="#374151" />
             </TouchableOpacity>
           </View>
 
           <View style={s.switchRow}>
             <View style={{ flex: 1 }}>
-              <Text style={s.switchLabel}>Auto Clock-Out</Text>
-              <Text style={s.switchSub}>Automatically clock out employees after a set time</Text>
+              <Text style={s.switchLabel}>Salida Automática</Text>
+              <Text style={s.switchSub}>Marca salida automáticamente a los empleados después de un tiempo</Text>
             </View>
             <Switch
               value={autoClockOut}
@@ -240,7 +254,7 @@ export default function SettingsScreen() {
 
           {autoClockOut && (
             <>
-              <Text style={s.label}>Clock Out After (minutes past shift end)</Text>
+              <Text style={s.label}>Marcar Salida Después de (minutos tras fin del turno)</Text>
               <View style={s.stepperRow}>
                 <TouchableOpacity style={s.stepperBtn} onPress={() => setAutoClockOutMinutes(Math.max(5, autoClockOutMinutes - 5))}>
                   <Ionicons name="remove" size={18} color="#374151" />
@@ -256,42 +270,42 @@ export default function SettingsScreen() {
           <TouchableOpacity style={[s.saveBtn, { backgroundColor: color }]} onPress={handleSave} disabled={saving}>
             {saving
               ? <ActivityIndicator color="#fff"/>
-              : <Text style={s.saveBtnText}>Save Changes</Text>
+              : <Text style={s.saveBtnText}>Guardar Cambios</Text>
             }
           </TouchableOpacity>
         </View>
 
         {/* Account */}
         <View style={s.card}>
-          <Text style={s.cardTitle}>Account</Text>
+          <Text style={s.cardTitle}>Cuenta</Text>
           <View style={s.infoRow}>
             <Ionicons name="person-outline" size={17} color="#9CA3AF" />
             <Text style={s.infoText}>{user?.email}</Text>
           </View>
           <View style={s.infoRow}>
             <Ionicons name="shield-outline" size={17} color="#9CA3AF" />
-            <Text style={s.infoText}>Role: {user?.role}</Text>
+            <Text style={s.infoText}>Rol: {user?.role}</Text>
           </View>
           <TouchableOpacity style={s.logoutBtn} onPress={logout}>
             <Ionicons name="log-out-outline" size={17} color="#EF4444" />
-            <Text style={s.logoutText}>Log Out</Text>
+            <Text style={s.logoutText}>Cerrar Sesión</Text>
           </TouchableOpacity>
         </View>
 
         {/* Change Password — hidden for Google sign-in users */}
         {!isGoogleUser && (
           <View style={s.card}>
-            <Text style={s.cardTitle}>Change Password</Text>
-            <TextInput style={s.input} placeholder="Current password" placeholderTextColor="#C4C4CE"
+            <Text style={s.cardTitle}>Cambiar Contraseña</Text>
+            <TextInput style={s.input} placeholder="Contraseña actual" placeholderTextColor="#C4C4CE"
               value={currentPw} onChangeText={setCurrentPw} secureTextEntry />
-            <TextInput style={s.input} placeholder="New password (min 6 characters)" placeholderTextColor="#C4C4CE"
+            <TextInput style={s.input} placeholder="Nueva contraseña (mín. 6 caracteres)" placeholderTextColor="#C4C4CE"
               value={newPw} onChangeText={setNewPw} secureTextEntry />
-            <TextInput style={s.input} placeholder="Confirm new password" placeholderTextColor="#C4C4CE"
+            <TextInput style={s.input} placeholder="Confirmar nueva contraseña" placeholderTextColor="#C4C4CE"
               value={confirmPw} onChangeText={setConfirmPw} secureTextEntry />
             <TouchableOpacity style={[s.saveBtn, { backgroundColor: primaryColor }]} onPress={handleChangePassword} disabled={changingPw}>
               {changingPw
                 ? <ActivityIndicator color="#fff"/>
-                : <Text style={s.saveBtnText}>Update Password</Text>
+                : <Text style={s.saveBtnText}>Actualizar Contraseña</Text>
               }
             </TouchableOpacity>
           </View>

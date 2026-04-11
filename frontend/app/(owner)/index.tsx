@@ -14,9 +14,9 @@ import type { Employee, Shift, TimeLog } from '@/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const DAY_ABBR    = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const MONTH_LONG  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAY_ABBR    = ['Do','Lu','Ma','Mi','Ju','Vi','Sa'];
+const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MONTH_LONG  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const MINUTES     = [0, 15, 30, 45];
 
 function getWeekDates(offset: number, startDay = 0): Date[] {
@@ -66,7 +66,7 @@ function groupByDay(shifts: Shift[]) {
       const d = new Date(dayShifts[0].startTime);
       return {
         key,
-        label: d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }),
+        label: d.toLocaleDateString('es', { weekday: 'long', month: 'long', day: 'numeric' }),
         shifts: dayShifts.sort((a,b) => new Date(a.startTime).getTime()-new Date(b.startTime).getTime()),
       };
     });
@@ -319,7 +319,7 @@ export default function ShiftsScreen() {
   const CARD_H   = 90;  // shift card + marginBottom
 
   const openCreate = () => {
-    if (employees.length===0) { Alert.alert('No Employees','Add employees first.'); return; }
+    if (employees.length===0) { Alert.alert('Sin Empleados','Agrega empleados primero.'); return; }
     setModalMode('create');
     setSelectedDates(new Set()); setStartH(9); setStartM(0); setStartAp('AM');
     setEndH(5); setEndM(0); setEndAp('PM'); setSelEmp(null); setBreakDuration(0); setStep('calendar');
@@ -389,9 +389,9 @@ export default function ShiftsScreen() {
   };
 
   const handleDelete = (shiftId: string) => {
-    Alert.alert('Delete Shift','Are you sure?',[
-      { text:'Cancel', style:'cancel' },
-      { text:'Delete', style:'destructive', onPress: async () => { await api.deleteShift(shiftId); load(); }},
+    Alert.alert('Eliminar Turno','¿Estás seguro?',[
+      { text:'Cancelar', style:'cancel' },
+      { text:'Eliminar', style:'destructive', onPress: async () => { await api.deleteShift(shiftId); load(); }},
     ]);
   };
 
@@ -399,7 +399,7 @@ export default function ShiftsScreen() {
     return (
       <View style={{ flex:1, alignItems:'center', justifyContent:'center', paddingHorizontal:24 }}>
         <AnimatedBackground primaryColor={color} />
-        <Text style={{ fontSize:15, color:'#374151', textAlign:'center' }}>Set up your business in Settings first.</Text>
+        <Text style={{ fontSize:15, color:'#374151', textAlign:'center' }}>Configura tu negocio en Ajustes primero.</Text>
       </View>
     );
   }
@@ -472,7 +472,7 @@ export default function ShiftsScreen() {
         <View style={[s.greetSection, { paddingTop: insets.top + 12 }]}>
           <View style={{ flex: 1 }}>
             <Text style={s.greeting}>
-              {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}
+              {new Date().getHours() < 12 ? 'Buenos días' : new Date().getHours() < 18 ? 'Buenas tardes' : 'Buenas noches'}
             </Text>
             {business && <Text style={s.bizName}>{business.name}</Text>}
           </View>
@@ -480,7 +480,7 @@ export default function ShiftsScreen() {
             <View style={[s.activePill, { backgroundColor: color + '15' }]}>
               <View style={[s.activeDot, { backgroundColor: color }]} />
               <Text style={[s.activeCount, { color }]}>
-                {activeLogs.filter(l => l.status === 'clocked_in' || l.status === 'on_break').length} on shift
+                {activeLogs.filter(l => l.status === 'clocked_in' || l.status === 'on_break').length} en turno
               </Text>
             </View>
           )}
@@ -489,9 +489,9 @@ export default function ShiftsScreen() {
         {/* Quick filters */}
         <View style={s.filterRow}>
           {([
-            { key: 'clocked_in', label: 'Clocked In', count: clockedInCount, icon: 'pulse-outline', activeColor: '#10B981' },
-            { key: 'today',      label: 'Today',      count: scheduledTodayCount, icon: 'today-outline',  activeColor: color },
-            { key: 'late',       label: 'Late',       count: lateCount,       icon: 'alert-circle-outline', activeColor: '#EF4444' },
+            { key: 'clocked_in', label: 'Activos', count: clockedInCount, icon: 'pulse-outline', activeColor: '#10B981' },
+            { key: 'today',      label: 'Hoy',     count: scheduledTodayCount, icon: 'today-outline',  activeColor: color },
+            { key: 'late',       label: 'Tarde',   count: lateCount,       icon: 'alert-circle-outline', activeColor: '#EF4444' },
           ] as const).map(f => {
             const isActive = activeFilter === f.key;
             return (
@@ -515,16 +515,16 @@ export default function ShiftsScreen() {
           <View style={s.calSectionHeader}>
             <TouchableOpacity
               onPress={() => setWeekOffset(o => o - 1)}
-              style={[s.calNavBtn, weekOffset <= -3 && { opacity: 0.3 }]}
-              disabled={weekOffset <= -3}
+              style={[s.calNavBtn, weekOffset <= -(business?.schedulingWeeks ?? 6) && { opacity: 0.3 }]}
+              disabled={weekOffset <= -(business?.schedulingWeeks ?? 6)}
             >
               <Ionicons name="chevron-back" size={18} color="#374151" />
             </TouchableOpacity>
             <Text style={s.calSectionTitle}>{weekLabel(weekDates)}</Text>
             <TouchableOpacity
               onPress={() => setWeekOffset(o => o + 1)}
-              style={[s.calNavBtn, weekOffset >= 3 && { opacity: 0.3 }]}
-              disabled={weekOffset >= 3}
+              style={[s.calNavBtn, weekOffset >= (business?.schedulingWeeks ?? 6) && { opacity: 0.3 }]}
+              disabled={weekOffset >= (business?.schedulingWeeks ?? 6)}
             >
               <Ionicons name="chevron-forward" size={18} color="#374151" />
             </TouchableOpacity>
@@ -538,17 +538,17 @@ export default function ShiftsScreen() {
 
         <View style={s.listHeader}>
           <Text style={s.listHeaderText}>
-            {weekShifts.length} shift{weekShifts.length!==1?'s':''}{weekOffset === 0 ? ' this week' : ' that week'}
+            {weekShifts.length} turno{weekShifts.length!==1?'s':''}{weekOffset === 0 ? ' esta semana' : ' esa semana'}
           </Text>
           {weekOffset === 0 ? (
             <View style={[s.currentWeekBadge, { backgroundColor: color }]}>
               <View style={[s.currentWeekDot, { backgroundColor: '#fff' }]} />
-              <Text style={s.currentWeekText}>Current week</Text>
+              <Text style={s.currentWeekText}>Semana actual</Text>
             </View>
           ) : (
             <TouchableOpacity onPress={() => setWeekOffset(0)} style={[s.backTodayBtn, { borderColor: color }]}>
               <Ionicons name="return-up-back-outline" size={13} color={color} />
-              <Text style={[s.backTodayText, { color }]}>Back to today</Text>
+              <Text style={[s.backTodayText, { color }]}>Volver a hoy</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -568,7 +568,7 @@ export default function ShiftsScreen() {
           ListEmptyComponent={
             <View style={s.emptyWeek}>
               <Ionicons name="calendar-outline" size={36} color="#D1D5DB"/>
-              <Text style={s.emptyText}>No shifts scheduled yet</Text>
+              <Text style={s.emptyText}>Sin turnos programados aún</Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -624,7 +624,7 @@ export default function ShiftsScreen() {
                       <View style={[s.liveBadge, { backgroundColor: liveLog.status === 'on_break' ? '#FEF3C7' : '#D1FAE5' }]}>
                         <PulseDot color={liveColor} />
                         <Text style={[s.liveBadgeText, { color: liveLog.status === 'on_break' ? '#92400E' : '#065F46' }]}>
-                          {liveLog.status === 'on_break' ? 'On Break' : 'Clocked In'}
+                          {liveLog.status === 'on_break' ? 'En Descanso' : 'Activo'}
                         </Text>
                       </View>
                     )}
@@ -657,7 +657,7 @@ export default function ShiftsScreen() {
               <TouchableOpacity onPress={() => setModalVisible(false)} style={s.sheetClose}>
                 <Ionicons name="close" size={20} color="#374151"/>
               </TouchableOpacity>
-              <Text style={s.sheetTitle}>{modalMode==='edit' ? 'Edit Shift' : 'New Shift'}</Text>
+              <Text style={s.sheetTitle}>{modalMode==='edit' ? 'Editar Turno' : 'Nuevo Turno'}</Text>
               <View style={{ width: 32 }}/>
             </View>
 
@@ -684,25 +684,25 @@ export default function ShiftsScreen() {
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 500 }}>
               {step==='calendar' && modalMode==='create' && (
                 <View style={{ gap: 6 }}>
-                  <Text style={s.stepTitle}>Select date(s)</Text>
-                  <Text style={s.stepSub}>Tap multiple days to batch-create shifts</Text>
+                  <Text style={s.stepTitle}>Selecciona fecha(s)</Text>
+                  <Text style={s.stepSub}>Toca varios días para crear turnos en lote</Text>
                   <MiniCalendar
                     selected={selectedDates}
                     onToggle={k => setSelectedDates(prev => { const n=new Set(prev); n.has(k)?n.delete(k):n.add(k); return n; })}
                     color={color} startDay={business?.payPeriodStartDay ?? 0}
                   />
                   {selectedDates.size > 0 && (
-                    <Text style={[s.selCount, { color }]}>{selectedDates.size} day{selectedDates.size>1?'s':''} selected</Text>
+                    <Text style={[s.selCount, { color }]}>{selectedDates.size} día{selectedDates.size>1?'s':''} seleccionado{selectedDates.size>1?'s':''}</Text>
                   )}
                 </View>
               )}
 
               {step==='time' && (
                 <View style={{ gap: 16 }}>
-                  <Text style={s.stepTitle}>Set shift hours</Text>
-                  <TimePicker label="Start time" hour={startH} minute={startM} ampm={startAp}
+                  <Text style={s.stepTitle}>Horas del turno</Text>
+                  <TimePicker label="Hora inicio" hour={startH} minute={startM} ampm={startAp}
                     onHour={setStartH} onMinute={setStartM} onAmpm={setStartAp} color={color}/>
-                  <TimePicker label="End time" hour={endH} minute={endM} ampm={endAp}
+                  <TimePicker label="Hora fin" hour={endH} minute={endM} ampm={endAp}
                     onHour={setEndH} onMinute={setEndM} onAmpm={setEndAp} color={color}/>
                   <View style={[s.timeSummary, { borderColor: color+'40', backgroundColor: color+'10' }]}>
                     <Ionicons name="time-outline" size={15} color={color}/>
@@ -711,14 +711,14 @@ export default function ShiftsScreen() {
                     </Text>
                   </View>
                   <View style={{ gap: 8 }}>
-                    <Text style={s.stepTitle}>Break / Lunch</Text>
+                    <Text style={s.stepTitle}>Descanso / Almuerzo</Text>
                     <View style={{ flexDirection:'row', gap:6 }}>
                       {[0,15,30,45,60].map(min => (
                         <TouchableOpacity key={min}
                           style={[s.breakChip, breakDuration===min && { backgroundColor: color, borderColor: color }]}
                           onPress={() => setBreakDuration(min)}>
                           <Text style={[s.breakChipText, breakDuration===min && { color:'#fff' }]}>
-                            {min===0?'None':min===60?'1 hr':`${min}m`}
+                            {min===0?'Ninguno':min===60?'1 hr':`${min}m`}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -727,7 +727,7 @@ export default function ShiftsScreen() {
                       <View style={s.breakHint}>
                         <Ionicons name="cafe-outline" size={13} color="#9CA3AF"/>
                         <Text style={s.breakHintText}>
-                          Recommended break around {(() => {
+                          Descanso sugerido alrededor de {(() => {
                             const s24 = to24(startH, startAp), e24 = to24(endH, endAp);
                             const midH24 = Math.floor((s24+e24)/2);
                             const midAp: 'AM'|'PM' = midH24>=12?'PM':'AM';
@@ -743,7 +743,7 @@ export default function ShiftsScreen() {
 
               {step==='employee' && (
                 <View style={{ gap: 8 }}>
-                  <Text style={s.stepTitle}>Assign to employee</Text>
+                  <Text style={s.stepTitle}>Asignar a empleado</Text>
                   {employees.map(emp => (
                     <TouchableOpacity key={emp.employeeId}
                       style={[s.empRow, selEmp?.employeeId===emp.employeeId && { borderColor: color, backgroundColor: color+'08' }]}
@@ -765,7 +765,7 @@ export default function ShiftsScreen() {
             <View style={s.footer}>
               {modalMode==='create' && step!=='calendar' && (
                 <TouchableOpacity style={s.backBtn} onPress={() => setStep(step==='employee'?'time':'calendar')}>
-                  <Text style={{ color:'#6B7280', fontWeight:'600' }}>Back</Text>
+                  <Text style={{ color:'#6B7280', fontWeight:'600' }}>Atrás</Text>
                 </TouchableOpacity>
               )}
               {modalMode==='edit' ? (
@@ -773,7 +773,7 @@ export default function ShiftsScreen() {
                   onPress={handleSaveEdit} disabled={saving}>
                   {saving
                     ? <ActivityIndicator color="#fff"/>
-                    : <><Ionicons name="checkmark" size={15} color="#fff"/><Text style={{ color:'#fff', fontWeight:'700' }}>Save Changes</Text></>
+                    : <><Ionicons name="checkmark" size={15} color="#fff"/><Text style={{ color:'#fff', fontWeight:'700' }}>Guardar Cambios</Text></>
                   }
                 </TouchableOpacity>
               ) : step!=='employee' ? (
@@ -781,7 +781,7 @@ export default function ShiftsScreen() {
                   style={[s.nextBtn, { backgroundColor: color }, selectedDates.size===0 && step==='calendar' && { opacity:0.4 }]}
                   onPress={() => setStep(step==='calendar'?'time':'employee')}
                   disabled={selectedDates.size===0 && step==='calendar'}>
-                  <Text style={{ color:'#fff', fontWeight:'700' }}>Next</Text>
+                  <Text style={{ color:'#fff', fontWeight:'700' }}>Siguiente</Text>
                   <Ionicons name="arrow-forward" size={15} color="#fff"/>
                 </TouchableOpacity>
               ) : (
@@ -790,7 +790,7 @@ export default function ShiftsScreen() {
                   {saving
                     ? <ActivityIndicator color="#fff"/>
                     : <><Ionicons name="checkmark" size={15} color="#fff"/>
-                       <Text style={{ color:'#fff', fontWeight:'700' }}>Create {selectedDates.size>1?`${selectedDates.size} Shifts`:'Shift'}</Text></>
+                       <Text style={{ color:'#fff', fontWeight:'700' }}>Crear {selectedDates.size>1?`${selectedDates.size} Turnos`:'Turno'}</Text></>
                   }
                 </TouchableOpacity>
               )}

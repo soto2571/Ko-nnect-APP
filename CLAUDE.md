@@ -1,7 +1,8 @@
-# Ko-nnect App
+# Ko-nnecta' App
 
-Shift scheduling mobile app for small business owners (2–15 employees).
-Replaces paper/Excel/WhatsApp scheduling.
+Shift scheduling mobile app for small/medium Puerto Rican businesses (2–15 employees).
+Replaces paper/Excel/WhatsApp scheduling. Rebranded from Ko-nnect → Ko-nnecta' to target the Puerto Rican market and differentiate from the existing "Connect" app.
+UI language: Spanish. Tagline: "Turnos sin complique".
 
 ## Stack
 

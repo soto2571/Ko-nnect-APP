@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  Animated, ScrollView, Pressable,
+  Animated, ScrollView, Pressable, Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
@@ -79,18 +79,18 @@ export default function SignupScreen() {
     try {
       await signInWithGoogle();
     } catch (err: any) {
-      setError(err.message || 'Google sign-in failed.');
+      setError(err.message || 'Error al iniciar sesión con Google.');
     } finally { setGoogleLoading(false); }
   };
 
   const handleSignup = async () => {
     setError('');
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
-      setError('Please fill in all fields.');
+      setError('Por favor completa todos los campos.');
       return;
     }
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
     setLoading(true);
@@ -103,7 +103,7 @@ export default function SignupScreen() {
         role: 'owner',
       });
     } catch (err: any) {
-      setError(err.message || 'Something went wrong.');
+      setError(err.message || 'Algo salió mal. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -138,9 +138,9 @@ export default function SignupScreen() {
             opacity: headerAnim,
             transform: [{ translateY: headerAnim.interpolate({ inputRange:[0,1], outputRange:[-20,0] }) }],
           }]}>
-            <Text style={s.logoText}>Ko-nnect</Text>
-            <Text style={s.title}>Create Account</Text>
-            <Text style={s.sub}>Set up your business and manage your team.</Text>
+            <Image source={require('@/assets/konnectaBigWhite.png')} style={s.logoImg} resizeMode="contain" />
+            <Text style={s.title}>Crear Cuenta</Text>
+            <Text style={s.sub}>Organiza tu negocio y maneja tu equipo.</Text>
           </Animated.View>
 
           {/* Form card */}
@@ -157,19 +157,19 @@ export default function SignupScreen() {
             )}
 
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Field icon="person-outline" placeholder="First name"
+              <Field icon="person-outline" placeholder="Nombre"
                 value={firstName} onChangeText={(t: string) => { setFirstName(t); setError(''); }}
                 style={{ flex: 1 }} />
-              <Field icon="person-outline" placeholder="Last name"
+              <Field icon="person-outline" placeholder="Apellido"
                 value={lastName} onChangeText={(t: string) => { setLastName(t); setError(''); }}
                 style={{ flex: 1 }} />
             </View>
 
-            <Field icon="mail-outline" placeholder="Email address"
+            <Field icon="mail-outline" placeholder="Correo electrónico"
               value={email} onChangeText={(t: string) => { setEmail(t); setError(''); }}
               keyboardType="email-address" autoCapitalize="none" />
 
-            <Field icon="lock-closed-outline" placeholder="Password (min 6 characters)"
+            <Field icon="lock-closed-outline" placeholder="Contraseña (mín. 6 caracteres)"
               value={password} onChangeText={(t: string) => { setPassword(t); setError(''); }}
               secureTextEntry={!showPw} autoCapitalize="none"
               rightElement={
@@ -189,7 +189,7 @@ export default function SignupScreen() {
                 <View style={s.btn}>
                   {loading
                     ? <ActivityIndicator color={BRAND} />
-                    : <Text style={s.btnText}>Create Account</Text>
+                    : <Text style={s.btnText}>Crear Cuenta</Text>
                   }
                 </View>
               </Animated.View>
@@ -213,7 +213,7 @@ export default function SignupScreen() {
               ) : (
                 <>
                   <GoogleLogo size={22} />
-                  <Text style={s.googleBtnText}>Continue with Google</Text>
+                  <Text style={s.googleBtnText}>Continuar con Google</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -223,8 +223,8 @@ export default function SignupScreen() {
           <Animated.View style={{ opacity: formAnim, alignItems: 'center' }}>
             <TouchableOpacity onPress={() => router.back()}>
               <Text style={s.loginText}>
-                Already have an account?{'  '}
-                <Text style={s.loginLink}>Sign in</Text>
+                ¿Ya tienes cuenta?{'  '}
+                <Text style={s.loginLink}>Inicia sesión</Text>
               </Text>
             </TouchableOpacity>
           </Animated.View>
@@ -248,9 +248,8 @@ const s = StyleSheet.create({
   },
 
   header: { alignItems: 'center', gap: 8 },
-  logoText: {
-    fontSize: 38, fontWeight: '800', color: BRAND,
-    letterSpacing: -1.5,
+  logoImg: {
+    width: 260, height: 110,
   },
   title: {
     fontSize: 22, fontWeight: '700',

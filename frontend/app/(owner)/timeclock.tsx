@@ -110,10 +110,10 @@ function breakElapsedSeconds(log: TimeLog) {
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { label: string; bg: string; fg: string }> = {
-    clocked_in:   { label: '● Clocked In',  bg: '#D1FAE5', fg: '#065F46' },
-    on_break:     { label: '☕ On Break',    bg: '#FEF3C7', fg: '#92400E' },
-    clocked_out:  { label: '✓ Clocked Out', bg: '#F3F4F6', fg: '#6B7280' },
-    missed_punch: { label: '⚠ Missed Punch',bg: '#FEE2E2', fg: '#991B1B' },
+    clocked_in:   { label: '● Activo',          bg: '#D1FAE5', fg: '#065F46' },
+    on_break:     { label: '☕ En Descanso',     bg: '#FEF3C7', fg: '#92400E' },
+    clocked_out:  { label: '✓ Terminó',          bg: '#F3F4F6', fg: '#6B7280' },
+    missed_punch: { label: '⚠ Marcaje Perdido', bg: '#FEE2E2', fg: '#991B1B' },
   };
   const c = cfg[status] ?? { label: status, bg: '#F9FAFB', fg: '#6B7280' };
   return (
@@ -195,7 +195,7 @@ function InlineTimePicker({
             </View>
           </View>
           <TouchableOpacity style={[s.pickerConfirm, { backgroundColor: color }]} onPress={confirm}>
-            <Text style={s.pickerConfirmText}>Set {label}</Text>
+            <Text style={s.pickerConfirmText}>Aplicar {label}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -276,7 +276,7 @@ export default function TimeclockScreen() {
       if (wEnd > p.end) wEnd.setTime(p.end.getTime());
       wEnd.setHours(23, 59, 59);
       const fmt = (d: Date) => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-      weeks.push({ start: wStart, end: wEnd, label: `Week ${weekNum}: ${fmt(wStart)} – ${fmt(wEnd)}` });
+      weeks.push({ start: wStart, end: wEnd, label: `Semana ${weekNum}: ${fmt(wStart)} – ${fmt(wEnd)}` });
       cursor.setDate(cursor.getDate() + 7);
       weekNum++;
     }
@@ -310,11 +310,11 @@ export default function TimeclockScreen() {
 
   const handleExport = async () => {
     try {
-      if (periodLogs.length === 0) { Alert.alert('No data', 'No time records for this period.'); return; }
+      if (periodLogs.length === 0) { Alert.alert('Sin datos', 'No hay registros de tiempo en este período.'); return; }
       if (!period) return;
 
       const canShare = await Sharing.isAvailableAsync();
-      if (!canShare) { Alert.alert('Not supported', 'Sharing is not available on this device.'); return; }
+      if (!canShare) { Alert.alert('No disponible', 'El compartir no está disponible en este dispositivo.'); return; }
 
       const weeks = getPeriodWeeks(period);
       const generatedDate = new Date().toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
@@ -338,7 +338,7 @@ export default function TimeclockScreen() {
 
         let shiftRows = '';
         if (weekLogs.length === 0) {
-          shiftRows = '<tr><td colspan="6" class="empty">No shifts this week</td></tr>';
+          shiftRows = '<tr><td colspan="6" class="empty">Sin turnos esta semana</td></tr>';
         } else {
           for (const l of weekLogs) {
             const dateLabel = new Date(l.clockIn).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
@@ -350,7 +350,7 @@ export default function TimeclockScreen() {
               : '<span class="no-break">—</span>';
             const flags = [
               l.overtimeDay ? '<span class="flag ot">OT</span>' : '',
-              l.missedBreakPunch ? '<span class="flag missed">Missed break</span>' : '',
+              l.missedBreakPunch ? '<span class="flag missed">Marcaje perdido</span>' : '',
             ].filter(Boolean).join(' ');
             const hours = l.totalMinutes != null ? `${(l.totalMinutes / 60).toFixed(2)}h` : '--';
             shiftRows += `
@@ -359,7 +359,7 @@ export default function TimeclockScreen() {
                 <td class="emp-name">${empName(l.employeeId)} ${flags}</td>
                 <td>${l.clockIn ? fmt12(l.clockIn) : '--'}</td>
                 <td>${breakHtml}</td>
-                <td>${l.clockOut ? fmt12(l.clockOut) : '<span class="active">active</span>'}</td>
+                <td>${l.clockOut ? fmt12(l.clockOut) : '<span class="active">activo</span>'}</td>
                 <td class="hours">${hours}</td>
               </tr>`;
           }
@@ -372,7 +372,7 @@ export default function TimeclockScreen() {
               <span class="week-total">${(weekTotal / 60).toFixed(2)}h total</span>
             </div>
             <table>
-              <thead><tr><th>Date</th><th>Employee</th><th>Clock In</th><th>Break</th><th>Clock Out</th><th>Hours</th></tr></thead>
+              <thead><tr><th>Fecha</th><th>Empleado</th><th>Entrada</th><th>Descanso</th><th>Salida</th><th>Horas</th></tr></thead>
               <tbody>${shiftRows}</tbody>
             </table>
           </div>`;
@@ -438,16 +438,16 @@ export default function TimeclockScreen() {
         </head>
         <body>
           <div class="header">
-            <h1>Payroll Report</h1>
-            <div class="meta">Pay Period: ${period.label} &nbsp;&bull;&nbsp; Generated: ${generatedDate}</div>
+            <h1>Reporte de Nómina</h1>
+            <div class="meta">Período de Pago: ${period.label} &nbsp;&bull;&nbsp; Generado: ${generatedDate}</div>
           </div>
 
-          <div class="section-title">Shifts by Week</div>
+          <div class="section-title">Turnos por Semana</div>
           ${weekSections}
 
-          <div class="section-title">Summary</div>
+          <div class="section-title">Resumen</div>
           <table class="summary-table">
-            <thead><tr><th>Employee</th>${weekHeaders}<th>Total</th></tr></thead>
+            <thead><tr><th>Empleado</th>${weekHeaders}<th>Total</th></tr></thead>
             <tbody>${summaryRows}</tbody>
           </table>
         </body>
@@ -455,12 +455,12 @@ export default function TimeclockScreen() {
 
       const { uri } = await Print.printToFileAsync({ html, base64: false });
       // Copy to a human-readable filename: "Payroll Report Mar 28 - Apr 10.pdf"
-      const friendlyName = `Payroll Report ${period.label}.pdf`;
+      const friendlyName = `Reporte de Nómina ${period.label}.pdf`;
       const namedUri = `${FileSystem.cacheDirectory}${friendlyName}`;
       await FileSystem.copyAsync({ from: uri, to: namedUri });
-      await Sharing.shareAsync(namedUri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Export Payroll Report' });
+      await Sharing.shareAsync(namedUri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Exportar Reporte de Nómina' });
     } catch (err: any) {
-      Alert.alert('Export failed', err.message);
+      Alert.alert('Error al exportar', err.message);
     }
   };
 
@@ -493,7 +493,7 @@ export default function TimeclockScreen() {
   if (!business) return (
     <View style={{ flex:1, alignItems:'center', justifyContent:'center' }}>
       <AnimatedBackground primaryColor={primaryColor} />
-      <Text style={{ color:'#374151', fontSize:14, textAlign:'center' }}>Set up your business in Settings first.</Text>
+      <Text style={{ color:'#374151', fontSize:14, textAlign:'center' }}>Configura tu negocio en Ajustes primero.</Text>
     </View>
   );
 
@@ -511,7 +511,7 @@ export default function TimeclockScreen() {
 
       {/* Tabs */}
       <View style={[s.tabBar, { paddingTop: insets.top }]}>
-        {([['live','Live'],['logs','Time Logs'],['report','Report']] as [TabKey,string][]).map(([key, label]) => (
+        {([['live','En Vivo'],['logs','Registros'],['report','Reporte']] as [TabKey,string][]).map(([key, label]) => (
           <TouchableOpacity key={key} style={[s.tab, tab === key && { borderBottomColor: primaryColor, borderBottomWidth: 2 }]}
             onPress={() => setTab(key)}>
             <Text style={[s.tabText, tab === key && { color: primaryColor, fontWeight: '700' }]}>{label}</Text>
@@ -528,10 +528,10 @@ export default function TimeclockScreen() {
         {/* ── LIVE TAB ── */}
         {tab === 'live' && (
           <>
-            <Text style={s.periodLabel}>Today · {new Date().toLocaleDateString([], { weekday:'long', month:'long', day:'numeric' })}</Text>
+            <Text style={s.periodLabel}>Hoy · {new Date().toLocaleDateString('es', { weekday:'long', month:'long', day:'numeric' })}</Text>
 
             {employees.length === 0 ? (
-              <View style={s.emptyCard}><Text style={s.emptyText}>No employees yet.</Text></View>
+              <View style={s.emptyCard}><Text style={s.emptyText}>Sin empleados aún.</Text></View>
             ) : employees.map(emp => {
               const empId = emp.userId || emp.employeeId;
               // Among all logs for this employee, pick the most recent by clockIn time.
@@ -584,12 +584,12 @@ export default function TimeclockScreen() {
                         {log.missedBreakPunch && (
                           <View style={s.missedRow}>
                             <Ionicons name="warning-outline" size={12} color="#991B1B" />
-                            <Text style={s.missedText}>Missed break punch</Text>
+                            <Text style={s.missedText}>Marcaje de descanso perdido</Text>
                           </View>
                         )}
                       </>
                     ) : (
-                      <Text style={s.notClockedText}>Not clocked in</Text>
+                      <Text style={s.notClockedText}>No ha marcado entrada</Text>
                     )}
                   </View>
                 </View>
@@ -617,7 +617,7 @@ export default function TimeclockScreen() {
           return (
             <>
               {/* Period label */}
-              <Text style={s.periodLabel}>Pay period: {period?.label}</Text>
+              <Text style={s.periodLabel}>Período de pago: {period?.label}</Text>
 
               {/* Employee filter chips */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, paddingHorizontal: 16 }} contentContainerStyle={{ gap: 8, paddingRight: 16 }}>
@@ -625,7 +625,7 @@ export default function TimeclockScreen() {
                   style={[s.empChip, !empFilter && { backgroundColor: primaryColor }]}
                   onPress={() => setEmpFilter(null)}
                 >
-                  <Text style={[s.empChipText, !empFilter && { color: '#fff' }]}>All</Text>
+                  <Text style={[s.empChipText, !empFilter && { color: '#fff' }]}>Todos</Text>
                 </TouchableOpacity>
                 {employees.map(emp => {
                   const id = emp.userId || emp.employeeId;
@@ -643,7 +643,7 @@ export default function TimeclockScreen() {
               </ScrollView>
 
               {sortedDates.length === 0 ? (
-                <View style={s.emptyCard}><Text style={s.emptyText}>No records for this period.</Text></View>
+                <View style={s.emptyCard}><Text style={s.emptyText}>Sin registros en este período.</Text></View>
               ) : sortedDates.map(dateKey => {
                 const dayLogs = byDate.get(dateKey)!;
                 const dayDate = new Date(dateKey + 'T12:00:00');
@@ -675,7 +675,7 @@ export default function TimeclockScreen() {
                         {/* 3-column: In | Breaks | Out */}
                         <View style={s.logTimes}>
                           <View style={s.logTimeItem}>
-                            <Text style={s.logTimeLabel}>In</Text>
+                            <Text style={s.logTimeLabel}>Entrada</Text>
                             <Text style={s.logTimeValue}>{log.clockIn ? fmt12(log.clockIn) : '—'}</Text>
                           </View>
                           <Ionicons name="arrow-forward" size={12} color="#E5E7EB" />
@@ -686,21 +686,21 @@ export default function TimeclockScreen() {
                                   const multi = (log.breaks?.length ?? 0) > 1;
                                   return (
                                     <View key={i} style={s.logTimeItem}>
-                                      <Text style={s.logTimeLabel}>{multi ? `Break ${i + 1}` : 'Break'}</Text>
+                                      <Text style={s.logTimeLabel}>{multi ? `Descanso ${i + 1}` : 'Descanso'}</Text>
                                       <Text style={s.logTimeValue}>{fmt12(b.start)}{b.end ? ` – ${fmt12(b.end)}` : ' …'}</Text>
                                     </View>
                                   );
                                 })
                             ) : (
                               <View style={s.logTimeItem}>
-                                <Text style={s.logTimeLabel}>Break</Text>
+                                <Text style={s.logTimeLabel}>Descanso</Text>
                                 <Text style={[s.logTimeValue, { color: '#6B7280' }]}>—</Text>
                               </View>
                             )}
                           </View>
                           <Ionicons name="arrow-forward" size={12} color="#E5E7EB" />
                           <View style={s.logTimeItem}>
-                            <Text style={s.logTimeLabel}>Out</Text>
+                            <Text style={s.logTimeLabel}>Salida</Text>
                             <Text style={s.logTimeValue}>{log.clockOut ? fmt12(log.clockOut) : '—'}</Text>
                           </View>
                         </View>
@@ -713,7 +713,7 @@ export default function TimeclockScreen() {
                           {log.missedBreakPunch && (
                             <View style={s.missedRow}>
                               <Ionicons name="warning-outline" size={12} color="#991B1B" />
-                              <Text style={s.missedText}>Missed break punch</Text>
+                              <Text style={s.missedText}>Marcaje de descanso perdido</Text>
                             </View>
                           )}
                         </View>
@@ -726,21 +726,21 @@ export default function TimeclockScreen() {
               {/* Edit log inline */}
               {editLog && (
                 <View style={[s.editCard, { borderColor: primaryColor }]}>
-                  <Text style={[s.editTitle, { color: primaryColor }]}>Edit Time Record</Text>
+                  <Text style={[s.editTitle, { color: primaryColor }]}>Editar Registro de Tiempo</Text>
                   <Text style={s.editEmpName}>{empName(editLog.employeeId)} · {fmtDate(editLog.clockIn)}</Text>
                   <View style={s.editGrid}>
-                    <InlineTimePicker label="Clock In"    value={editLog.clockIn}    color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockIn: v }    : l)} />
-                    <InlineTimePicker label="Break Start" value={editLog.breakStart} color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakStart: v } : l)} />
-                    <InlineTimePicker label="Break End"   value={editLog.breakEnd}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakEnd: v }   : l)} />
-                    <InlineTimePicker label="Clock Out"   value={editLog.clockOut}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockOut: v }   : l)} />
+                    <InlineTimePicker label="Entrada"          value={editLog.clockIn}    color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockIn: v }    : l)} />
+                    <InlineTimePicker label="Inicio Descanso" value={editLog.breakStart} color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakStart: v } : l)} />
+                    <InlineTimePicker label="Fin Descanso"    value={editLog.breakEnd}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakEnd: v }   : l)} />
+                    <InlineTimePicker label="Salida"           value={editLog.clockOut}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockOut: v }   : l)} />
                   </View>
                   <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
                     <TouchableOpacity style={s.editCancelBtn} onPress={() => setEditLog(null)}>
-                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>Cancel</Text>
+                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>Cancelar</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[s.editSaveBtn, { backgroundColor: primaryColor }]}
                       onPress={handleSaveEdit} disabled={editSaving}>
-                      {editSaving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text>}
+                      {editSaving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Guardar</Text>}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -753,7 +753,7 @@ export default function TimeclockScreen() {
         {tab === 'report' && (
           <>
             <View style={s.periodRow}>
-              <Text style={s.periodLabel}>Pay period: {period?.label}</Text>
+              <Text style={s.periodLabel}>Período de pago: {period?.label}</Text>
               <TouchableOpacity onPress={handleExport} style={s.exportBtn}>
                 <Ionicons name="download-outline" size={14} color="#374151" />
                 <Text style={s.exportText}>PDF</Text>
@@ -761,7 +761,7 @@ export default function TimeclockScreen() {
             </View>
 
             {reportByEmployee.length === 0 ? (
-              <View style={s.emptyCard}><Text style={s.emptyText}>No completed shifts this period.</Text></View>
+              <View style={s.emptyCard}><Text style={s.emptyText}>Sin turnos completados en este período.</Text></View>
             ) : reportByEmployee.map(({ emp, weeks, totalMin, overtimeWeek, missed }) => (
               <View key={emp.employeeId} style={s.reportCard}>
                 {/* Employee header */}
@@ -782,7 +782,7 @@ export default function TimeclockScreen() {
                       <View style={{ flex: 1 }}>
                         <Text style={s.reportWeekLabel}>{w.label}</Text>
                         {w.overtimeDays > 0 && (
-                          <Text style={s.reportWeekOt}>{w.overtimeDays} day OT (&gt;8h)</Text>
+                          <Text style={s.reportWeekOt}>{w.overtimeDays} día OT (&gt;8h)</Text>
                         )}
                       </View>
                       <Text style={[s.reportWeekHours, w.totalMin > 2400 && { color: '#EF4444' }]}>
@@ -794,7 +794,7 @@ export default function TimeclockScreen() {
 
                 {/* Total + flags */}
                 <View style={s.reportTotalRow}>
-                  <Text style={s.reportTotalLabel}>Total</Text>
+                  <Text style={s.reportTotalLabel}>Total horas</Text>
                   <Text style={[s.reportTotal, overtimeWeek && { color: '#EF4444' }]}>
                     {fmtHours(totalMin)}
                   </Text>
@@ -805,13 +805,13 @@ export default function TimeclockScreen() {
                     {overtimeWeek && (
                       <View style={s.flagBadge}>
                         <Ionicons name="warning-outline" size={12} color="#EF4444" />
-                        <Text style={[s.flagText, { color: '#EF4444' }]}>Weekly OT (&gt;40h)</Text>
+                        <Text style={[s.flagText, { color: '#EF4444' }]}>OT Semanal (&gt;40h)</Text>
                       </View>
                     )}
                     {missed > 0 && (
                       <View style={[s.flagBadge, { backgroundColor: '#FEE2E2' }]}>
                         <Ionicons name="cafe-outline" size={12} color="#991B1B" />
-                        <Text style={[s.flagText, { color: '#991B1B' }]}>{missed} missed punch{missed > 1 ? 'es' : ''}</Text>
+                        <Text style={[s.flagText, { color: '#991B1B' }]}>{missed} marcaje{missed > 1 ? 's' : ''} perdido{missed > 1 ? 's' : ''}</Text>
                       </View>
                     )}
                   </View>

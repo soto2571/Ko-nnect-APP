@@ -36,21 +36,21 @@ export default function EmployeeProfileScreen() {
             <View style={s.infoIcon}>
               <Ionicons name="shield-outline" size={17} color="#9CA3AF" />
             </View>
-            <Text style={s.infoText}>Role: Employee</Text>
+            <Text style={s.infoText}>Rol: Empleado</Text>
           </View>
           <View style={s.divider} />
           <View style={s.infoRow}>
             <View style={s.infoIcon}>
               <Ionicons name="information-circle-outline" size={17} color="#9CA3AF" />
             </View>
-            <Text style={s.infoText}>Contact your owner to reset your PIN.</Text>
+            <Text style={s.infoText}>Contacta a tu patrono para resetear tu contraseña.</Text>
           </View>
         </View>
 
         {/* Logout */}
         <TouchableOpacity style={s.logoutBtn} onPress={logout}>
           <Ionicons name="log-out-outline" size={17} color="#EF4444" />
-          <Text style={s.logoutText}>Log Out</Text>
+          <Text style={s.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
       </View>
     </View>

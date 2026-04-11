@@ -22,6 +22,11 @@ Deno.serve(async (req) => {
       payPeriodType: body.payPeriodType ?? 'weekly',
       payPeriodStartDay: body.payPeriodStartDay ?? 0,
       payPeriodAnchorDate: body.payPeriodAnchorDate ?? null,
+      openDays: body.openDays ?? [0,1,2,3,4,5,6],
+      maxHoursPerDay: body.maxHoursPerDay ?? 0,
+      autoClockOut: body.autoClockOut ?? false,
+      autoClockOutMinutes: body.autoClockOutMinutes ?? 30,
+      schedulingWeeks: body.schedulingWeeks ?? 6,
     }).select().single();
     if (bizErr) return err(bizErr.message, 500);
 

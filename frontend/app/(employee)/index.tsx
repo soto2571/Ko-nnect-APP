@@ -16,8 +16,8 @@ import type { Shift, TimeLog } from '@/types';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-const DAY_ABBR    = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAY_ABBR    = ['Do','Lu','Ma','Mi','Ju','Vi','Sa'];
+const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 function fmt12(iso: string) {
   const d = new Date(iso);
@@ -50,7 +50,7 @@ function weekLabel(dates: Date[]) {
 }
 function greeting(firstName: string) {
   const h = new Date().getHours();
-  const time = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  const time = h < 12 ? 'Buenos días' : h < 18 ? 'Buenas tardes' : 'Buenas noches';
   return `${time}, ${firstName}`;
 }
 function fmtElapsed(seconds: number) {
@@ -125,11 +125,11 @@ function TodayClockCard({
           <Ionicons name="today-outline" size={20} color={accentColor} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[cc.shiftLabel, { color: accentColor }]}>Your shift today</Text>
+          <Text style={[cc.shiftLabel, { color: accentColor }]}>Tu turno de hoy</Text>
           <Text style={cc.shiftTime}>{fmt12(shift.startTime)} – {fmt12(shift.endTime)}</Text>
           {(shift.breakDuration ?? 0) > 0 && (
             <Text style={cc.breakMeta}>
-              <Ionicons name="cafe-outline" size={11} color="#6B7280" /> {shift.breakDuration}min break
+              <Ionicons name="cafe-outline" size={11} color="#6B7280" /> {shift.breakDuration}min descanso
             </Text>
           )}
         </View>
@@ -139,13 +139,13 @@ function TodayClockCard({
               <Animated.View style={[cc.pulseDot, { backgroundColor: accentColor, transform: [{ scale: pulse }] }]} />
             )}
             <Text style={[cc.statusText, { color: accentColor }]}>
-              {onBreak ? 'On break' : 'Active'}
+              {onBreak ? 'En descanso' : 'Activo'}
             </Text>
           </View>
         )}
         {done && (
           <View style={[cc.statusPill, { backgroundColor: '#F3F4F6' }]}>
-            <Text style={[cc.statusText, { color: '#6B7280' }]}>Done</Text>
+            <Text style={[cc.statusText, { color: '#6B7280' }]}>Completado</Text>
           </View>
         )}
       </View>
@@ -154,7 +154,7 @@ function TodayClockCard({
       {status && !done && (
         <View style={cc.timerBlock}>
           <Text style={[cc.timer, { color: accentColor }]}>{fmtElapsed(elapsed)}</Text>
-          <Text style={cc.timerSub}>{onBreak ? 'break time' : 'time worked'}</Text>
+          <Text style={cc.timerSub}>{onBreak ? 'tiempo en descanso' : 'tiempo trabajado'}</Text>
         </View>
       )}
 
@@ -163,7 +163,7 @@ function TodayClockCard({
         <View style={cc.doneSummary}>
           <Ionicons name="checkmark-circle" size={20} color="#10B981" />
           <Text style={cc.doneText}>
-            Shift complete{log?.totalMinutes ? ` · ${Math.floor(log.totalMinutes/60)}h ${log.totalMinutes%60}m worked` : ''}
+            Turno completado{log?.totalMinutes ? ` · ${Math.floor(log.totalMinutes/60)}h ${log.totalMinutes%60}m trabajado` : ''}
           </Text>
         </View>
       )}
@@ -172,22 +172,22 @@ function TodayClockCard({
       {status && (
         <View style={cc.timeline}>
           {log?.clockIn && (
-            <TimelineRow dot={color} label="Clocked in" time={fmt12(log.clockIn)} />
+            <TimelineRow dot={color} label="Entrada" time={fmt12(log.clockIn)} />
           )}
           {(log?.breaks && log.breaks.length > 0
             ? log.breaks
             : (log?.breakStart ? [{ start: log.breakStart, end: log.breakEnd }] : [])
           ).map((b, i) => {
-            const lbl = (log?.breaks?.length ?? 0) > 1 ? `Break ${i + 1}` : 'Break';
+            const lbl = (log?.breaks?.length ?? 0) > 1 ? `Descanso ${i + 1}` : 'Descanso';
             return (
               <View key={i}>
-                <TimelineRow dot="#D97706" label={`${lbl} started`} time={fmt12(b.start)} />
-                {b.end && <TimelineRow dot={color} label={`${lbl} ended`} time={fmt12(b.end)} />}
+                <TimelineRow dot="#D97706" label={`${lbl} inicio`} time={fmt12(b.start)} />
+                {b.end && <TimelineRow dot={color} label={`${lbl} fin`} time={fmt12(b.end)} />}
               </View>
             );
           })}
           {log?.clockOut && (
-            <TimelineRow dot="#10B981" label="Clocked out" time={fmt12(log.clockOut)} />
+            <TimelineRow dot="#10B981" label="Salida" time={fmt12(log.clockOut)} />
           )}
         </View>
       )}
@@ -196,7 +196,7 @@ function TodayClockCard({
       {missed && (
         <View style={cc.warnBanner}>
           <Ionicons name="warning-outline" size={14} color="#92400E" />
-          <Text style={cc.warnText}>Missed break punch — your manager has been notified</Text>
+          <Text style={cc.warnText}>Marcaje de descanso perdido — tu gerente ha sido notificado</Text>
         </View>
       )}
 
@@ -207,7 +207,7 @@ function TodayClockCard({
         new Date() > new Date(shift.endTime) ? (
           <View style={cc.closedRow}>
             <Ionicons name="time-outline" size={16} color="#6B7280" />
-            <Text style={cc.closedText}>Clock-in window closed</Text>
+            <Text style={cc.closedText}>Ventana de entrada cerrada</Text>
           </View>
         ) : (
           <Pressable
@@ -218,7 +218,7 @@ function TodayClockCard({
             <Animated.View style={{ transform: [{ scale: btnScale }] }}>
               <LinearGradient colors={[color + 'DD', color]} start={{x:0,y:0}} end={{x:1,y:1}} style={cc.primaryBtn}>
                 <Ionicons name="log-in-outline" size={18} color="#fff" />
-                <Text style={cc.primaryBtnText}>Clock In</Text>
+                <Text style={cc.primaryBtnText}>Marcar Entrada</Text>
               </LinearGradient>
             </Animated.View>
           </Pressable>
@@ -227,11 +227,11 @@ function TodayClockCard({
         <View style={cc.btnRow}>
           <TouchableOpacity onPress={onBreakStart} style={[cc.outlineBtn, { borderColor: '#D97706' }]}>
             <Ionicons name="cafe-outline" size={15} color="#D97706" />
-            <Text style={[cc.outlineBtnText, { color: '#D97706' }]}>Break</Text>
+            <Text style={[cc.outlineBtnText, { color: '#D97706' }]}>Descanso</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onClockOut} style={[cc.outlineBtn, { borderColor: '#EF4444' }]}>
             <Ionicons name="log-out-outline" size={15} color="#EF4444" />
-            <Text style={[cc.outlineBtnText, { color: '#EF4444' }]}>Clock Out</Text>
+            <Text style={[cc.outlineBtnText, { color: '#EF4444' }]}>Marcar Salida</Text>
           </TouchableOpacity>
         </View>
       ) : onBreak ? (
@@ -243,7 +243,7 @@ function TodayClockCard({
           <Animated.View style={{ transform: [{ scale: btnScale }] }}>
             <LinearGradient colors={['#F59E0B', '#D97706']} start={{x:0,y:0}} end={{x:1,y:1}} style={cc.primaryBtn}>
               <Ionicons name="play-outline" size={18} color="#fff" />
-              <Text style={cc.primaryBtnText}>End Break</Text>
+              <Text style={cc.primaryBtnText}>Terminar Descanso</Text>
             </LinearGradient>
           </Animated.View>
         </Pressable>
@@ -330,7 +330,7 @@ function ShiftCard({ shift, color, dimmed = false, showDate = false }: { shift: 
         </View>
         {!dimmed && (
           <View style={[sc.badge, { backgroundColor: color + '15' }]}>
-            <Text style={[sc.badgeText, { color }]}>Upcoming</Text>
+            <Text style={[sc.badgeText, { color }]}>Próximo</Text>
           </View>
         )}
       </View>
@@ -415,9 +415,9 @@ export default function MyShiftsScreen() {
   };
   const handleClockOut = async () => {
     if (!timeLog) return;
-    Alert.alert('Clock Out', 'Are you sure you want to clock out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clock Out', style: 'destructive', onPress: async () => {
+    Alert.alert('Marcar Salida', '¿Estás seguro de que quieres marcar salida?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Marcar Salida', style: 'destructive', onPress: async () => {
         setClockLoading(true);
         try { setTimeLog(await api.clockOut(timeLog.logId)); }
         catch (err: any) { Alert.alert('Error', err.message); }
@@ -523,11 +523,11 @@ export default function MyShiftsScreen() {
                 <Ionicons name="moon-outline" size={20} color="#6B7280" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={st.noTodayLabel}>No shift today</Text>
+                <Text style={st.noTodayLabel}>Sin turno hoy</Text>
                 <Text style={st.noTodayNext}>
                   {nextShift
-                    ? `Next: ${new Date(nextShift.startTime).toLocaleDateString([], { weekday:'long', month:'short', day:'numeric' })} · ${fmt12(nextShift.startTime)}`
-                    : 'No upcoming shifts scheduled'}
+                    ? `Próximo: ${new Date(nextShift.startTime).toLocaleDateString('es', { weekday:'long', month:'short', day:'numeric' })} · ${fmt12(nextShift.startTime)}`
+                    : 'No tienes turnos próximos'}
                 </Text>
               </View>
             </View>
@@ -542,15 +542,15 @@ export default function MyShiftsScreen() {
           {tomorrowShift ? (
             <View style={[st.tomorrowChip, { borderColor: 'rgba(0,0,0,0.08)', backgroundColor: '#fff' }]}>
               <Ionicons name="sunny-outline" size={15} color={color} />
-              <Text style={[st.tomorrowLabel, { color }]}>Tomorrow</Text>
+              <Text style={[st.tomorrowLabel, { color }]}>Mañana</Text>
               <Text style={[st.tomorrowTitle, { color: '#111827' }]}>{tomorrowShift.title}</Text>
               <Text style={[st.tomorrowTime, { color }]}>{fmt12(tomorrowShift.startTime)}</Text>
             </View>
           ) : (
             <View style={[st.tomorrowChip, { borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' }]}>
               <Ionicons name="moon-outline" size={15} color="#6B7280" />
-              <Text style={[st.tomorrowLabel, { color: '#374151' }]}>Tomorrow</Text>
-              <Text style={[st.tomorrowTitle, { color: '#374151' }]}>No shift scheduled</Text>
+              <Text style={[st.tomorrowLabel, { color: '#374151' }]}>Mañana</Text>
+              <Text style={[st.tomorrowTitle, { color: '#374151' }]}>Sin turno programado</Text>
             </View>
           )}
         </Animated.View>
@@ -559,18 +559,18 @@ export default function MyShiftsScreen() {
         <View style={st.section}>
           <View style={st.listLabelRow}>
             <Text style={st.listLabel}>
-              {weekOffset === 0 ? 'This week' : `Week of ${MONTH_SHORT[weekDates[0].getMonth()]} ${weekDates[0].getDate()}`}
+              {weekOffset === 0 ? 'Esta semana' : `Semana del ${weekDates[0].getDate()} de ${MONTH_SHORT[weekDates[0].getMonth()]}`}
               {weekShifts.length > 0 ? `  ·  ${weekShifts.length} shift${weekShifts.length !== 1 ? 's' : ''}` : ''}
             </Text>
             {weekOffset === 0 ? (
               <View style={[st.currentWeekBadge, { backgroundColor: color }]}>
                 <View style={[st.currentWeekDot, { backgroundColor: '#fff' }]} />
-                <Text style={st.currentWeekText}>Current week</Text>
+                <Text style={st.currentWeekText}>Semana actual</Text>
               </View>
             ) : (
               <TouchableOpacity onPress={() => setWeekOffset(0)} style={[st.backTodayBtn, { borderColor: color }]}>
                 <Ionicons name="return-up-back-outline" size={13} color={color} />
-                <Text style={[st.backTodayText, { color }]}>Back to today</Text>
+                <Text style={[st.backTodayText, { color }]}>Volver a hoy</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -588,7 +588,7 @@ export default function MyShiftsScreen() {
           ) : (
             <View style={st.emptyState}>
               <Ionicons name="calendar-outline" size={30} color="#D1D5DB" />
-              <Text style={st.emptyText}>No shifts this week</Text>
+              <Text style={st.emptyText}>Sin turnos esta semana</Text>
             </View>
           )}
 
@@ -605,7 +605,7 @@ export default function MyShiftsScreen() {
         {/* ── Past shifts ── */}
         {pastShifts.length > 0 && (
           <View style={st.section}>
-            <Text style={st.listLabel}>Past shifts</Text>
+            <Text style={st.listLabel}>Turnos anteriores</Text>
             {pastShifts.slice(-5).reverse().map(s =>
               <ShiftCard key={s.shiftId} shift={s} color={color} dimmed showDate />
             )}
