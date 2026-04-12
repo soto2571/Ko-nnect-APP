@@ -113,7 +113,6 @@ async function request<T>(
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export async function checkEmailProvider(email: string): Promise<string | null> {
-  const { SUPABASE_FUNCTIONS_URL } = await import('@/constants');
   const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/auth-check-provider`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

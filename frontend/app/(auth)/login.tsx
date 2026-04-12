@@ -14,8 +14,7 @@ import { GoogleLogo } from '@/components/GoogleLogo';
 import { supabase } from '@/lib/supabase';
 import { checkEmailProvider } from '@/services/api';
 
-const BRAND   = '#E11D48';
-const BRAND_L = '#FF6B8A';
+const BRAND = '#E11D48';
 
 export default function LoginScreen() {
   const { login, signInWithGoogle } = useAuth();
@@ -298,7 +297,7 @@ export default function LoginScreen() {
 
         {/* Footer */}
         <Animated.View style={[s.footer, { opacity: cardAnim }]}>
-          <Text style={s.footerText}>Ko-nnecta' · Turnos sin complique</Text>
+          <Text style={s.footerText}>Ko-nnecta' · Mantén a tu equipo siempre connecta'o.</Text>
         </Animated.View>
 
       </View>

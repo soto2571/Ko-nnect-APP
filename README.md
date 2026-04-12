@@ -4,7 +4,7 @@ App móvil de manejo de turnos para negocios pequeños y medianos de Puerto Rico
 Reemplaza el papel, el Excel y los mensajes de WhatsApp para coordinar horarios.
 
 **Idioma de la interfaz:** Español  
-**Tagline:** "Turnos sin complique"
+**Tagline:** "Mantén a tu equipo siempre connecta'o."
 
 ---
 

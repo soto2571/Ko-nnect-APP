@@ -242,7 +242,7 @@ export default function EmployeeLoginScreen() {
 
         {/* Footer */}
         <Animated.View style={[s.footer, { opacity: cardAnim }]}>
-          <Text style={s.footerText}>Ko-nnecta' · Turnos sin complique</Text>
+          <Text style={s.footerText}>Ko-nnecta' · Mantén a tu equipo siempre connecta'o.</Text>
         </Animated.View>
 
       </View>
