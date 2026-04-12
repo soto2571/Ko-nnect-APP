@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
+import { checkEmailProvider } from '@/services/api';
 
 const BRAND = '#3B82F6'; // Blue for employee — distinct from owner red
 
@@ -62,6 +63,12 @@ export default function EmployeeLoginScreen() {
     if (!resetEmail.trim()) { setResetMsg('Por favor ingresa tu correo.'); setResetIsError(true); return; }
     setResetLoading(true);
     try {
+      const provider = await checkEmailProvider(resetEmail.trim().toLowerCase());
+      if (provider === 'google') {
+        setResetMsg('Tu cuenta fue creada con Google. Usa "Continuar con Google" en la pantalla anterior para acceder o cambia tu contraseña desde tu cuenta de Google.');
+        setResetIsError(true);
+        return;
+      }
       const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
         resetEmail.trim().toLowerCase(),
         { redirectTo: 'konnect://reset-password' },
@@ -150,7 +157,7 @@ export default function EmployeeLoginScreen() {
                 </View>
               )}
 
-              {resetMsg !== 'Revisa tu correo para el enlace de recuperación.' && (
+              {resetMsg !== 'Revisa tu correo para el enlace de recuperación.' && !resetMsg.startsWith('Tu cuenta fue creada con Google') && (
                 <Pressable
                   onPressIn={() => Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start()}
                   onPressOut={() => Animated.spring(btnScale, { toValue: 1, useNativeDriver: true }).start()}
@@ -167,7 +174,7 @@ export default function EmployeeLoginScreen() {
                 </Pressable>
               )}
 
-              {resetMsg === 'Revisa tu correo para el enlace de recuperación.' && (
+              {(resetMsg === 'Revisa tu correo para el enlace de recuperación.' || resetMsg.startsWith('Tu cuenta fue creada con Google')) && (
                 <TouchableOpacity onPress={exitForgot} style={s.secondaryBtn}>
                   <Text style={[s.secondaryBtnText, { color: BRAND }]}>Volver al inicio de sesión</Text>
                 </TouchableOpacity>

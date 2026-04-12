@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GoogleLogo } from '@/components/GoogleLogo';
 import { supabase } from '@/lib/supabase';
+import { checkEmailProvider } from '@/services/api';
 
 const BRAND   = '#E11D48';
 const BRAND_L = '#FF6B8A';
@@ -79,6 +80,12 @@ export default function LoginScreen() {
     if (!resetEmail.trim()) { setResetMsg('Por favor ingresa tu correo.'); setResetIsError(true); return; }
     setResetLoading(true);
     try {
+      const provider = await checkEmailProvider(resetEmail.trim().toLowerCase());
+      if (provider === 'google') {
+        setResetMsg('Tu cuenta fue creada con Google. Usa "Continuar con Google" para acceder o cambia tu contraseña desde tu cuenta de Google.');
+        setResetIsError(true);
+        return;
+      }
       const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
         resetEmail.trim().toLowerCase(),
         { redirectTo: 'konnect://reset-password' },
@@ -173,7 +180,7 @@ export default function LoginScreen() {
               )}
 
               {/* Send reset link button */}
-              {resetMsg !== 'Revisa tu correo para el enlace de recuperación.' && (
+              {resetMsg !== 'Revisa tu correo para el enlace de recuperación.' && !resetMsg.startsWith('Tu cuenta fue creada con Google') && (
                 <Pressable
                   onPressIn={() => Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start()}
                   onPressOut={() => Animated.spring(btnScale, { toValue: 1, useNativeDriver: true }).start()}
@@ -190,8 +197,8 @@ export default function LoginScreen() {
                 </Pressable>
               )}
 
-              {/* After success — back to sign in */}
-              {resetMsg === 'Revisa tu correo para el enlace de recuperación.' && (
+              {/* After success or Google account — back to sign in */}
+              {(resetMsg === 'Revisa tu correo para el enlace de recuperación.' || resetMsg.startsWith('Tu cuenta fue creada con Google')) && (
                 <TouchableOpacity onPress={exitForgot} style={s.secondaryBtn}>
                   <Text style={s.secondaryBtnText}>Volver al inicio de sesión</Text>
                 </TouchableOpacity>

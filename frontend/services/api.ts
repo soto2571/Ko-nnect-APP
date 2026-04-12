@@ -112,6 +112,17 @@ async function request<T>(
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
+export async function checkEmailProvider(email: string): Promise<string | null> {
+  const { SUPABASE_FUNCTIONS_URL } = await import('@/constants');
+  const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/auth-check-provider`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const json = await res.json();
+  return json?.data?.provider ?? null;
+}
+
 export async function signup(payload: {
   email: string;
   password: string;
