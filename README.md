@@ -1,129 +1,140 @@
-# Ko-nnect
+# Ko-nnecta'
 
-Shift scheduling mobile app for small and medium Puerto Rican businesses (2–15 employees). Replaces paper, Excel, and WhatsApp scheduling.
+App móvil de manejo de turnos para negocios pequeños y medianos de Puerto Rico (2–15 empleados).  
+Reemplaza el papel, el Excel y los mensajes de WhatsApp para coordinar horarios.
 
-**UI language:** Spanish  
+**Idioma de la interfaz:** Español  
 **Tagline:** "Turnos sin complique"
 
 ---
 
-## Stack
+## ¿Para quién es Ko-nnecta'?
 
-| Layer | Technology |
-|---|---|
-| Frontend | React Native + Expo + TypeScript (expo-router) |
-| Backend | Supabase Edge Functions (Deno runtime) |
-| Auth | Supabase Auth — JWT stored in `expo-secure-store` |
-| Database | Supabase Postgres |
+Ko-nnecta' está diseñada para el patrono puertorriqueño que maneja su equipo sin un sistema de recursos humanos formal — restaurantes, salones, tiendas, talleres, clínicas pequeñas y cualquier negocio donde los turnos se coordinan por WhatsApp o en papel. La app le da al dueño control total del horario desde el celular, y al empleado una vista clara de sus turnos sin tener que preguntarle a nadie.
 
 ---
 
-## Project Structure
+## Tecnología utilizada
+
+| Capa | Tecnología |
+|---|---|
+| Frontend | React Native + Expo + TypeScript (expo-router) |
+| Backend | Supabase Edge Functions (runtime Deno) |
+| Autenticación | Supabase Auth — JWT guardado en `expo-secure-store` |
+| Base de datos | Supabase Postgres |
+
+---
+
+## Estructura del proyecto
 
 ```
 Ko-nnect-APP/
 ├── frontend/
 │   ├── app/
 │   │   ├── (auth)/           # login.tsx, signup.tsx, employee-login.tsx, role-select.tsx
-│   │   ├── (owner)/          # index.tsx (dashboard), employees.tsx, timeclock.tsx, settings.tsx
-│   │   └── (employee)/       # index.tsx (my shifts), profile.tsx
+│   │   ├── (owner)/          # index.tsx (tablero), employees.tsx, timeclock.tsx, settings.tsx
+│   │   └── (employee)/       # index.tsx (mis turnos), profile.tsx
 │   ├── components/           # AnimatedBackground, GoogleLogo, GlassCard
-│   ├── context/              # AuthContext.tsx — single source of truth for user/business/primaryColor
-│   ├── services/             # api.ts — all API calls
-│   ├── types/                # index.ts — shared TypeScript types
-│   └── lib/                  # supabase.ts — Supabase client
+│   ├── context/              # AuthContext.tsx — fuente única de verdad para usuario/negocio/color
+│   ├── services/             # api.ts — todas las llamadas a la API
+│   ├── types/                # index.ts — tipos TypeScript compartidos
+│   └── lib/                  # supabase.ts — cliente de Supabase
 └── supabase/
     └── functions/
         ├── _shared/          # cors.ts, supabase.ts (getServiceClient, getUserClient)
-        └── [30 functions]    # one folder per edge function
+        └── [31 funciones]    # una carpeta por edge function
 ```
 
 ---
 
 ## Roles
 
-- **owner** — creates a business, manages employees, shifts, and time logs
-- **employee** — views their own shifts only, no access to business data
+- **owner (dueño)** — crea el negocio, maneja empleados, turnos y registros de tiempo
+- **employee (empleado)** — ve únicamente sus propios turnos, sin acceso a datos del negocio
 
 ---
 
-## Auth Flow
+## Flujo de autenticación
 
-### Owner login options
-1. **Google OAuth** — recommended path, Google manages the password
-2. **Email + password** — manual credentials created at signup
+### Opciones de acceso para el dueño
+1. **Google OAuth** — opción recomendada; Google maneja la contraseña
+2. **Correo + contraseña** — credenciales creadas manualmente al registrarse
 
-### Token handling
-- Tokens stored manually via `expo-secure-store` (`konnect_token`, `konnect_refresh`)
-- `AuthContext` restores session on startup via `supabase.auth.setSession()`
-- `getValidToken()` in `api.ts` handles token refresh before every request
-- `onAuthStateChange('TOKEN_REFRESHED')` syncs new tokens back to SecureStore
+### Manejo de tokens
+- Tokens guardados manualmente vía `expo-secure-store` (`konnect_token`, `konnect_refresh`)
+- `AuthContext` restaura la sesión al iniciar la app con `supabase.auth.setSession()`
+- `getValidToken()` en `api.ts` refresca el token antes de cada solicitud
+- `onAuthStateChange('TOKEN_REFRESHED')` sincroniza los nuevos tokens a SecureStore
 
-### Employee login
-- Auto-generated credentials on creation: `firstname.lastname@businessname.app`
-- Default password: `firstnamelastname` + 4 random digits
-- Stored in `tempPassword` field on the employee record
-- Collision-safe: iterates suffix (`john.smith2@...`) if email is taken
-- Employees log in via a separate screen (`employee-login.tsx`)
+### Acceso de empleados
+- Credenciales generadas automáticamente al añadir el empleado: `nombre.apellido@nombregocio.app`
+- Contraseña por defecto: `nombresapellido` + 4 dígitos aleatorios
+- Guardada en el campo `tempPassword` del registro del empleado
+- Sin colisión: itera sufijo (`john.smith2@...`) si el correo ya existe
+- Los empleados acceden por una pantalla separada (`employee-login.tsx`)
+
+### Recuperación de contraseña
+- Si el correo está vinculado a Google, la app detecta el proveedor y le indica al usuario que use "Continuar con Google" — no se envía enlace de recuperación
+- Si es cuenta de correo, Supabase envía el enlace de restablecimiento normalmente
 
 ---
 
-## Edge Functions (30 total)
+## Edge Functions (31 en total)
 
-All functions deployed with `--no-verify-jwt`. Auth is verified inside each function via `getUserClient(auth).auth.getUser()`.
+Todas las funciones se despliegan con `--no-verify-jwt`. La autenticación se verifica dentro de cada función con `getUserClient(auth).auth.getUser()`.
 
-| Domain | Functions |
+| Dominio | Funciones |
 |---|---|
 | Auth | `auth-login`, `auth-signup`, `auth-profile`, `auth-change-password`, `auth-check-provider` |
-| Business | `business-create`, `business-get`, `business-update` |
-| Employees | `employees-add`, `employees-list`, `employees-update`, `employees-delete`, `employees-reset-pin` |
-| Shifts | `shifts-create`, `shifts-get`, `shifts-assign`, `shifts-delete`, `shifts-my` |
-| Time Clock | `timelog-clock-in`, `timelog-clock-out`, `timelog-break-start`, `timelog-break-end`, `timelog-list`, `timelog-my`, `timelog-active`, `timelog-update` |
-| Availability | `availability-set`, `availability-get` |
+| Negocio | `business-create`, `business-get`, `business-update` |
+| Empleados | `employees-add`, `employees-list`, `employees-update`, `employees-delete`, `employees-reset-pin` |
+| Turnos | `shifts-create`, `shifts-get`, `shifts-assign`, `shifts-delete`, `shifts-my` |
+| Reloj de tiempo | `timelog-clock-in`, `timelog-clock-out`, `timelog-break-start`, `timelog-break-end`, `timelog-list`, `timelog-my`, `timelog-active`, `timelog-update` |
+| Disponibilidad | `availability-set`, `availability-get` |
 | PTO | `pto-add`, `pto-list` |
 
-**Deploy all functions:**
+**Desplegar todas las funciones:**
 ```bash
 npx supabase functions deploy --no-verify-jwt --project-ref izfcsiqucpkroylkgjei
 ```
 
-**Deploy a single function:**
+**Desplegar una función específica:**
 ```bash
-npx supabase functions deploy <function-name> --no-verify-jwt --project-ref izfcsiqucpkroylkgjei
+npx supabase functions deploy <nombre-funcion> --no-verify-jwt --project-ref izfcsiqucpkroylkgjei
 ```
 
 ---
 
-## UI Conventions
+## Convenciones de UI
 
-- **`AnimatedBackground`** — always wrap screen backgrounds with this, never use `LinearGradient` directly
-  - Auth screens: white/blush base with brand-colored blobs (`primaryColor={BRAND}`)
-  - App screens: pass `primaryColor` from `useAuth()` to match the business color
-- **`GoogleLogo`** — use for Google sign-in buttons, never a plain text "G"
-- **`GlassCard`** — use for card containers throughout the app
-- **Brand constant** in auth screens: `const BRAND = '#E11D48'`
-- `StatusBar style="dark"` on light backgrounds, `"light"` on dark backgrounds
-- `primaryColor` defaults to `#4F46E5` before a business is loaded
+- **`AnimatedBackground`** — siempre usar para fondos de pantalla, nunca `LinearGradient` directamente
+  - Pantallas de auth: base blanca/rosada con blobs del color de marca (`primaryColor={BRAND}`)
+  - Pantallas de la app: pasar `primaryColor` desde `useAuth()` para coincidir con el color del negocio
+- **`GoogleLogo`** — usar para botones de Google, nunca una "G" de texto plano
+- **`GlassCard`** — usar para contenedores de tarjetas en toda la app
+- **Constante de marca** en pantallas de auth: `const BRAND = '#E11D48'`
+- `StatusBar style="dark"` en fondos claros, `"light"` en fondos oscuros
+- `primaryColor` por defecto es `#4F46E5` antes de cargar un negocio
 
 ---
 
-## Business Settings
+## Configuración del negocio
 
-Owners can configure:
-- Business name and brand color
+El dueño puede configurar:
+- Nombre del negocio y color de marca
 - Logo
-- Pay period type: `weekly`, `biweekly`, or `semi-monthly`
-- Pay period start day and anchor date
-- Open days of the week
-- Max hours per day (0 = no limit)
-- Auto clock-out toggle and minutes
-- Scheduling window (weeks ahead/back to show)
+- Período de pago: `semanal`, `bisemanal`, o `quincenal`
+- Día de inicio del período de pago y fecha ancla
+- Días laborables de la semana
+- Horas máximas por día (0 = sin límite)
+- Salida automática y minutos para activarla
+- Ventana de horario (semanas hacia adelante/atrás a mostrar)
 
 ---
 
-## Data Types
+## Tipos de datos principales
 
-| Type | Key Fields |
+| Tipo | Campos clave |
 |---|---|
 | `User` | `userId`, `email`, `firstName`, `lastName`, `role`, `businessId`, `provider` |
 | `Business` | `businessId`, `name`, `color`, `ownerId`, `payPeriodType`, `openDays` |
@@ -135,28 +146,28 @@ Owners can configure:
 
 ---
 
-## Key Rules
+## Reglas clave del proyecto
 
-- **Never** remove `--no-verify-jwt` from function deploys — without it, Supabase rejects all requests before the function runs
-- **Never** use `LinearGradient` directly — always use `AnimatedBackground`
-- Edge functions run on **Deno**, not Node — use `https://esm.sh/` imports, not `npm:`
-- **Never** add `persistSession: true` to the Supabase client — token persistence is handled manually via SecureStore
-- Use `getServiceClient()` for DB writes, `getUserClient(authHeader)` for user validation inside edge functions
+- **Nunca** quitar `--no-verify-jwt` de los deploys — sin eso, Supabase rechaza todas las solicitudes antes de que la función corra
+- **Nunca** usar `LinearGradient` directamente — siempre usar `AnimatedBackground`
+- Las edge functions corren en **Deno**, no Node — usar imports de `https://esm.sh/`, no `npm:`
+- **Nunca** añadir `persistSession: true` al cliente de Supabase — la persistencia de tokens se maneja manualmente con SecureStore
+- Usar `getServiceClient()` para escrituras en la BD, `getUserClient(authHeader)` para validar usuarios dentro de las edge functions
 
 ---
 
-## Local Development
+## Desarrollo local
 
 ```bash
-# Install dependencies
+# Instalar dependencias
 cd frontend && npm install
 
-# Start Expo
+# Iniciar Expo
 npx expo start
 
-# Run on iOS simulator
+# Correr en simulador iOS
 npx expo run:ios
 
-# Run on Android emulator
+# Correr en emulador Android
 npx expo run:android
 ```
