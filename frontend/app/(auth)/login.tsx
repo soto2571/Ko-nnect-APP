@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GoogleLogo } from '@/components/GoogleLogo';
 import { supabase } from '@/lib/supabase';
 import { checkEmailProvider } from '@/services/api';
+import * as Linking from 'expo-linking';
 
 const BRAND = '#E11D48';
 
@@ -85,9 +86,10 @@ export default function LoginScreen() {
         setResetIsError(true);
         return;
       }
+      const redirectTo = Linking.createURL('/reset-password');
       const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
         resetEmail.trim().toLowerCase(),
-        { redirectTo: 'konnect://reset-password' },
+        { redirectTo },
       );
       if (resetErr) throw resetErr;
       setResetMsg('Revisa tu correo para el enlace de recuperación.');
@@ -129,7 +131,6 @@ export default function LoginScreen() {
             <Ionicons name="chevron-back" size={18} color={BRAND} />
           </TouchableOpacity>
           <Image source={require('@/assets/konnectaBigWhite.png')} style={s.logoImg} resizeMode="contain" />
-          <Text style={s.tagline}>Tu equipo, siempre conecta'o.</Text>
         </Animated.View>
 
         {/* Card */}
@@ -293,11 +294,6 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </>
           )}
-        </Animated.View>
-
-        {/* Footer */}
-        <Animated.View style={[s.footer, { opacity: cardAnim }]}>
-          <Text style={s.footerText}>Ko-nnecta' · Mantén a tu equipo siempre connecta'o.</Text>
         </Animated.View>
 
       </View>

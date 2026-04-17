@@ -5,18 +5,18 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
     const { email, password } = await req.json();
-    if (!email || !password) return err('Missing email or password');
+    if (!email || !password) return err('Ingresa tu correo y contraseña.');
 
     const sb = getServiceClient();
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) return err('Invalid credentials', 401);
+    if (error) return err('Credenciales incorrectas.', 401);
 
     const userId = data.user.id;
 
     // Fetch user profile
     const { data: profile, error: profileErr } = await sb
       .from('users').select('*').eq('userId', userId).single();
-    if (profileErr) return err('User profile not found', 404);
+    if (profileErr) return err('Perfil de usuario no encontrado.', 404);
 
     return cors({
       success: true,
@@ -34,6 +34,6 @@ Deno.serve(async (req) => {
       },
     });
   } catch (e) {
-    return err('Internal server error', 500);
+    return err('Error interno del servidor.', 500);
   }
 });

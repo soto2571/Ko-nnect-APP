@@ -1,0 +1,18 @@
+{
+  "name": "konnecta-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx run.ts",
+    "test:auth": "tsx run.ts auth",
+    "test:business": "tsx run.ts business",
+    "test:employees": "tsx run.ts employees",
+    "test:shifts": "tsx run.ts shifts",
+    "test:timeclock": "tsx run.ts timeclock",
+    "test:payroll": "tsx run.ts payroll"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}

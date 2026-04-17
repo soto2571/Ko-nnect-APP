@@ -94,14 +94,15 @@ export default function SettingsScreen() {
       <AnimatedBackground primaryColor={primaryColor} />
 
       <ScrollView
-        contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 50, paddingTop: insets.top + 12 }}
+        contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: insets.bottom + 80, paddingTop: insets.top + 12 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Business Profile */}
-        <View style={s.card}>
-          <Text style={s.cardTitle}>Perfil del Negocio</Text>
+        {/* Page title */}
+        <Text style={s.pageTitle}>Ajustes</Text>
 
-          <Text style={s.label}>Nombre del Negocio</Text>
+        {/* 1 — Business Name */}
+        <View style={s.card}>
+          <Text style={s.cardLabel}>Nombre del Negocio</Text>
           <TextInput
             style={s.input}
             placeholder="Nombre de tu negocio"
@@ -109,23 +110,11 @@ export default function SettingsScreen() {
             value={name}
             onChangeText={setName}
           />
+        </View>
 
-          <Text style={s.label}>Color del Negocio</Text>
-          <View style={s.colorRow}>
-            {PRESET_COLORS.map(c => (
-              <TouchableOpacity
-                key={c}
-                style={[s.swatch, { backgroundColor: c }, color===c && s.swatchSelected]}
-                onPress={() => setColor(c)}
-              />
-            ))}
-          </View>
-
-          <View style={[s.preview, { backgroundColor: color }]}>
-            <Text style={s.previewText}>Ko-nnecta' — {name || 'Tu Negocio'}</Text>
-          </View>
-
-          <Text style={s.label}>Período de Pago</Text>
+        {/* 2 — Pay Period */}
+        <View style={s.card}>
+          <Text style={s.cardLabel}>Período de Pago</Text>
           <View style={s.segRow}>
             {(['weekly','biweekly','semi-monthly'] as const).map(t => (
               <TouchableOpacity key={t}
@@ -140,7 +129,7 @@ export default function SettingsScreen() {
 
           {(payPeriodType==='weekly' || payPeriodType==='biweekly') && (
             <>
-              <Text style={s.label}>La semana empieza el</Text>
+              <Text style={s.sublabel}>La semana empieza el</Text>
               <View style={s.segRow}>
                 {['Do','Lu','Ma','Mi','Ju','Vi','Sa'].map((d,i) => (
                   <TouchableOpacity key={i}
@@ -162,7 +151,7 @@ export default function SettingsScreen() {
             const fmtLabel = (d: Date) => d.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' });
             return (
               <>
-                <Text style={s.label}>¿Cuándo comenzó tu período actual?</Text>
+                <Text style={s.sublabel}>¿Cuándo comenzó tu período actual?</Text>
                 <View style={s.anchorRow}>
                   {[last, prev].map(d => {
                     const val = fmt(d);
@@ -178,7 +167,7 @@ export default function SettingsScreen() {
                 </View>
                 <View style={s.hintRow}>
                   <Ionicons name="information-circle-outline" size={14} color="#9CA3AF" />
-                  <Text style={s.hintText}>Selecciona el día en que realmente comenzó tu período de pago más reciente.</Text>
+                  <Text style={s.hintText}>Selecciona el día en que comenzó tu período de pago más reciente.</Text>
                 </View>
               </>
             );
@@ -190,34 +179,13 @@ export default function SettingsScreen() {
               <Text style={s.hintText}>Períodos de pago: 1–15 y 16–fin de mes</Text>
             </View>
           )}
-
-          <TouchableOpacity style={[s.saveBtn, { backgroundColor: color }]} onPress={handleSave} disabled={saving}>
-            {saving
-              ? <ActivityIndicator color="#fff"/>
-              : <Text style={s.saveBtnText}>{isNew ? 'Crear Negocio' : 'Guardar Cambios'}</Text>
-            }
-          </TouchableOpacity>
         </View>
 
-        {/* Scheduling Rules */}
+        {/* 3 — Scheduling Rules */}
         <View style={s.card}>
-          <Text style={s.cardTitle}>Reglas de Horario</Text>
+          <Text style={s.cardLabel}>Reglas de Horario</Text>
 
-          <Text style={s.label}>Días Laborables</Text>
-          <View style={s.segRow}>
-            {['Do','Lu','Ma','Mi','Ju','Vi','Sa'].map((d, i) => {
-              const on = openDays.includes(i);
-              return (
-                <TouchableOpacity key={i}
-                  style={[s.dayBtn, on && { backgroundColor: color, borderColor: color }]}
-                  onPress={() => setOpenDays(on ? openDays.filter(x => x !== i) : [...openDays, i].sort())}>
-                  <Text style={[s.dayBtnText, on && { color: '#fff' }]}>{d}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <Text style={s.label}>Horas Máx. por Día <Text style={{ color:'#C4C4CE' }}>(0 = sin límite)</Text></Text>
+          <Text style={s.sublabel}>Horas Máx. por Día</Text>
           <View style={s.stepperRow}>
             <TouchableOpacity style={s.stepperBtn} onPress={() => setMaxHoursPerDay(Math.max(0, maxHoursPerDay - 1))}>
               <Ionicons name="remove" size={18} color="#374151" />
@@ -228,7 +196,10 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={s.label}>Ventana de Horario <Text style={{ color:'#C4C4CE' }}>(semanas hacia adelante que puedes programar)</Text></Text>
+          <View style={s.thinDivider} />
+
+          <Text style={s.sublabel}>Ventana de Horario</Text>
+          <Text style={s.hint}>Semanas hacia adelante que puedes programar</Text>
           <View style={s.stepperRow}>
             <TouchableOpacity style={s.stepperBtn} onPress={() => setSchedulingWeeks(Math.max(1, schedulingWeeks - 1))}>
               <Ionicons name="remove" size={18} color="#374151" />
@@ -239,10 +210,12 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
+          <View style={s.thinDivider} />
+
           <View style={s.switchRow}>
             <View style={{ flex: 1 }}>
               <Text style={s.switchLabel}>Salida Automática</Text>
-              <Text style={s.switchSub}>Marca salida automáticamente a los empleados después de un tiempo</Text>
+              <Text style={s.switchSub}>Marca salida tras fin del turno</Text>
             </View>
             <Switch
               value={autoClockOut}
@@ -254,7 +227,7 @@ export default function SettingsScreen() {
 
           {autoClockOut && (
             <>
-              <Text style={s.label}>Marcar Salida Después de (minutos tras fin del turno)</Text>
+              <Text style={s.sublabel}>Minutos después del turno</Text>
               <View style={s.stepperRow}>
                 <TouchableOpacity style={s.stepperBtn} onPress={() => setAutoClockOutMinutes(Math.max(5, autoClockOutMinutes - 5))}>
                   <Ionicons name="remove" size={18} color="#374151" />
@@ -266,36 +239,46 @@ export default function SettingsScreen() {
               </View>
             </>
           )}
-
-          <TouchableOpacity style={[s.saveBtn, { backgroundColor: color }]} onPress={handleSave} disabled={saving}>
-            {saving
-              ? <ActivityIndicator color="#fff"/>
-              : <Text style={s.saveBtnText}>Guardar Cambios</Text>
-            }
-          </TouchableOpacity>
         </View>
 
-        {/* Account */}
+        {/* 4 — Color */}
         <View style={s.card}>
-          <Text style={s.cardTitle}>Cuenta</Text>
-          <View style={s.infoRow}>
-            <Ionicons name="person-outline" size={17} color="#9CA3AF" />
-            <Text style={s.infoText}>{user?.email}</Text>
+          <Text style={s.cardLabel}>Color del Negocio</Text>
+          <View style={s.colorRow}>
+            {PRESET_COLORS.map(c => (
+              <TouchableOpacity
+                key={c}
+                style={[s.swatch, { backgroundColor: c }, color===c && { borderWidth: 3, borderColor: '#111827' }]}
+                onPress={() => setColor(c)}
+              />
+            ))}
           </View>
-          <View style={s.infoRow}>
-            <Ionicons name="shield-outline" size={17} color="#9CA3AF" />
-            <Text style={s.infoText}>Rol: {user?.role}</Text>
+        </View>
+
+        {/* 5 — Account */}
+        <View style={s.card}>
+          <Text style={s.cardLabel}>Cuenta</Text>
+
+          <View style={s.accountRow}>
+            <Ionicons name="mail-outline" size={16} color="#9CA3AF" />
+            <Text style={s.accountValue}>{user?.email}</Text>
           </View>
+
+          <View style={s.accountRow}>
+            <Ionicons name="shield-outline" size={16} color="#9CA3AF" />
+            <Text style={s.accountValue}>Rol: {user?.role === 'owner' ? 'Dueño' : user?.role}</Text>
+          </View>
+
           <TouchableOpacity style={s.logoutBtn} onPress={logout}>
             <Ionicons name="log-out-outline" size={17} color="#EF4444" />
             <Text style={s.logoutText}>Cerrar Sesión</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Change Password — hidden for Google sign-in users */}
+        {/* 6 — Change Password (not for Google users) */}
         {!isGoogleUser && (
           <View style={s.card}>
-            <Text style={s.cardTitle}>Cambiar Contraseña</Text>
+            <Text style={s.cardLabel}>Cambiar Contraseña</Text>
             <TextInput style={s.input} placeholder="Contraseña actual" placeholderTextColor="#C4C4CE"
               value={currentPw} onChangeText={setCurrentPw} secureTextEntry />
             <TextInput style={s.input} placeholder="Nueva contraseña (mín. 6 caracteres)" placeholderTextColor="#C4C4CE"
@@ -311,21 +294,41 @@ export default function SettingsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Fixed save button */}
+      <View style={[s.fixedBottom, { paddingBottom: insets.bottom + 8 }]}>
+        <TouchableOpacity style={[s.saveBtn, { backgroundColor: color }]} onPress={handleSave} disabled={saving}>
+          {saving
+            ? <ActivityIndicator color="#fff"/>
+            : <Text style={s.saveBtnText}>{isNew ? 'Crear Negocio' : 'Guardar Cambios'}</Text>
+          }
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  pageTitle: {
+    fontSize: 26, fontWeight: '800', color: '#111827',
+    letterSpacing: -0.5,
+  },
+
   card: {
     backgroundColor: '#fff',
-    borderRadius: 24, padding: 20, gap: 12,
-    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
-    shadowColor: '#000', shadowOpacity: 0.06,
-    shadowRadius: 20, shadowOffset: { width:0, height:8 }, elevation: 4,
+    borderRadius: 20, padding: 18, gap: 12,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)',
+    shadowColor: '#000', shadowOpacity: 0.04,
+    shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3,
   },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 2 },
 
-  label: { fontSize: 13, fontWeight: '600', color: '#9CA3AF' },
+  cardLabel: { fontSize: 14, fontWeight: '700', color: '#374151' },
+
+  sublabel: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  hint: { fontSize: 12, color: '#9CA3AF', marginTop: -6 },
+
+  thinDivider: { height: 1, backgroundColor: '#F3F4F6' },
+
   input: {
     backgroundColor: '#F9FAFB',
     borderWidth: 1.5, borderColor: '#F3F4F6',
@@ -333,16 +336,12 @@ const s = StyleSheet.create({
     fontSize: 15, color: '#111827',
   },
 
-  colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  swatch:   { width: 34, height: 34, borderRadius: 17 },
-  swatchSelected: { borderWidth: 3, borderColor: '#111827' },
-
-  preview: { borderRadius: 14, padding: 14, alignItems: 'center' },
-  previewText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  swatch: { width: 38, height: 38, borderRadius: 19 },
 
   segRow: { flexDirection: 'row', gap: 6 },
   seg: {
-    flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center',
+    flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
     backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6',
   },
   segText: { fontSize: 12, fontWeight: '600', color: '#374151' },
@@ -364,11 +363,17 @@ const s = StyleSheet.create({
   hintRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
   hintText: { flex: 1, fontSize: 12, color: '#9CA3AF', lineHeight: 16 },
 
-  saveBtn: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
+  fixedBottom: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    paddingHorizontal: 20, paddingTop: 12,
+    borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  saveBtn: { borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  infoText: { fontSize: 14, color: '#374151' },
+  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  accountValue: { fontSize: 14, fontWeight: '500', color: '#374151' },
 
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4,

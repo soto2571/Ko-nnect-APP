@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
   try {
     const { email, password, firstName, lastName, role } = await req.json();
     if (!email || !password || !firstName || !lastName || !role)
-      return err('Missing required fields');
+      return err('Faltan campos requeridos.');
 
     const sb = getServiceClient();
 
@@ -15,9 +15,10 @@ Deno.serve(async (req) => {
       email, password, email_confirm: true,
     });
     if (authErr) {
-      if (authErr.message.includes('already registered'))
-        return err('User already exists', 409);
-      return err(authErr.message, 400);
+      const msg = authErr.message ?? String(authErr);
+      if (msg.includes('already') || msg.includes('duplicate') || msg.includes('exists'))
+        return err('Ya existe una cuenta con este correo electrónico.', 409);
+      return err(msg, 400);
     }
 
     const userId = authData.user.id;
@@ -41,6 +42,6 @@ Deno.serve(async (req) => {
       },
     }, 201);
   } catch (e) {
-    return err('Internal server error', 500);
+    return err('Error interno del servidor.', 500);
   }
 });

@@ -10,8 +10,6 @@ import { useAuth } from '@/context/AuthContext';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '@/lib/supabase';
-import { checkEmailProvider } from '@/services/api';
 
 const BRAND = '#3B82F6'; // Blue for employee — distinct from owner red
 
@@ -27,13 +25,6 @@ export default function EmployeeLoginScreen() {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [error, setError]       = useState('');
 
-  // Forgot password
-  const [forgotMode, setForgotMode]             = useState(false);
-  const [resetEmail, setResetEmail]             = useState('');
-  const [resetEmailFocused, setResetEmailFocused] = useState(false);
-  const [resetLoading, setResetLoading]         = useState(false);
-  const [resetMsg, setResetMsg]                 = useState('');
-  const [resetIsError, setResetIsError]         = useState(false);
 
   const headerAnim = useRef(new Animated.Value(0)).current;
   const cardAnim   = useRef(new Animated.Value(0)).current;
@@ -57,44 +48,6 @@ export default function EmployeeLoginScreen() {
     } finally { setLoading(false); }
   };
 
-  const handleForgotPassword = async () => {
-    setResetMsg('');
-    setResetIsError(false);
-    if (!resetEmail.trim()) { setResetMsg('Por favor ingresa tu correo.'); setResetIsError(true); return; }
-    setResetLoading(true);
-    try {
-      const provider = await checkEmailProvider(resetEmail.trim().toLowerCase());
-      if (provider === 'google') {
-        setResetMsg('Tu cuenta fue creada con Google. Usa "Continuar con Google" en la pantalla anterior para acceder o cambia tu contraseña desde tu cuenta de Google.');
-        setResetIsError(true);
-        return;
-      }
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
-        resetEmail.trim().toLowerCase(),
-        { redirectTo: 'konnect://reset-password' },
-      );
-      if (resetErr) throw resetErr;
-      setResetMsg('Revisa tu correo para el enlace de recuperación.');
-      setResetIsError(false);
-    } catch (err: any) {
-      setResetMsg(err.message || 'Algo salió mal. Inténtalo de nuevo.');
-      setResetIsError(true);
-    } finally { setResetLoading(false); }
-  };
-
-  const enterForgot = () => {
-    setError('');
-    setResetEmail(email);
-    setResetMsg('');
-    setResetIsError(false);
-    setForgotMode(true);
-  };
-
-  const exitForgot = () => {
-    setForgotMode(false);
-    setResetMsg('');
-    setResetEmail('');
-  };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -124,63 +77,6 @@ export default function EmployeeLoginScreen() {
           transform: [{ translateY: cardAnim.interpolate({ inputRange: [0,1], outputRange: [32, 0] }) }],
         }]}>
 
-          {forgotMode ? (
-            <>
-              <TouchableOpacity onPress={exitForgot} style={s.backRow}>
-                <Ionicons name="chevron-back" size={16} color={BRAND} />
-                <Text style={[s.backText, { color: BRAND }]}>Volver al inicio de sesión</Text>
-              </TouchableOpacity>
-
-              <Text style={s.forgotTitle}>Recuperar contraseña</Text>
-              <Text style={s.forgotSub}>Ingresa tu correo y te enviaremos un enlace para recuperarla.</Text>
-
-              <View style={[s.inputWrap, resetEmailFocused && s.inputFocused]}>
-                <Ionicons name="mail-outline" size={17} color={resetEmailFocused ? BRAND : '#9CA3AF'} style={s.icon} />
-                <TextInput
-                  style={s.input} placeholder="Tu correo electrónico" placeholderTextColor="#B0B0BA"
-                  value={resetEmail} onChangeText={t => { setResetEmail(t); setResetMsg(''); }}
-                  autoCapitalize="none" keyboardType="email-address"
-                  onFocus={() => setResetEmailFocused(true)} onBlur={() => setResetEmailFocused(false)}
-                  autoFocus
-                />
-              </View>
-
-              {resetMsg !== '' && (
-                <View style={[s.feedbackBox, resetIsError ? s.feedbackError : s.feedbackSuccess]}>
-                  <Ionicons
-                    name={resetIsError ? 'alert-circle-outline' : 'checkmark-circle-outline'}
-                    size={15} color={resetIsError ? '#EF4444' : '#16A34A'}
-                  />
-                  <Text style={[s.feedbackText, { color: resetIsError ? '#EF4444' : '#16A34A' }]}>
-                    {resetMsg}
-                  </Text>
-                </View>
-              )}
-
-              {resetMsg !== 'Revisa tu correo para el enlace de recuperación.' && !resetMsg.startsWith('Tu cuenta fue creada con Google') && (
-                <Pressable
-                  onPressIn={() => Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start()}
-                  onPressOut={() => Animated.spring(btnScale, { toValue: 1, useNativeDriver: true }).start()}
-                  onPress={handleForgotPassword} disabled={resetLoading}
-                >
-                  <Animated.View style={{ transform: [{ scale: btnScale }] }}>
-                    <View style={s.btn}>
-                      {resetLoading
-                        ? <ActivityIndicator color="#fff" />
-                        : <Text style={s.btnText}>Enviar Enlace</Text>
-                      }
-                    </View>
-                  </Animated.View>
-                </Pressable>
-              )}
-
-              {(resetMsg === 'Revisa tu correo para el enlace de recuperación.' || resetMsg.startsWith('Tu cuenta fue creada con Google')) && (
-                <TouchableOpacity onPress={exitForgot} style={s.secondaryBtn}>
-                  <Text style={[s.secondaryBtnText, { color: BRAND }]}>Volver al inicio de sesión</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          ) : (
             <>
               {error !== '' && (
                 <View style={s.errorBox}>
@@ -221,9 +117,7 @@ export default function EmployeeLoginScreen() {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity onPress={enterForgot} style={s.forgotLink} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={[s.forgotLinkText, { color: BRAND }]}>¿Olvidaste tu contraseña?</Text>
-              </TouchableOpacity>
+              <Text style={s.forgotHint}>¿Olvidaste tu contraseña? Contacta a tu patrono.</Text>
 
               <Pressable
                 onPressIn={() => Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start()}
@@ -237,7 +131,6 @@ export default function EmployeeLoginScreen() {
                 </Animated.View>
               </Pressable>
             </>
-          )}
         </Animated.View>
 
         {/* Footer */}
@@ -313,8 +206,7 @@ const s = StyleSheet.create({
   icon: { marginRight: 10 },
   input: { flex: 1, color: '#111827', fontSize: 15, paddingVertical: 0 },
 
-  forgotLink: { alignSelf: 'flex-end', marginTop: -6 },
-  forgotLinkText: { fontSize: 13, fontWeight: '600' },
+  forgotHint: { fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: -6 },
 
   btn: {
     height: 54, borderRadius: 16,
@@ -326,25 +218,6 @@ const s = StyleSheet.create({
   },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
 
-  secondaryBtn: {
-    height: 50, borderRadius: 14,
-    backgroundColor: 'rgba(59,130,246,0.06)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderColor: 'rgba(59,130,246,0.20)',
-  },
-  secondaryBtnText: { fontSize: 15, fontWeight: '600' },
-
-  backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginBottom: -4 },
-  backText: { fontSize: 13, fontWeight: '600' },
-  forgotTitle: { fontSize: 20, fontWeight: '800', color: '#111827', letterSpacing: -0.4 },
-  forgotSub: { fontSize: 13, color: '#6B7280', lineHeight: 19 },
-  feedbackBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1,
-  },
-  feedbackError: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
-  feedbackSuccess: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
-  feedbackText: { fontSize: 13, fontWeight: '500', flex: 1 },
 
   footer: { alignItems: 'center', paddingBottom: 8 },
   footerText: { fontSize: 12, color: '#9CA3AF', letterSpacing: 0.2 },

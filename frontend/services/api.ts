@@ -101,10 +101,22 @@ async function request<T>(
 
   const { query: _q, ...fetchOptions } = options;
   const res = await fetch(url, { ...fetchOptions, headers });
-  const json = await res.json();
+
+  // Parse body — if the server returned HTML (gateway error), surface a friendly message
+  const text = await res.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(
+      res.ok
+        ? 'Respuesta inesperada del servidor.'
+        : `Error del servidor (${res.status}). Inténtalo de nuevo.`
+    );
+  }
 
   if (!res.ok || json.success === false) {
-    throw new Error(json.message || `Request failed with status ${res.status}`);
+    throw new Error(json.message || `La solicitud falló (${res.status}).`);
   }
 
   return json.data ?? json;

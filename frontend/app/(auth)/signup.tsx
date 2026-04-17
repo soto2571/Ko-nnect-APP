@@ -198,7 +198,7 @@ export default function SignupScreen() {
             {/* Divider */}
             <View style={s.divider}>
               <View style={s.divLine} />
-              <Text style={s.divText}>or</Text>
+              <Text style={s.divText}>o</Text>
               <View style={s.divLine} />
             </View>
 

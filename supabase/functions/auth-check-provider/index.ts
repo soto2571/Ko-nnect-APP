@@ -8,15 +8,25 @@ Deno.serve(async (req) => {
     if (!body.email) return err('Missing email');
 
     const sb = getServiceClient();
-    const { data, error } = await sb
-      .from('users')
-      .select('provider')
-      .eq('email', body.email.toLowerCase().trim())
-      .maybeSingle();
 
+    // Check Supabase Auth's auth.users table for the provider
+    const { data, error } = await sb.auth.admin.listUsers();
     if (error) return err(error.message, 500);
 
-    return cors({ success: true, data: { provider: data?.provider ?? null } });
+    const email = body.email.toLowerCase().trim();
+    const authUser = data.users.find(
+      (u: any) => u.email?.toLowerCase() === email
+    );
+
+    if (!authUser) {
+      return cors({ success: true, data: { provider: null } });
+    }
+
+    // Check if user signed up via Google OAuth
+    const isGoogle = authUser.app_metadata?.providers?.includes('google')
+      || authUser.app_metadata?.provider === 'google';
+
+    return cors({ success: true, data: { provider: isGoogle ? 'google' : 'email' } });
   } catch (e) {
     return err('Internal server error', 500);
   }
