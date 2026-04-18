@@ -134,7 +134,11 @@ export default function SettingsScreen() {
                 {['Do','Lu','Ma','Mi','Ju','Vi','Sa'].map((d,i) => (
                   <TouchableOpacity key={i}
                     style={[s.dayBtn, payPeriodStartDay===i && { backgroundColor: color, borderColor: color }]}
-                    onPress={() => setPayPeriodStartDay(i)}>
+                    onPress={() => {
+                      setPayPeriodStartDay(i);
+                      // Reset anchor so the user must pick the correct period start for the new day
+                      setPayPeriodAnchorDate('');
+                    }}>
                     <Text style={[s.dayBtnText, payPeriodStartDay===i && { color:'#fff' }]}>{d}</Text>
                   </TouchableOpacity>
                 ))}

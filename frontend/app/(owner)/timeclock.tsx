@@ -32,36 +32,60 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-function getPayPeriodDates(business: { payPeriodType?: string; payPeriodStartDay?: number; payPeriodAnchorDate?: string }): { start: Date; end: Date; label: string } {
+function getPayPeriodDates(
+  business: { payPeriodType?: string; payPeriodStartDay?: number; payPeriodAnchorDate?: string },
+  offset = 0  // 0 = current, -1 = previous, -2 = two back, etc.
+): { start: Date; end: Date; label: string } {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const type = business.payPeriodType ?? 'weekly';
   const startDay = business.payPeriodStartDay ?? 0;
+  const fmt = (d: Date) => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 
   if (type === 'semi-monthly') {
+    // Find current half-month, then apply offset
     const d = today.getDate();
-    const start = new Date(today.getFullYear(), today.getMonth(), d <= 15 ? 1 : 16);
-    const end   = new Date(today.getFullYear(), today.getMonth(), d <= 15 ? 15 : new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate());
+    let month = today.getMonth();
+    let year  = today.getFullYear();
+    // Current half: 0 = first half (1–15), 1 = second half (16–end)
+    let half = d <= 15 ? 0 : 1;
+    // Apply offset (each offset = one half-month)
+    let totalHalf = month * 2 + half + offset;
+    // Normalize
+    month = Math.floor(totalHalf / 2);
+    year  = today.getFullYear() + Math.floor(month / 12);
+    month = ((month % 12) + 12) % 12;
+    half  = ((totalHalf % 2) + 2) % 2;
+    const start = new Date(year, month, half === 0 ? 1 : 16);
+    const end   = new Date(year, month, half === 0 ? 15 : new Date(year, month + 1, 0).getDate());
     end.setHours(23, 59, 59);
-    return { start, end, label: `${start.toLocaleDateString([],{month:'short',day:'numeric'})} – ${end.toLocaleDateString([],{month:'short',day:'numeric'})}` };
+    return { start, end, label: `${fmt(start)} – ${fmt(end)}` };
   }
 
+  // For weekly and biweekly, find the current period start then shift by offset periods
+  const periodDays = type === 'biweekly' ? 14 : 7;
+
+  let currentStart: Date;
   if (type === 'biweekly' && business.payPeriodAnchorDate) {
-    // Use the anchor: find the most recent period start <= today by counting 14-day cycles
     const anchor = new Date(business.payPeriodAnchorDate + 'T00:00:00');
     const daysSinceAnchor = Math.floor((today.getTime() - anchor.getTime()) / 86400000);
-    const cycleDay = ((daysSinceAnchor % 14) + 14) % 14; // days into current cycle
-    const start = new Date(today); start.setDate(today.getDate() - cycleDay);
-    const end   = new Date(start); end.setDate(start.getDate() + 13); end.setHours(23, 59, 59);
-    return { start, end, label: `${start.toLocaleDateString([],{month:'short',day:'numeric'})} – ${end.toLocaleDateString([],{month:'short',day:'numeric'})}` };
+    const cycleDay = ((daysSinceAnchor % 14) + 14) % 14;
+    currentStart = new Date(today);
+    currentStart.setDate(today.getDate() - cycleDay);
+  } else {
+    const diff = (today.getDay() - startDay + 7) % 7;
+    currentStart = new Date(today);
+    currentStart.setDate(today.getDate() - diff);
   }
 
-  // Weekly (or biweekly without anchor — fall back to day-of-week alignment)
-  const days = type === 'biweekly' ? 14 : 7;
-  const diff = (today.getDay() - startDay + 7) % 7;
-  const start = new Date(today); start.setDate(today.getDate() - diff);
-  const end   = new Date(start); end.setDate(start.getDate() + days - 1); end.setHours(23, 59, 59);
-  return { start, end, label: `${start.toLocaleDateString([],{month:'short',day:'numeric'})} – ${end.toLocaleDateString([],{month:'short',day:'numeric'})}` };
+  // Apply offset
+  const start = new Date(currentStart);
+  start.setDate(currentStart.getDate() + offset * periodDays);
+  const end = new Date(start);
+  end.setDate(start.getDate() + periodDays - 1);
+  end.setHours(23, 59, 59);
+
+  return { start, end, label: `${fmt(start)} – ${fmt(end)}` };
 }
 
 function toDateStr(d: Date) {
@@ -205,7 +229,7 @@ function InlineTimePicker({
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 
-type TabKey = 'live' | 'logs' | 'report';
+type TabKey = 'live' | 'report';
 
 export default function TimeclockScreen() {
   const { business, primaryColor } = useAuth();
@@ -219,7 +243,8 @@ export default function TimeclockScreen() {
   const [editLog, setEditLog] = useState<TimeLog | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [tick, setTick] = useState(0);
-  const [empFilter, setEmpFilter] = useState<string | null>(null); // null = all employees
+  const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, etc.
+  const [expandedEmps, setExpandedEmps] = useState<Set<string>>(new Set());
 
   // Live timer tick
   useEffect(() => {
@@ -227,10 +252,13 @@ export default function TimeclockScreen() {
     return () => clearInterval(id);
   }, []);
 
-  const period = business ? getPayPeriodDates(business) : null;
+  const period = business ? getPayPeriodDates(business, periodOffset) : null;
+  // Key changes whenever the visible period window changes
+  const periodKey = period ? `${toDateStr(period.start)}|${toDateStr(period.end)}` : '';
 
   const load = useCallback(async () => {
-    if (!business?.businessId) return;
+    if (!business?.businessId || !periodKey) return;
+    const p = business ? getPayPeriodDates(business, periodOffset) : null;
     try {
       const [emps, active] = await Promise.all([
         api.getEmployees(business.businessId),
@@ -239,11 +267,11 @@ export default function TimeclockScreen() {
       setEmployees(emps);
       setActiveLogs(active);
 
-      if (period) {
+      if (p) {
         const logs = await api.getTimeLogs(
           business.businessId,
-          toDateStr(period.start),
-          toDateStr(period.end)
+          toDateStr(p.start),
+          toDateStr(p.end)
         );
         setPeriodLogs(logs);
       }
@@ -253,7 +281,7 @@ export default function TimeclockScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [business?.businessId]);
+  }, [business?.businessId, periodKey]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -511,9 +539,9 @@ export default function TimeclockScreen() {
 
       {/* Tabs */}
       <View style={[s.tabBar, { paddingTop: insets.top }]}>
-        {([['live','En Vivo'],['logs','Registros'],['report','Reporte']] as [TabKey,string][]).map(([key, label]) => (
+        {([['live','En Vivo'],['report','Reporte']] as [TabKey,string][]).map(([key, label]) => (
           <TouchableOpacity key={key} style={[s.tab, tab === key && { borderBottomColor: primaryColor, borderBottomWidth: 2 }]}
-            onPress={() => setTab(key)}>
+            onPress={() => { setTab(key as TabKey); if (key === 'live') setPeriodOffset(0); }}>
             <Text style={[s.tabText, tab === key && { color: primaryColor, fontWeight: '700' }]}>{label}</Text>
           </TouchableOpacity>
         ))}
@@ -598,135 +626,170 @@ export default function TimeclockScreen() {
           </>
         )}
 
-        {/* ── LOGS TAB ── */}
-        {tab === 'logs' && (() => {
-          // Filter logs by selected employee
-          const visibleLogs = empFilter
-            ? periodLogs.filter(l => l.employeeId === empFilter)
-            : periodLogs;
+        {/* ── REPORTE TAB (Reporte + Registros unificados) ── */}
+        {tab === 'report' && (() => {
+          const toggleEmp = (id: string) => setExpandedEmps(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+          });
 
-          // Group by date (YYYY-MM-DD from clockIn)
-          const byDate = new Map<string, TimeLog[]>();
-          for (const log of visibleLogs.slice().sort((a, b) => a.clockIn.localeCompare(b.clockIn))) {
-            const key = log.date ?? new Date(log.clockIn).toISOString().slice(0, 10);
-            if (!byDate.has(key)) byDate.set(key, []);
-            byDate.get(key)!.push(log);
-          }
-          const sortedDates = Array.from(byDate.keys()).sort();
+          // All employees — show even those without logs this period
+          const empRows = employees.map(emp => {
+            const empId = emp.userId || emp.employeeId;
+            const empLogs = periodLogs.filter(l => l.employeeId === empId && l.status === 'clocked_out');
+            const totalMin = empLogs.reduce((s, l) => s + (l.totalMinutes ?? 0), 0);
+            const weeks = periodWeeks.map(week => {
+              const wLogs = empLogs.filter(l => {
+                const d = new Date(l.clockIn);
+                return d >= week.start && d <= week.end;
+              });
+              return { label: week.label, totalMin: wLogs.reduce((s, l) => s + (l.totalMinutes ?? 0), 0), overtimeDays: wLogs.filter(l => l.overtimeDay).length };
+            }).filter(w => w.totalMin > 0);
+            const overtimeWeek = weeks.some(w => w.totalMin > 2400);
+            const missed = periodLogs.filter(l => l.employeeId === empId && l.missedBreakPunch).length;
+            // All logs (any status) sorted by date, for the expanded view
+            const allEmpLogs = periodLogs.filter(l => l.employeeId === empId)
+              .slice().sort((a, b) => a.clockIn.localeCompare(b.clockIn));
+            return { emp, empId, empLogs, allEmpLogs, totalMin, weeks, overtimeWeek, missed };
+          });
 
           return (
             <>
-              {/* Period label */}
-              <Text style={s.periodLabel}>Período de pago: {period?.label}</Text>
-
-              {/* Employee filter chips */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, paddingHorizontal: 16 }} contentContainerStyle={{ gap: 8, paddingRight: 16 }}>
-                <TouchableOpacity
-                  style={[s.empChip, !empFilter && { backgroundColor: primaryColor }]}
-                  onPress={() => setEmpFilter(null)}
-                >
-                  <Text style={[s.empChipText, !empFilter && { color: '#fff' }]}>Todos</Text>
+              {/* Period navigation */}
+              <View style={s.periodNav}>
+                <TouchableOpacity onPress={() => setPeriodOffset(o => o - 1)} style={s.periodNavBtn}>
+                  <Ionicons name="chevron-back" size={18} color="#374151" />
                 </TouchableOpacity>
-                {employees.map(emp => {
-                  const id = emp.userId || emp.employeeId;
-                  const active = empFilter === id;
-                  return (
-                    <TouchableOpacity key={emp.employeeId}
-                      style={[s.empChip, active && { backgroundColor: primaryColor }]}
-                      onPress={() => setEmpFilter(active ? null : id)}
-                    >
-                      <View style={[s.empChipDot, { backgroundColor: active ? 'rgba(255,255,255,0.6)' : primaryColor }]} />
-                      <Text style={[s.empChipText, active && { color: '#fff' }]}>{emp.firstName} {emp.lastName}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  <Text style={s.periodLabel}>{period?.label}</Text>
+                  {periodOffset < 0 && <Text style={s.periodPastLabel}>Período anterior</Text>}
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <TouchableOpacity
+                    onPress={() => { if (periodOffset < 0) setPeriodOffset(o => o + 1); }}
+                    style={[s.periodNavBtn, periodOffset === 0 && { opacity: 0.25 }]}
+                    disabled={periodOffset === 0}
+                  >
+                    <Ionicons name="chevron-forward" size={18} color="#374151" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleExport} style={s.exportBtn}>
+                    <Ionicons name="download-outline" size={14} color="#374151" />
+                    <Text style={s.exportText}>PDF</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-              {sortedDates.length === 0 ? (
-                <View style={s.emptyCard}><Text style={s.emptyText}>Sin registros en este período.</Text></View>
-              ) : sortedDates.map(dateKey => {
-                const dayLogs = byDate.get(dateKey)!;
-                const dayDate = new Date(dateKey + 'T12:00:00');
-                const dayLabel = dayDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
-                const dayTotalMin = dayLogs.filter(l => l.status === 'clocked_out').reduce((s, l) => s + (l.totalMinutes ?? 0), 0);
+              {empRows.length === 0 ? (
+                <View style={s.emptyCard}><Text style={s.emptyText}>Sin empleados.</Text></View>
+              ) : empRows.map(({ emp, empId, allEmpLogs, totalMin, weeks, overtimeWeek, missed }) => {
+                const isExpanded = expandedEmps.has(empId);
+                const hasData = totalMin > 0 || allEmpLogs.length > 0;
 
                 return (
-                  <View key={dateKey}>
-                    {/* Day header */}
-                    <View style={s.dayHeaderRow}>
-                      <Text style={s.dayHeaderLabel}>{dayLabel}</Text>
-                      {dayTotalMin > 0 && (
-                        <Text style={[s.dayHeaderTotal, { color: primaryColor }]}>{fmtHours(dayTotalMin)}</Text>
+                  <View key={emp.employeeId} style={s.reportCard}>
+                    {/* Header: avatar + name + total */}
+                    <View style={s.reportHeader}>
+                      <View style={[s.liveAvatar, { backgroundColor: hasData ? primaryColor : '#E5E7EB' }]}>
+                        <Text style={s.liveAvatarText}>{emp.firstName[0]}{emp.lastName[0]}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.liveName}>{emp.firstName} {emp.lastName}</Text>
+                        {hasData
+                          ? <Text style={[s.reportTotal, { fontSize: 14 }]}>{fmtHours(totalMin)}</Text>
+                          : <Text style={[s.logDate, { color: '#9CA3AF' }]}>Sin registros este período</Text>
+                        }
+                      </View>
+                      {hasData && (
+                        <TouchableOpacity onPress={() => toggleEmp(empId)} style={s.expandBtn}>
+                          <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color="#6B7280" />
+                          <Text style={s.expandBtnText}>{isExpanded ? 'Colapsar' : 'Ver registros'}</Text>
+                        </TouchableOpacity>
                       )}
                     </View>
 
-                    {/* Log cards for this day */}
-                    {dayLogs.map(log => (
-                      <View key={log.logId} style={s.logCard}>
-                        <View style={s.logHeader}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={s.logName}>{empName(log.employeeId)}</Text>
-                          </View>
-                          <StatusBadge status={log.status} />
-                          <TouchableOpacity onPress={() => setEditLog({ ...log })} style={s.editBtn}>
-                            <Ionicons name="create-outline" size={16} color="#6B7280" />
-                          </TouchableOpacity>
-                        </View>
-                        {/* 3-column: In | Breaks | Out */}
-                        <View style={s.logTimes}>
-                          <View style={s.logTimeItem}>
-                            <Text style={s.logTimeLabel}>Entrada</Text>
-                            <Text style={s.logTimeValue}>{log.clockIn ? fmt12(log.clockIn) : '—'}</Text>
-                          </View>
-                          <Ionicons name="arrow-forward" size={12} color="#E5E7EB" />
-                          <View style={s.logBreaksCol}>
-                            {(log.breaks && log.breaks.length > 0 ? log.breaks : (log.breakStart ? [{ start: log.breakStart, end: log.breakEnd }] : [])).length > 0 ? (
-                              (log.breaks && log.breaks.length > 0 ? log.breaks : [{ start: log.breakStart!, end: log.breakEnd }])
-                                .map((b, i) => {
-                                  const multi = (log.breaks?.length ?? 0) > 1;
-                                  return (
-                                    <View key={i} style={s.logTimeItem}>
-                                      <Text style={s.logTimeLabel}>{multi ? `Descanso ${i + 1}` : 'Descanso'}</Text>
-                                      <Text style={s.logTimeValue}>{fmt12(b.start)}{b.end ? ` – ${fmt12(b.end)}` : ' …'}</Text>
-                                    </View>
-                                  );
-                                })
-                            ) : (
-                              <View style={s.logTimeItem}>
-                                <Text style={s.logTimeLabel}>Descanso</Text>
-                                <Text style={[s.logTimeValue, { color: '#6B7280' }]}>—</Text>
-                              </View>
-                            )}
-                          </View>
-                          <Ionicons name="arrow-forward" size={12} color="#E5E7EB" />
-                          <View style={s.logTimeItem}>
-                            <Text style={s.logTimeLabel}>Salida</Text>
-                            <Text style={s.logTimeValue}>{log.clockOut ? fmt12(log.clockOut) : '—'}</Text>
-                          </View>
-                        </View>
-                        <View style={s.logFooter}>
-                          {log.totalMinutes != null && (
-                            <Text style={[s.logTotal, log.overtimeDay && { color: '#EF4444' }]}>
-                              {fmtHours(log.totalMinutes)}{log.overtimeDay ? ' ⚠ OT' : ''}
-                            </Text>
-                          )}
-                          {log.missedBreakPunch && (
-                            <View style={s.missedRow}>
-                              <Ionicons name="warning-outline" size={12} color="#991B1B" />
-                              <Text style={s.missedText}>Marcaje de descanso perdido</Text>
+                    {/* Week breakdown — always visible when has data */}
+                    {hasData && weeks.length > 0 && (
+                      <View style={s.reportWeeks}>
+                        {weeks.map((w, i) => (
+                          <View key={i} style={s.reportWeekRow}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={s.reportWeekLabel}>{w.label}</Text>
+                              {w.overtimeDays > 0 && <Text style={s.reportWeekOt}>{w.overtimeDays} día OT</Text>}
                             </View>
-                          )}
-                        </View>
+                            <Text style={[s.reportWeekHours, w.totalMin > 2400 && { color: '#EF4444' }]}>
+                              {fmtHours(w.totalMin)}
+                            </Text>
+                          </View>
+                        ))}
                       </View>
-                    ))}
+                    )}
+
+                    {/* Flags */}
+                    {(overtimeWeek || missed > 0) && (
+                      <View style={s.reportFlags}>
+                        {overtimeWeek && (
+                          <View style={s.flagBadge}>
+                            <Ionicons name="warning-outline" size={12} color="#EF4444" />
+                            <Text style={[s.flagText, { color: '#EF4444' }]}>OT Semanal (&gt;40h)</Text>
+                          </View>
+                        )}
+                        {missed > 0 && (
+                          <View style={[s.flagBadge, { backgroundColor: '#FEE2E2' }]}>
+                            <Ionicons name="cafe-outline" size={12} color="#991B1B" />
+                            <Text style={[s.flagText, { color: '#991B1B' }]}>{missed} marcaje{missed > 1 ? 's' : ''} perdido{missed > 1 ? 's' : ''}</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+
+                    {/* Expanded: day-by-day logs */}
+                    {isExpanded && (
+                      <View style={s.expandedLogs}>
+                        {allEmpLogs.length === 0 ? (
+                          <Text style={[s.emptyText, { fontSize: 13 }]}>Sin registros.</Text>
+                        ) : allEmpLogs.map(log => {
+                          const dateKey = log.date ?? new Date(log.clockIn).toISOString().slice(0, 10);
+                          const dayLabel = new Date(dateKey + 'T12:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+                          const breaks = log.breaks && log.breaks.length > 0
+                            ? log.breaks
+                            : (log.breakStart ? [{ start: log.breakStart, end: log.breakEnd }] : []);
+                          return (
+                            <View key={log.logId} style={s.expandedLogRow}>
+                              <View style={{ flex: 1, gap: 2 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                  <Text style={s.expandedLogDate}>{dayLabel}</Text>
+                                  <StatusBadge status={log.status} />
+                                </View>
+                                <Text style={s.expandedLogTimes}>
+                                  {log.clockIn ? fmt12(log.clockIn) : '—'}
+                                  {breaks.length > 0 ? ` · B: ${fmt12(breaks[0].start)}${breaks[0].end ? `–${fmt12(breaks[0].end)}` : '…'}` : ''}
+                                  {log.clockOut ? ` · Out: ${fmt12(log.clockOut)}` : ''}
+                                </Text>
+                              </View>
+                              <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                                {log.totalMinutes != null && (
+                                  <Text style={[s.logTotal, { fontSize: 13 }, log.overtimeDay && { color: '#EF4444' }]}>
+                                    {fmtHours(log.totalMinutes)}{log.overtimeDay ? ' OT' : ''}
+                                  </Text>
+                                )}
+                                <TouchableOpacity onPress={() => setEditLog({ ...log })} style={s.editBtn}>
+                                  <Ionicons name="create-outline" size={15} color="#9CA3AF" />
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
                   </View>
                 );
               })}
 
-              {/* Edit log inline */}
+              {/* Edit log panel */}
               {editLog && (
                 <View style={[s.editCard, { borderColor: primaryColor }]}>
-                  <Text style={[s.editTitle, { color: primaryColor }]}>Editar Registro de Tiempo</Text>
+                  <Text style={[s.editTitle, { color: primaryColor }]}>Editar Registro</Text>
                   <Text style={s.editEmpName}>{empName(editLog.employeeId)} · {fmtDate(editLog.clockIn)}</Text>
                   <View style={s.editGrid}>
                     <InlineTimePicker label="Entrada"          value={editLog.clockIn}    color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockIn: v }    : l)} />
@@ -748,78 +811,6 @@ export default function TimeclockScreen() {
             </>
           );
         })()}
-
-        {/* ── REPORT TAB ── */}
-        {tab === 'report' && (
-          <>
-            <View style={s.periodRow}>
-              <Text style={s.periodLabel}>Período de pago: {period?.label}</Text>
-              <TouchableOpacity onPress={handleExport} style={s.exportBtn}>
-                <Ionicons name="download-outline" size={14} color="#374151" />
-                <Text style={s.exportText}>PDF</Text>
-              </TouchableOpacity>
-            </View>
-
-            {reportByEmployee.length === 0 ? (
-              <View style={s.emptyCard}><Text style={s.emptyText}>Sin turnos completados en este período.</Text></View>
-            ) : reportByEmployee.map(({ emp, weeks, totalMin, overtimeWeek, missed }) => (
-              <View key={emp.employeeId} style={s.reportCard}>
-                {/* Employee header */}
-                <View style={s.reportHeader}>
-                  <View style={[s.liveAvatar, { backgroundColor: primaryColor }]}>
-                    <Text style={s.liveAvatarText}>{emp.firstName[0]}{emp.lastName[0]}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.liveName}>{emp.firstName} {emp.lastName}</Text>
-                    <Text style={s.logDate}>{emp.email}</Text>
-                  </View>
-                </View>
-
-                {/* Week-by-week breakdown */}
-                <View style={s.reportWeeks}>
-                  {weeks.map((w, i) => (
-                    <View key={i} style={s.reportWeekRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.reportWeekLabel}>{w.label}</Text>
-                        {w.overtimeDays > 0 && (
-                          <Text style={s.reportWeekOt}>{w.overtimeDays} día OT (&gt;8h)</Text>
-                        )}
-                      </View>
-                      <Text style={[s.reportWeekHours, w.totalMin > 2400 && { color: '#EF4444' }]}>
-                        {fmtHours(w.totalMin)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Total + flags */}
-                <View style={s.reportTotalRow}>
-                  <Text style={s.reportTotalLabel}>Total horas</Text>
-                  <Text style={[s.reportTotal, overtimeWeek && { color: '#EF4444' }]}>
-                    {fmtHours(totalMin)}
-                  </Text>
-                </View>
-
-                {(overtimeWeek || missed > 0) && (
-                  <View style={s.reportFlags}>
-                    {overtimeWeek && (
-                      <View style={s.flagBadge}>
-                        <Ionicons name="warning-outline" size={12} color="#EF4444" />
-                        <Text style={[s.flagText, { color: '#EF4444' }]}>OT Semanal (&gt;40h)</Text>
-                      </View>
-                    )}
-                    {missed > 0 && (
-                      <View style={[s.flagBadge, { backgroundColor: '#FEE2E2' }]}>
-                        <Ionicons name="cafe-outline" size={12} color="#991B1B" />
-                        <Text style={[s.flagText, { color: '#991B1B' }]}>{missed} marcaje{missed > 1 ? 's' : ''} perdido{missed > 1 ? 's' : ''}</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-            ))}
-          </>
-        )}
 
       </ScrollView>
     </View>
@@ -943,6 +934,39 @@ const s = StyleSheet.create({
   },
   empChipDot: { width: 7, height: 7, borderRadius: 4 },
   empChipText: { fontSize: 13, fontWeight: '600', color: '#374151' },
+
+  // Period navigation
+  periodNav: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#fff', borderRadius: 14, padding: 6,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+  },
+  periodNavBtn: {
+    width: 34, height: 34, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+  periodPastLabel: {
+    fontSize: 10, color: '#9CA3AF', fontWeight: '600',
+    textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 1,
+  },
+
+  // Expandable employee rows
+  expandBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 8, borderRadius: 10,
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  expandBtnText: { fontSize: 13, fontWeight: '700', color: '#374151' },
+  expandedLogs: { gap: 6, paddingTop: 8 },
+  expandedLogRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 8, paddingHorizontal: 10,
+    backgroundColor: '#F9FAFB', borderRadius: 10,
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  expandedLogDate: { fontSize: 13, fontWeight: '700', color: '#374151', width: 90 },
+  expandedLogTimes: { flex: 1, fontSize: 12, color: '#6B7280' },
 
   // Day grouping header
   dayHeaderRow: {
