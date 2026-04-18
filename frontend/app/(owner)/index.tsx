@@ -97,34 +97,42 @@ function PulseDot({ color }: { color: string }) {
 
 // ─── Time Picker ──────────────────────────────────────────────────────────────
 
-function TimePicker({ label, hour, minute, ampm, onHour, onMinute, onAmpm, color }: {
+function TimePicker({ label, hour, minute, ampm, onHour, onMinute, onAmpm, color, dimmed }: {
   label: string; hour: number; minute: number; ampm: 'AM'|'PM';
-  onHour:(h:number)=>void; onMinute:(m:number)=>void; onAmpm:(a:'AM'|'PM')=>void; color: string;
+  onHour:(h:number)=>void; onMinute:(m:number)=>void; onAmpm:(a:'AM'|'PM')=>void;
+  color: string; dimmed?: boolean;
 }) {
   const hours = Array.from({ length: 12 }, (_, i) => i+1);
   return (
     <View style={tp.wrap}>
-      <Text style={tp.label}>{label}</Text>
-      <View style={tp.row}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+        <Text style={tp.label}>{label}</Text>
+        {dimmed && (
+          <View style={{ backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: '#92400E' }}>Selecciona</Text>
+          </View>
+        )}
+      </View>
+      <View style={[tp.row, dimmed && { opacity: 0.45 }]}>
         <ScrollView style={tp.scroll} showsVerticalScrollIndicator={false} nestedScrollEnabled>
           {hours.map(h => (
-            <TouchableOpacity key={h} style={[tp.item, hour===h && { backgroundColor: color, borderRadius: 8 }]} onPress={() => onHour(h)}>
-              <Text style={[tp.itemText, hour===h && { color:'#fff', fontWeight:'700' }]}>{h}</Text>
+            <TouchableOpacity key={h} style={[tp.item, !dimmed && hour===h && { backgroundColor: color, borderRadius: 8 }]} onPress={() => onHour(h)}>
+              <Text style={[tp.itemText, !dimmed && hour===h && { color:'#fff', fontWeight:'700' }]}>{h}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
         <Text style={tp.colon}>:</Text>
         <View style={tp.minCol}>
           {MINUTES.map(m => (
-            <TouchableOpacity key={m} style={[tp.minItem, minute===m && { backgroundColor: color, borderRadius: 8 }]} onPress={() => onMinute(m)}>
-              <Text style={[tp.itemText, minute===m && { color:'#fff', fontWeight:'700' }]}>{String(m).padStart(2,'0')}</Text>
+            <TouchableOpacity key={m} style={[tp.minItem, !dimmed && minute===m && { backgroundColor: color, borderRadius: 8 }]} onPress={() => onMinute(m)}>
+              <Text style={[tp.itemText, !dimmed && minute===m && { color:'#fff', fontWeight:'700' }]}>{String(m).padStart(2,'0')}</Text>
             </TouchableOpacity>
           ))}
         </View>
         <View style={tp.ampmCol}>
           {(['AM','PM'] as const).map(a => (
-            <TouchableOpacity key={a} style={[tp.ampmBtn, ampm===a && { backgroundColor: color, borderRadius: 8 }]} onPress={() => onAmpm(a)}>
-              <Text style={[tp.ampmText, ampm===a && { color:'#fff', fontWeight:'700' }]}>{a}</Text>
+            <TouchableOpacity key={a} style={[tp.ampmBtn, !dimmed && ampm===a && { backgroundColor: color, borderRadius: 8 }]} onPress={() => onAmpm(a)}>
+              <Text style={[tp.ampmText, !dimmed && ampm===a && { color:'#fff', fontWeight:'700' }]}>{a}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -256,6 +264,8 @@ export default function ShiftsScreen() {
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [startH, setStartH] = useState(9);  const [startM, setStartM] = useState(0);  const [startAp, setStartAp] = useState<'AM'|'PM'>('AM');
   const [endH,   setEndH]   = useState(5);  const [endM,   setEndM]   = useState(0);  const [endAp,   setEndAp]   = useState<'AM'|'PM'>('PM');
+  const [startPicked, setStartPicked] = useState(false);
+  const [endPicked,   setEndPicked]   = useState(false);
   const [selEmp, setSelEmp] = useState<Employee|null>(null);
   const [breakDuration, setBreakDuration] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -342,7 +352,9 @@ export default function ShiftsScreen() {
     if (employees.length===0) { Alert.alert('Sin Empleados','Agrega empleados primero.'); return; }
     setModalMode('create');
     setSelectedDates(new Set()); setStartH(9); setStartM(0); setStartAp('AM');
-    setEndH(5); setEndM(0); setEndAp('PM'); setSelEmp(null); setBreakDuration(0); setStep('calendar');
+    setEndH(5); setEndM(0); setEndAp('PM');
+    setStartPicked(false); setEndPicked(false);
+    setSelEmp(null); setBreakDuration(0); setStep('calendar');
     setModalVisible(true);
   };
 
@@ -811,15 +823,29 @@ export default function ShiftsScreen() {
                 <View style={{ gap: 16 }}>
                   <Text style={s.stepTitle}>Horas del turno</Text>
                   <TimePicker label="Hora inicio" hour={startH} minute={startM} ampm={startAp}
-                    onHour={setStartH} onMinute={setStartM} onAmpm={setStartAp} color={color}/>
+                    onHour={h => { setStartH(h); setStartPicked(true); }}
+                    onMinute={m => { setStartM(m); setStartPicked(true); }}
+                    onAmpm={a => { setStartAp(a); setStartPicked(true); }}
+                    color={color} dimmed={modalMode === 'create' && !startPicked}/>
                   <TimePicker label="Hora fin" hour={endH} minute={endM} ampm={endAp}
-                    onHour={setEndH} onMinute={setEndM} onAmpm={setEndAp} color={color}/>
+                    onHour={h => { setEndH(h); setEndPicked(true); }}
+                    onMinute={m => { setEndM(m); setEndPicked(true); }}
+                    onAmpm={a => { setEndAp(a); setEndPicked(true); }}
+                    color={color} dimmed={modalMode === 'create' && !endPicked}/>
                   <View style={[s.timeSummary, { borderColor: color+'40', backgroundColor: color+'10' }]}>
                     <Ionicons name="time-outline" size={15} color={color}/>
-                    <Text style={[s.timeSummaryText, { color }]}>
-                      {fmtDisplay(startH, startM, startAp)} – {fmtDisplay(endH, endM, endAp)}
-                      {isOvernight ? '  (+1 día)' : `  · ${shiftDurH}h`}
-                    </Text>
+                    {(modalMode === 'create' && (!startPicked || !endPicked)) ? (
+                      <Text style={[s.timeSummaryText, { color: '#9CA3AF' }]}>
+                        {startPicked ? fmtDisplay(startH, startM, startAp) : '– : –'}
+                        {'  →  '}
+                        {endPicked   ? fmtDisplay(endH,   endM,   endAp)   : '– : –'}
+                      </Text>
+                    ) : (
+                      <Text style={[s.timeSummaryText, { color }]}>
+                        {fmtDisplay(startH, startM, startAp)} – {fmtDisplay(endH, endM, endAp)}
+                        {isOvernight ? '  (+1 día)' : `  · ${shiftDurH}h`}
+                      </Text>
+                    )}
                   </View>
                   {isOvernight && (
                     <View style={s.overnightBadge}>
@@ -895,9 +921,12 @@ export default function ShiftsScreen() {
                 </TouchableOpacity>
               ) : step!=='employee' ? (
                 <TouchableOpacity
-                  style={[s.nextBtn, { backgroundColor: color }, selectedDates.size===0 && step==='calendar' && { opacity:0.4 }]}
+                  style={[s.nextBtn, { backgroundColor: color },
+                    (selectedDates.size===0 && step==='calendar') && { opacity:0.4 },
+                    (step==='time' && modalMode==='create' && (!startPicked || !endPicked)) && { opacity:0.4 },
+                  ]}
                   onPress={() => setStep(step==='calendar'?'time':'employee')}
-                  disabled={selectedDates.size===0 && step==='calendar'}>
+                  disabled={(selectedDates.size===0 && step==='calendar') || (step==='time' && modalMode==='create' && (!startPicked || !endPicked))}>
                   <Text style={{ color:'#fff', fontWeight:'700' }}>Siguiente</Text>
                   <Ionicons name="arrow-forward" size={15} color="#fff"/>
                 </TouchableOpacity>
