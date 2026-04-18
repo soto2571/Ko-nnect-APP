@@ -710,9 +710,12 @@ export default function TimeclockScreen() {
                       </View>
                       {hasData && (
                         <TouchableOpacity onPress={() => toggleEmp(empId)} style={s.expandIconBtn}>
+                          <Text style={[s.expandIconLabel, { color: isExpanded ? primaryColor : '#9CA3AF' }]}>
+                            {isExpanded ? 'Ver menos' : 'Ver más'}
+                          </Text>
                           <Ionicons
                             name={isExpanded ? 'chevron-up-circle' : 'chevron-down-circle-outline'}
-                            size={28}
+                            size={24}
                             color={isExpanded ? primaryColor : '#D1D5DB'}
                           />
                         </TouchableOpacity>
@@ -990,7 +993,8 @@ const s = StyleSheet.create({
   },
 
   // Expandable employee rows
-  expandIconBtn: { padding: 2 },
+  expandIconBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 2 },
+  expandIconLabel: { fontSize: 11, fontWeight: '700' },
   hoursCaption: { fontSize: 11, color: '#9CA3AF', fontWeight: '500', marginTop: 1 },
   expandedLogs: { gap: 8, paddingTop: 4 },
   expandedLogRow: {
