@@ -657,30 +657,40 @@ export default function TimeclockScreen() {
           return (
             <>
               {/* Period navigation */}
-              <View style={[s.periodNav, periodOffset === 0 && { borderColor: primaryColor, borderWidth: 1.5 }]}>
-                <TouchableOpacity onPress={() => setPeriodOffset(o => o - 1)} style={s.periodNavBtn}>
-                  <Ionicons name="chevron-back" size={18} color="#374151" />
-                </TouchableOpacity>
-                <View style={{ flex: 1, alignItems: 'center' }}>
-                  <Text style={s.periodLabel}>{period?.label}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={s.periodNavWrapper}>
+                {/* Header row: label + volver button */}
+                <View style={s.periodNavHeader}>
+                  <Text style={[s.periodNavTitle, periodOffset === 0 && { color: primaryColor }]}>
+                    {periodOffset === 0 ? 'Período actual' : 'Período anterior'}
+                  </Text>
                   {periodOffset < 0 && (
-                    <TouchableOpacity onPress={() => setPeriodOffset(0)} style={[s.periodNavBtn, { backgroundColor: primaryColor + '18' }]}>
-                      <Ionicons name="calendar-outline" size={16} color={primaryColor} />
+                    <TouchableOpacity onPress={() => setPeriodOffset(0)} style={[s.periodVolverBtn, { borderColor: primaryColor }]}>
+                      <Ionicons name="arrow-forward-outline" size={12} color={primaryColor} />
+                      <Text style={[s.periodVolverText, { color: primaryColor }]}>Volver al actual</Text>
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity
-                    onPress={() => { if (periodOffset < 0) setPeriodOffset(o => o + 1); }}
-                    style={[s.periodNavBtn, periodOffset === 0 && { opacity: 0.25 }]}
-                    disabled={periodOffset === 0}
-                  >
-                    <Ionicons name="chevron-forward" size={18} color="#374151" />
+                </View>
+                {/* Arrows + date + PDF */}
+                <View style={[s.periodNav, periodOffset === 0 && { borderColor: primaryColor, borderWidth: 1.5 }]}>
+                  <TouchableOpacity onPress={() => setPeriodOffset(o => o - 1)} style={s.periodNavBtn}>
+                    <Ionicons name="chevron-back" size={18} color="#374151" />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleExport} style={s.exportBtn}>
-                    <Ionicons name="download-outline" size={14} color="#374151" />
-                    <Text style={s.exportText}>PDF</Text>
-                  </TouchableOpacity>
+                  <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Text style={s.periodLabel}>{period?.label}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <TouchableOpacity
+                      onPress={() => { if (periodOffset < 0) setPeriodOffset(o => o + 1); }}
+                      style={[s.periodNavBtn, periodOffset === 0 && { opacity: 0.25 }]}
+                      disabled={periodOffset === 0}
+                    >
+                      <Ionicons name="chevron-forward" size={18} color="#374151" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleExport} style={s.exportBtn}>
+                      <Ionicons name="download-outline" size={14} color="#374151" />
+                      <Text style={s.exportText}>PDF</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
 
@@ -963,6 +973,15 @@ const s = StyleSheet.create({
   empChipText: { fontSize: 13, fontWeight: '600', color: '#374151' },
 
   // Period navigation
+  periodNavWrapper: { gap: 6 },
+  periodNavHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 },
+  periodNavTitle: { fontSize: 13, fontWeight: '700', color: '#6B7280' },
+  periodVolverBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderWidth: 1, borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 4,
+  },
+  periodVolverText: { fontSize: 12, fontWeight: '700' },
   periodNav: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: '#fff', borderRadius: 14, padding: 6,
