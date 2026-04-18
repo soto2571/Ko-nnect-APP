@@ -4,21 +4,75 @@ import {
   ActivityIndicator, Alert, Modal, TextInput, Clipboard,
   Animated,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { useAuth } from '@/context/AuthContext';
 import * as api from '@/services/api';
-import type { Employee } from '@/types';
+import type { Employee, TimeLog } from '@/types';
+
+// ── Live helpers (mirrored from timeclock) ────────────────────────────────────
+function completedBreakMs(log: TimeLog): number {
+  const breaks = log.breaks || [];
+  if (breaks.length > 0)
+    return breaks.filter(b => b.start && b.end)
+      .reduce((s, b) => s + (new Date(b.end!).getTime() - new Date(b.start).getTime()), 0);
+  if (log.breakStart && log.breakEnd)
+    return new Date(log.breakEnd).getTime() - new Date(log.breakStart).getTime();
+  return 0;
+}
+function shiftElapsedSeconds(log: TimeLog) {
+  if (!log.clockIn) return 0;
+  const breaks = log.breaks || [];
+  const lastBreak = breaks[breaks.length - 1];
+  const doneBreakMs = completedBreakMs(log);
+  const shiftEnd = log.status === 'on_break' && lastBreak?.start
+    ? new Date(lastBreak.start).getTime() : Date.now();
+  return Math.max(0, Math.floor((shiftEnd - new Date(log.clockIn).getTime() - doneBreakMs) / 1000));
+}
+function breakElapsedSeconds(log: TimeLog) {
+  if (log.status !== 'on_break') return 0;
+  const breaks = log.breaks || [];
+  const lastBreak = breaks[breaks.length - 1];
+  const breakStart = lastBreak?.start ?? log.breakStart;
+  if (!breakStart) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(breakStart).getTime()) / 1000));
+}
+function fmt12(iso: string) {
+  const d = new Date(iso); const h = d.getHours(), m = d.getMinutes();
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2,'0')} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+function LiveBadge({ status }: { status: string }) {
+  const cfg: Record<string, { label: string; bg: string; fg: string }> = {
+    clocked_in:   { label: '● Activo',          bg: '#D1FAE5', fg: '#065F46' },
+    on_break:     { label: '☕ En Descanso',     bg: '#FEF3C7', fg: '#92400E' },
+    clocked_out:  { label: '✓ Terminó',          bg: '#F3F4F6', fg: '#6B7280' },
+    missed_punch: { label: '⚠ Marcaje Perdido', bg: '#FEE2E2', fg: '#991B1B' },
+  };
+  const c = cfg[status] ?? { label: status, bg: '#F9FAFB', fg: '#6B7280' };
+  return (
+    <View style={[ls.badge, { backgroundColor: c.bg }]}>
+      <Text style={[ls.badgeText, { color: c.fg }]}>{c.label}</Text>
+    </View>
+  );
+}
+const ls = StyleSheet.create({
+  badge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  badgeText: { fontSize: 11, fontWeight: '700' },
+});
 
 export default function EmployeesScreen() {
   const { business, primaryColor } = useAuth();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const color = primaryColor;
 
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [activeLogs, setActiveLogs] = useState<TimeLog[]>([]);
+  const [tick, setTick] = useState(0);
   const [loading, setLoading]     = useState(true);
   const [addModal, setAddModal]   = useState(false);
   const [detailEmp, setDetailEmp] = useState<Employee | null>(null);
@@ -31,11 +85,22 @@ export default function EmployeesScreen() {
   const [editLast, setEditLast]   = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
+  // Live timer tick
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const load = useCallback(async () => {
     if (!business?.businessId) return;
     setLoading(true);
     try {
-      setEmployees(await api.getEmployees(business.businessId));
+      const [emps, active] = await Promise.all([
+        api.getEmployees(business.businessId),
+        api.getActiveEmployees(business.businessId),
+      ]);
+      setEmployees(emps);
+      setActiveLogs(active);
     } catch(err: any) { Alert.alert('Error', err.message); }
     finally { setLoading(false); }
   }, [business?.businessId]);
@@ -129,18 +194,84 @@ export default function EmployeesScreen() {
               <Text style={s.emptyText}>Sin empleados aún.{'\n'}Toca + para agregar uno.</Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity style={s.card} onPress={() => setDetailEmp(item)}>
-              <View style={[s.avatar, { backgroundColor: color }]}>
-                <Text style={s.avatarText}>{item.firstName[0]}{item.lastName[0]}</Text>
+          renderItem={({ item }) => {
+            const empId = item.userId || item.employeeId;
+            const empLogs = activeLogs
+              .filter(l => l.employeeId === empId)
+              .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
+            const log = empLogs[0] ?? null;
+            const status = log?.status ?? 'not_in';
+            void tick; // re-render for live timer
+            const rawSecs = !log || status === 'clocked_out' ? 0
+              : status === 'on_break' ? breakElapsedSeconds(log)
+              : shiftElapsedSeconds(log);
+            const secs = isNaN(rawSecs) || rawSecs < 0 ? 0 : rawSecs;
+            const hh = Math.floor(secs / 3600), mm = Math.floor((secs % 3600) / 60), ss = secs % 60;
+            const timeStr = hh > 0
+              ? `${hh}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`
+              : `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+            const isActive = status === 'clocked_in' || status === 'on_break';
+            const avatarBg = status === 'clocked_in' ? '#10B981' : status === 'on_break' ? '#D97706' : color;
+
+            return (
+              <View
+                style={[s.card, isActive && { borderColor: status === 'on_break' ? '#D97706' : '#10B981', borderWidth: 1.5 }]}
+              >
+                <View style={[s.avatar, { backgroundColor: avatarBg }]}>
+                  <Text style={s.avatarText}>{item.firstName[0]}{item.lastName[0]}</Text>
+                </View>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={s.name}>{item.firstName} {item.lastName}</Text>
+                  {log ? (
+                    <>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <LiveBadge status={status} />
+                        {isActive && <Text style={s.liveTimer}>{timeStr}</Text>}
+                      </View>
+                      {(() => {
+                        const breaks = log.breaks && log.breaks.length > 0
+                          ? log.breaks : (log.breakStart ? [{ start: log.breakStart, end: log.breakEnd }] : []);
+                        const bMin = breaks.filter(b => b.start && b.end)
+                          .reduce((s, b) => s + Math.round((new Date(b.end!).getTime() - new Date(b.start).getTime()) / 60000), 0);
+                        const firstBreak = breaks.find(b => b.start && b.end);
+                        return (
+                          <View style={s.todayBlock}>
+                            <Text style={s.todayLabel}>Hoy</Text>
+                            <View style={s.todayRow}>
+                              {log.clockIn && <Text style={s.todayTime}>{fmt12(log.clockIn)}</Text>}
+                              <Text style={s.todayArrow}>→</Text>
+                              <Text style={s.todayTime}>{log.clockOut ? fmt12(log.clockOut) : '…'}</Text>
+                            </View>
+                            {firstBreak && (
+                              <View style={s.todayBreakRow}>
+                                <Ionicons name="cafe-outline" size={11} color="#9CA3AF" />
+                                <Text style={s.todayBreak} numberOfLines={1}>
+                                  {fmt12(firstBreak.start)}{firstBreak.end ? ` – ${fmt12(firstBreak.end)}` : ''}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <Text style={s.emailHint}>{item.email}</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: '/(owner)/timeclock', params: { expandEmp: empId } })}
+                  style={s.reportBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="bar-chart-outline" size={18} color={color} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setDetailEmp(item)} style={s.editEmpBtn}>
+                  <Ionicons name="person-outline" size={14} color="#6B7280" />
+                  <Text style={s.editEmpText}>Perfil</Text>
+                </TouchableOpacity>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.name}>{item.firstName} {item.lastName}</Text>
-                <Text style={s.emailHint}>{item.email}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-            </TouchableOpacity>
-          )}
+            );
+          }}
         />
       )}
 
@@ -281,7 +412,23 @@ const s = StyleSheet.create({
   avatar:     { width:44, height:44, borderRadius:22, alignItems:'center', justifyContent:'center' },
   avatarText: { color:'#fff', fontWeight:'700', fontSize:15 },
   name:       { fontSize:15, fontWeight:'600', color:'#111827' },
-  emailHint:  { fontSize:12, color:'#6B7280', marginTop:2 },
+  emailHint:  { fontSize:12, color:'#6B7280' },
+  liveTimer:  { fontSize:12, fontWeight:'700', color:'#374151' },
+  reportBtn:  { padding: 4 },
+  todayBlock: { gap: 2, marginTop: 2 },
+  todayLabel: { fontSize: 10, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.4 },
+  todayRow:   { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
+  todayTime:  { fontSize: 12, fontWeight: '600', color: '#374151' },
+  todayArrow: { fontSize: 11, color: '#D1D5DB' },
+  todayBreakRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  todayBreak: { fontSize: 11, color: '#9CA3AF' },
+  editEmpBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#F3F4F6', borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 5,
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  editEmpText: { fontSize: 11, fontWeight: '600', color: '#6B7280' },
 
   fab: {
     position:'absolute', bottom:28, right:24,

@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, Alert, Modal, ScrollView, Animated,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -229,6 +229,7 @@ type ModalMode = 'create' | 'edit';
 export default function ShiftsScreen() {
   const { business, primaryColor } = useAuth();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const color = primaryColor;
 
   const [shifts, setShifts]         = useState<Shift[]>([]);
@@ -258,6 +259,12 @@ export default function ShiftsScreen() {
   const [selEmp, setSelEmp] = useState<Employee|null>(null);
   const [breakDuration, setBreakDuration] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  // Derived: if end time < start time the shift crosses midnight (overnight)
+  const startMins   = to24(startH, startAp) * 60 + startM;
+  const endMins     = to24(endH, endAp) * 60 + endM;
+  const isOvernight = endMins <= startMins;
+  const shiftDurH   = Math.round(((isOvernight ? endMins + 1440 : endMins) - startMins) / 60 * 10) / 10;
 
   const load = useCallback(async () => {
     if (!business?.businessId) return;
@@ -344,14 +351,32 @@ export default function ShiftsScreen() {
     setModalVisible(true);
   };
 
+  const buildEndISO = (dateStr: string, s24: number, e24: number) => {
+    const endDate = new Date(`${dateStr}T${String(e24).padStart(2,'0')}:${String(endM).padStart(2,'0')}:00`);
+    if (isOvernight) endDate.setDate(endDate.getDate() + 1); // crosses midnight
+    return endDate.toISOString();
+  };
+
   const handleCreate = async () => {
+    if (!selEmp) return;
+    if (shiftDurH > 16) {
+      Alert.alert('Turno muy largo', `Este turno dura ${shiftDurH} horas. ¿Estás seguro?`, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Crear de todas formas', onPress: () => doCreate() },
+      ]);
+      return;
+    }
+    doCreate();
+  };
+
+  const doCreate = async () => {
     if (!selEmp) return;
     const s24 = to24(startH, startAp), e24 = to24(endH, endAp);
     setSaving(true);
     try {
       await Promise.all(Array.from(selectedDates).map(dateStr => {
-        const startISO   = new Date(`${dateStr}T${String(s24).padStart(2,'0')}:${String(startM).padStart(2,'0')}:00`).toISOString();
-        const endISO     = new Date(`${dateStr}T${String(e24).padStart(2,'0')}:${String(endM).padStart(2,'0')}:00`).toISOString();
+        const startISO     = new Date(`${dateStr}T${String(s24).padStart(2,'0')}:${String(startM).padStart(2,'0')}:00`).toISOString();
+        const endISO       = buildEndISO(dateStr, s24, e24);
         const breakTimeISO = breakDuration > 0
           ? new Date((new Date(startISO).getTime() + new Date(endISO).getTime()) / 2).toISOString()
           : undefined;
@@ -372,7 +397,7 @@ export default function ShiftsScreen() {
     const dateStr  = Array.from(selectedDates)[0];
     const s24 = to24(startH, startAp), e24 = to24(endH, endAp);
     const newStart = new Date(`${dateStr}T${String(s24).padStart(2,'0')}:${String(startM).padStart(2,'0')}:00`).toISOString();
-    const newEnd   = new Date(`${dateStr}T${String(e24).padStart(2,'0')}:${String(endM).padStart(2,'0')}:00`).toISOString();
+    const newEnd   = buildEndISO(dateStr, s24, e24);
     const empId    = selEmp ? (selEmp.userId || selEmp.employeeId) : (editShift.employeeId ?? '');
     setSaving(true);
     try {
@@ -607,12 +632,16 @@ export default function ShiftsScreen() {
                   <Text style={s.cardTime}>{fmt12(shift.startTime)} – {fmt12(shift.endTime)}</Text>
                   <View style={s.cardMeta}>
                     {emp && (
-                      <View style={[s.empBadge, { backgroundColor: color + '15' }]}>
+                      <TouchableOpacity
+                        style={[s.empBadge, { backgroundColor: color + '15' }]}
+                        onPress={() => router.push({ pathname: '/(owner)/timeclock', params: { expandEmp: emp.userId || emp.employeeId } })}
+                      >
                         <View style={[s.empBadgeAvatar, { backgroundColor: color }]}>
                           <Text style={s.empBadgeInitials}>{emp.firstName[0]}{emp.lastName[0]}</Text>
                         </View>
                         <Text style={[s.empBadgeName, { color }]}>{emp.firstName} {emp.lastName}</Text>
-                      </View>
+                        <Ionicons name="bar-chart-outline" size={11} color={color} />
+                      </TouchableOpacity>
                     )}
                     {(shift.breakDuration ?? 0) > 0 && (
                       <View style={s.breakPill}>
@@ -708,8 +737,15 @@ export default function ShiftsScreen() {
                     <Ionicons name="time-outline" size={15} color={color}/>
                     <Text style={[s.timeSummaryText, { color }]}>
                       {fmtDisplay(startH, startM, startAp)} – {fmtDisplay(endH, endM, endAp)}
+                      {isOvernight ? '  (+1 día)' : `  · ${shiftDurH}h`}
                     </Text>
                   </View>
+                  {isOvernight && (
+                    <View style={s.overnightBadge}>
+                      <Ionicons name="moon-outline" size={13} color="#6366F1"/>
+                      <Text style={s.overnightText}>Turno nocturno — termina el día siguiente</Text>
+                    </View>
+                  )}
                   <View style={{ gap: 8 }}>
                     <Text style={s.stepTitle}>Descanso / Almuerzo</Text>
                     <View style={{ flexDirection:'row', gap:6 }}>
@@ -934,6 +970,8 @@ const s = StyleSheet.create({
   breakChipText: { fontSize:12, fontWeight:'600', color:'#374151' },
   breakHint: { flexDirection:'row', alignItems:'center', gap:6, paddingHorizontal:4 },
   breakHintText: { fontSize:12, color:'#9CA3AF' },
+  overnightBadge: { flexDirection:'row', alignItems:'center', gap:6, backgroundColor:'#EEF2FF', borderRadius:10, padding:10, borderWidth:1, borderColor:'#C7D2FE' },
+  overnightText: { fontSize:12, fontWeight:'600', color:'#4338CA', flex:1 },
   filterRow: { flexDirection:'row', gap:8, paddingHorizontal:16, paddingBottom:10 },
   filterChip: {
     flexDirection:'row', alignItems:'center', gap:5,

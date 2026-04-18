@@ -51,9 +51,9 @@ export default function OwnerLayout() {
       <Tabs.Screen
         name="timeclock"
         options={{
-          title: 'Reloj',
+          title: 'Reporte',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="timer-outline" size={size} color={color} />
+            <Ionicons name="bar-chart-outline" size={size} color={color} />
           ),
         }}
       />

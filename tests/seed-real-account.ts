@@ -111,10 +111,10 @@ async function createEmployee(firstName: string, lastName: string): Promise<{ us
   });
   const userId = authUser.id;
 
-  // Insert into users table
+  // Insert into users table (businessId required so employee sees business color)
   await rest('users', {
     method: 'POST',
-    body: { userId, email, firstName, lastName, role: 'employee' },
+    body: { userId, email, firstName, lastName, role: 'employee', businessId: BUSINESS_ID },
   });
 
   // Insert into employees table

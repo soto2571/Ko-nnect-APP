@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, RefreshControl,
+  ActivityIndicator, Alert, RefreshControl, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { useAuth } from '@/context/AuthContext';
@@ -175,52 +175,51 @@ function InlineTimePicker({
   const [m, setM] = useState(init.m);
   const [ap, setAp] = useState<'AM'|'PM'>(init.ap);
 
-  const confirm = () => {
-    onChange(applyTime(value, h, m, ap));
-    setOpen(false);
+  // Re-sync local state when value changes externally (e.g. different log opened)
+  useEffect(() => {
+    const p = parseIso(value); setH(p.h); setM(p.m); setAp(p.ap);
+  }, [value]);
+
+  const pick = (newH: number, newM: number, newAp: 'AM'|'PM') => {
+    setH(newH); setM(newM); setAp(newAp);
+    onChange(applyTime(value, newH, newM, newAp));
   };
 
   return (
     <View>
-      <TouchableOpacity onPress={() => { const p = parseIso(value); setH(p.h); setM(p.m); setAp(p.ap); setOpen(o => !o); }} style={s.timeField}>
+      <TouchableOpacity onPress={() => setOpen(o => !o)} style={s.timeField}>
         <Text style={s.timeFieldLabel}>{label}</Text>
         <Text style={[s.timeFieldValue, !value && { color: '#6B7280' }]}>
-          {value ? fmt12(value) : 'Tap to set'}
+          {value ? fmt12(value) : '—'}
         </Text>
         <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color="#374151" />
       </TouchableOpacity>
       {open && (
         <View style={s.pickerPanel}>
           <View style={s.pickerRow}>
-            {/* Hours */}
             <ScrollView style={s.pickerCol} showsVerticalScrollIndicator={false}>
               {HOURS.map(hv => (
-                <TouchableOpacity key={hv} style={[s.pickerItem, h === hv && { backgroundColor: color, borderRadius: 8 }]} onPress={() => setH(hv)}>
+                <TouchableOpacity key={hv} style={[s.pickerItem, h === hv && { backgroundColor: color, borderRadius: 8 }]} onPress={() => pick(hv, m, ap)}>
                   <Text style={[s.pickerItemText, h === hv && { color: '#fff', fontWeight: '700' }]}>{hv}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
             <Text style={s.pickerColon}>:</Text>
-            {/* Minutes */}
             <ScrollView style={s.pickerCol} showsVerticalScrollIndicator={false}>
               {MINS.map(mv => (
-                <TouchableOpacity key={mv} style={[s.pickerItem, m === mv && { backgroundColor: color, borderRadius: 8 }]} onPress={() => setM(mv)}>
+                <TouchableOpacity key={mv} style={[s.pickerItem, m === mv && { backgroundColor: color, borderRadius: 8 }]} onPress={() => pick(h, mv, ap)}>
                   <Text style={[s.pickerItemText, m === mv && { color: '#fff', fontWeight: '700' }]}>{String(mv).padStart(2,'0')}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            {/* AM/PM */}
             <View style={s.pickerAmpm}>
               {(['AM','PM'] as const).map(a => (
-                <TouchableOpacity key={a} style={[s.pickerAmpmBtn, ap === a && { backgroundColor: color, borderRadius: 8 }]} onPress={() => setAp(a)}>
+                <TouchableOpacity key={a} style={[s.pickerAmpmBtn, ap === a && { backgroundColor: color, borderRadius: 8 }]} onPress={() => pick(h, m, a)}>
                   <Text style={[s.pickerItemText, ap === a && { color: '#fff', fontWeight: '700' }]}>{a}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
-          <TouchableOpacity style={[s.pickerConfirm, { backgroundColor: color }]} onPress={confirm}>
-            <Text style={s.pickerConfirmText}>Aplicar {label}</Text>
-          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -229,28 +228,29 @@ function InlineTimePicker({
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 
-type TabKey = 'live' | 'report';
-
 export default function TimeclockScreen() {
   const { business, primaryColor } = useAuth();
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<TabKey>('live');
+  const { expandEmp } = useLocalSearchParams<{ expandEmp?: string }>();
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [activeLogs, setActiveLogs] = useState<TimeLog[]>([]);
   const [periodLogs, setPeriodLogs] = useState<TimeLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [editLog, setEditLog] = useState<TimeLog | null>(null);
   const [editSaving, setEditSaving] = useState(false);
-  const [tick, setTick] = useState(0);
   const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, etc.
   const [expandedEmps, setExpandedEmps] = useState<Set<string>>(new Set());
 
-  // Live timer tick
+  // Auto-expand employee when navigated from another screen
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
+    if (expandEmp) {
+      setExpandedEmps(prev => {
+        const next = new Set(prev);
+        next.add(expandEmp);
+        return next;
+      });
+    }
+  }, [expandEmp]);
 
   const period = business ? getPayPeriodDates(business, periodOffset) : null;
   // Key changes whenever the visible period window changes
@@ -260,12 +260,8 @@ export default function TimeclockScreen() {
     if (!business?.businessId || !periodKey) return;
     const p = business ? getPayPeriodDates(business, periodOffset) : null;
     try {
-      const [emps, active] = await Promise.all([
-        api.getEmployees(business.businessId),
-        api.getActiveEmployees(business.businessId),
-      ]);
+      const emps = await api.getEmployees(business.businessId);
       setEmployees(emps);
-      setActiveLogs(active);
 
       if (p) {
         const logs = await api.getTimeLogs(
@@ -496,6 +492,26 @@ export default function TimeclockScreen() {
 
   const handleSaveEdit = async () => {
     if (!editLog) return;
+
+    // Validate break is within work hours
+    const clockIn  = editLog.clockIn  ? new Date(editLog.clockIn).getTime()  : null;
+    const clockOut = editLog.clockOut ? new Date(editLog.clockOut).getTime() : null;
+    const bStart   = editLog.breakStart ? new Date(editLog.breakStart).getTime() : null;
+    const bEnd     = editLog.breakEnd   ? new Date(editLog.breakEnd).getTime()   : null;
+
+    if (bStart !== null && clockIn !== null && bStart < clockIn) {
+      Alert.alert('Descanso inválido', 'El descanso no puede comenzar antes de la entrada.'); return;
+    }
+    if (bEnd !== null && clockOut !== null && bEnd > clockOut) {
+      Alert.alert('Descanso inválido', 'El descanso no puede terminar después de la salida.'); return;
+    }
+    if (bStart !== null && bEnd !== null && bEnd <= bStart) {
+      Alert.alert('Descanso inválido', 'La hora de fin del descanso debe ser después del inicio.'); return;
+    }
+    if (bStart !== null && clockOut !== null && bStart >= clockOut) {
+      Alert.alert('Descanso inválido', 'El descanso no puede comenzar después de la salida.'); return;
+    }
+
     setEditSaving(true);
     try {
       // Convert legacy breakStart/breakEnd fields into the breaks array the API expects
@@ -537,15 +553,7 @@ export default function TimeclockScreen() {
       <StatusBar style="dark" />
       <AnimatedBackground primaryColor={primaryColor} />
 
-      {/* Tabs */}
-      <View style={[s.tabBar, { paddingTop: insets.top }]}>
-        {([['live','En Vivo'],['report','Reporte']] as [TabKey,string][]).map(([key, label]) => (
-          <TouchableOpacity key={key} style={[s.tab, tab === key && { borderBottomColor: primaryColor, borderBottomWidth: 2 }]}
-            onPress={() => { setTab(key as TabKey); if (key === 'live') setPeriodOffset(0); }}>
-            <Text style={[s.tabText, tab === key && { color: primaryColor, fontWeight: '700' }]}>{label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <View style={{ paddingTop: insets.top }} />
 
       <ScrollView
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
@@ -553,81 +561,8 @@ export default function TimeclockScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={primaryColor} />}
       >
 
-        {/* ── LIVE TAB ── */}
-        {tab === 'live' && (
-          <>
-            <Text style={s.periodLabel}>Hoy · {new Date().toLocaleDateString('es', { weekday:'long', month:'long', day:'numeric' })}</Text>
-
-            {employees.length === 0 ? (
-              <View style={s.emptyCard}><Text style={s.emptyText}>Sin empleados aún.</Text></View>
-            ) : employees.map(emp => {
-              const empId = emp.userId || emp.employeeId;
-              // Among all logs for this employee, pick the most recent by clockIn time.
-              // This handles timezone edge cases where a previous evening shift may share
-              // the same UTC date as today's shift.
-              const empLogs = activeLogs
-                .filter(l => l.employeeId === empId)
-                .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
-              const log = empLogs[0] ?? null;
-              const status = log?.status ?? 'not_in';
-              void tick; // force re-render for timer
-              // Show break clock when on break, shift clock otherwise
-              const rawSecs = !log || status === 'clocked_out' ? 0
-                : status === 'on_break' ? breakElapsedSeconds(log)
-                : shiftElapsedSeconds(log);
-              const secs = isNaN(rawSecs) || rawSecs < 0 ? 0 : rawSecs;
-              const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), sec = secs % 60;
-              const timeStr = h > 0
-                ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
-                : `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-
-              const liveColor = status === 'on_break' ? '#D97706' : '#10B981';
-              const isActive  = status === 'clocked_in' || status === 'on_break';
-
-              return (
-                <View key={emp.employeeId} style={[
-                  s.liveCard,
-                  isActive && { borderColor: liveColor, borderWidth: 1.5 },
-                ]}>
-                  <View style={[s.liveAvatar, {
-                    backgroundColor: status === 'clocked_in' ? '#10B981' : status === 'on_break' ? '#D97706' : '#E5E7EB',
-                  }]}>
-                    <Text style={s.liveAvatarText}>{emp.firstName[0]}{emp.lastName[0]}</Text>
-                  </View>
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={s.liveName}>{emp.firstName} {emp.lastName}</Text>
-                    {log ? (
-                      <>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <StatusBadge status={status} />
-                          {status !== 'clocked_out' && (
-                            <Text style={[s.liveTimer, { color: '#fff' }]}>{timeStr}</Text>
-                          )}
-                        </View>
-                        {log.clockIn && (
-                          <Text style={s.liveDetail}>
-                            In: {fmt12(log.clockIn)}{log.clockOut ? `  ·  Out: ${fmt12(log.clockOut)}` : ''}
-                          </Text>
-                        )}
-                        {log.missedBreakPunch && (
-                          <View style={s.missedRow}>
-                            <Ionicons name="warning-outline" size={12} color="#991B1B" />
-                            <Text style={s.missedText}>Marcaje de descanso perdido</Text>
-                          </View>
-                        )}
-                      </>
-                    ) : (
-                      <Text style={s.notClockedText}>No ha marcado entrada</Text>
-                    )}
-                  </View>
-                </View>
-              );
-            })}
-          </>
-        )}
-
-        {/* ── REPORTE TAB (Reporte + Registros unificados) ── */}
-        {tab === 'report' && (() => {
+        {/* ── REPORTE ── */}
+        {(() => {
           const toggleEmp = (id: string) => setExpandedEmps(prev => {
             const next = new Set(prev);
             next.has(id) ? next.delete(id) : next.add(id);
@@ -767,89 +702,159 @@ export default function TimeclockScreen() {
                       </View>
                     )}
 
-                    {/* Expanded: day-by-day logs */}
-                    {isExpanded && (
-                      <View style={s.expandedLogs}>
-                        {allEmpLogs.length === 0 ? (
-                          <Text style={[s.emptyText, { fontSize: 13 }]}>Sin registros.</Text>
-                        ) : allEmpLogs.map(log => {
-                          const dateKey = log.date ?? new Date(log.clockIn).toISOString().slice(0, 10);
-                          const dayLabel = new Date(dateKey + 'T12:00:00').toLocaleDateString('es', { weekday: 'short', month: 'short', day: 'numeric' });
-                          const breaks = log.breaks && log.breaks.length > 0
-                            ? log.breaks
-                            : (log.breakStart ? [{ start: log.breakStart, end: log.breakEnd }] : []);
-                          const breakDurMin = breaks.filter(b => b.start && b.end)
-                            .reduce((s, b) => s + Math.round((new Date(b.end!).getTime() - new Date(b.start).getTime()) / 60000), 0);
-                          const isMissed = log.status === 'missed_punch';
-                          return (
-                            <View key={log.logId} style={[s.expandedLogRow, isMissed && { borderColor: '#FCA5A5' }]}>
-                              {/* Top row: date + total + edit */}
-                              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                                <Text style={s.expandedLogDate}>{dayLabel}</Text>
-                                {isMissed && <StatusBadge status={log.status} />}
-                                <View style={{ flex: 1 }} />
-                                {log.totalMinutes != null && (
-                                  <Text style={[s.logTotal, { fontSize: 13, marginRight: 8 }, log.overtimeDay && { color: '#EF4444' }]}>
-                                    {fmtHours(log.totalMinutes)}{log.overtimeDay ? ' OT' : ''}
-                                  </Text>
-                                )}
-                                <TouchableOpacity onPress={() => setEditLog({ ...log })} style={s.editBtn}>
-                                  <Ionicons name="create-outline" size={15} color="#9CA3AF" />
-                                </TouchableOpacity>
+                    {/* Expanded: day-by-day logs grouped by week */}
+                    {isExpanded && (() => {
+                      if (allEmpLogs.length === 0) {
+                        return (
+                          <View style={s.expandedLogs}>
+                            <Text style={[s.emptyText, { fontSize: 13 }]}>Sin registros.</Text>
+                          </View>
+                        );
+                      }
+                      const weekGroups = periodWeeks.map((week, wi) => ({
+                        weekNum: wi + 1,
+                        label: week.label,
+                        start: week.start,
+                        end: week.end,
+                        logs: allEmpLogs.filter(l => {
+                          const d = new Date(l.clockIn);
+                          return d >= week.start && d <= week.end;
+                        }),
+                      })).filter(g => g.logs.length > 0);
+
+                      return (
+                        <View style={s.expandedLogs}>
+                          {weekGroups.map(group => (
+                            <View key={group.weekNum} style={s.weekGroup}>
+                              {/* Week header */}
+                              <View style={s.weekGroupHeader}>
+                                <Text style={s.weekGroupLabel}>Semana {group.weekNum}</Text>
+                                <Text style={s.weekGroupRange}>
+                                  {group.start.toLocaleDateString('es', { month: 'short', day: 'numeric' })} – {group.end.toLocaleDateString('es', { month: 'short', day: 'numeric' })}
+                                </Text>
                               </View>
-                              {/* Bottom row: time chips */}
-                              <View style={s.logTimeChips}>
-                                <View style={s.logTimeChip}>
-                                  <Text style={s.logTimeChipLabel}>Entrada</Text>
-                                  <Text style={s.logTimeChipValue}>{log.clockIn ? fmt12(log.clockIn) : '—'}</Text>
-                                </View>
-                                {breaks.length > 0 && (
-                                  <View style={s.logTimeChip}>
-                                    <Text style={s.logTimeChipLabel}>Descanso</Text>
-                                    <Text style={s.logTimeChipValue}>{breakDurMin > 0 ? fmtHours(breakDurMin) : (breaks[0].start ? fmt12(breaks[0].start) : '—')}</Text>
+
+                              {/* Days */}
+                              {group.logs.map(log => {
+                                const dateKey = log.date ?? new Date(log.clockIn).toISOString().slice(0, 10);
+                                const dayLabel = new Date(dateKey + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric' });
+                                const breaks = log.breaks && log.breaks.length > 0
+                                  ? log.breaks
+                                  : (log.breakStart ? [{ start: log.breakStart, end: log.breakEnd }] : []);
+                                const breakDurMin = breaks.filter(b => b.start && b.end)
+                                  .reduce((s, b) => s + Math.round((new Date(b.end!).getTime() - new Date(b.start).getTime()) / 60000), 0);
+                                const isMissed = log.status === 'missed_punch';
+                                const hasBreak = breaks.length > 0;
+                                return (
+                                  <View key={log.logId} style={[s.expandedLogRow, isMissed && { borderColor: '#FCA5A5' }]}>
+                                    {/* Top row: day + total + edit */}
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                      <Text style={s.expandedLogDate}>{dayLabel}</Text>
+                                      {isMissed && <StatusBadge status={log.status} />}
+                                      <View style={{ flex: 1 }} />
+                                      {log.totalMinutes != null && (
+                                        <Text style={[s.logTotal, { fontSize: 13, marginRight: 8 }, log.overtimeDay && { color: '#EF4444' }]}>
+                                          {fmtHours(log.totalMinutes)}{log.overtimeDay ? ' OT' : ''}
+                                        </Text>
+                                      )}
+                                      <TouchableOpacity onPress={() => setEditLog({ ...log })} style={s.editBtn}>
+                                        <Ionicons name="create-outline" size={15} color="#9CA3AF" />
+                                      </TouchableOpacity>
+                                    </View>
+                                    {/* Timeline: Entrada → Descanso → Salida */}
+                                    <View style={s.logTimeline}>
+                                      <View style={[s.logTimelineStep, { flex: 1 }]}>
+                                        <Text style={s.logTimelineLabel}>Entrada</Text>
+                                        <Text style={s.logTimelineValue}>{log.clockIn ? fmt12(log.clockIn) : '—'}</Text>
+                                      </View>
+                                      {hasBreak && (
+                                        <>
+                                          <Ionicons name="arrow-forward" size={14} color="#D1D5DB" style={s.logTimelineArrow} />
+                                          <View style={[s.logTimelineStep, { flex: 1 }]}>
+                                            <Text style={s.logTimelineLabel}>Descanso</Text>
+                                            <Text style={s.logTimelineValue}>{breakDurMin > 0 ? fmtHours(breakDurMin) : '…'}</Text>
+                                          </View>
+                                        </>
+                                      )}
+                                      <Ionicons name="arrow-forward" size={14} color="#D1D5DB" style={s.logTimelineArrow} />
+                                      <View style={[s.logTimelineStep, { flex: 1 }]}>
+                                        <Text style={s.logTimelineLabel}>Salida</Text>
+                                        <Text style={s.logTimelineValue}>{log.clockOut ? fmt12(log.clockOut) : '—'}</Text>
+                                      </View>
+                                    </View>
                                   </View>
-                                )}
-                                <View style={s.logTimeChip}>
-                                  <Text style={s.logTimeChipLabel}>Salida</Text>
-                                  <Text style={s.logTimeChipValue}>{log.clockOut ? fmt12(log.clockOut) : '—'}</Text>
-                                </View>
-                              </View>
+                                );
+                              })}
                             </View>
-                          );
-                        })}
-                      </View>
-                    )}
+                          ))}
+                        </View>
+                      );
+                    })()}
                   </View>
                 );
               })}
 
-              {/* Edit log panel */}
-              {editLog && (
-                <View style={[s.editCard, { borderColor: primaryColor }]}>
-                  <Text style={[s.editTitle, { color: primaryColor }]}>Editar Registro</Text>
-                  <Text style={s.editEmpName}>{empName(editLog.employeeId)} · {fmtDate(editLog.clockIn)}</Text>
-                  <View style={s.editGrid}>
-                    <InlineTimePicker label="Entrada"          value={editLog.clockIn}    color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockIn: v }    : l)} />
-                    <InlineTimePicker label="Inicio Descanso" value={editLog.breakStart} color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakStart: v } : l)} />
-                    <InlineTimePicker label="Fin Descanso"    value={editLog.breakEnd}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakEnd: v }   : l)} />
-                    <InlineTimePicker label="Salida"           value={editLog.clockOut}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockOut: v }   : l)} />
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-                    <TouchableOpacity style={s.editCancelBtn} onPress={() => setEditLog(null)}>
-                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>Cancelar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[s.editSaveBtn, { backgroundColor: primaryColor }]}
-                      onPress={handleSaveEdit} disabled={editSaving}>
-                      {editSaving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Guardar</Text>}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
             </>
           );
         })()}
 
       </ScrollView>
+
+      {/* ── Edit log modal (centered overlay) ── */}
+      <Modal visible={!!editLog} transparent animationType="fade" onRequestClose={() => setEditLog(null)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <TouchableOpacity style={s.editOverlay} activeOpacity={1} onPress={() => setEditLog(null)}>
+            <TouchableOpacity activeOpacity={1} style={[s.editModal, { borderTopColor: primaryColor, borderTopWidth: 3 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.editTitle, { color: primaryColor }]}>Editar Registro</Text>
+                  {editLog && (
+                    <Text style={s.editEmpName}>{empName(editLog.employeeId)} · {fmtDate(editLog.clockIn)}</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={s.editDeleteBtn}
+                  onPress={() => {
+                    if (!editLog) return;
+                    Alert.alert(
+                      'Eliminar registro',
+                      '¿Eliminar este registro de tiempo? Esta acción no se puede deshacer.',
+                      [
+                        { text: 'Cancelar', style: 'cancel' },
+                        { text: 'Eliminar', style: 'destructive', onPress: async () => {
+                          try {
+                            await api.deleteTimeLog(editLog.logId);
+                            setPeriodLogs(prev => prev.filter(l => l.logId !== editLog.logId));
+                            setEditLog(null);
+                          } catch (e: any) { Alert.alert('Error', e.message); }
+                        }},
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+              <View style={[s.editGrid, { marginTop: 8 }]}>
+                <InlineTimePicker label="Entrada"          value={editLog?.clockIn}    color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockIn: v }    : l)} />
+                <InlineTimePicker label="Inicio Descanso" value={editLog?.breakStart} color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakStart: v } : l)} />
+                <InlineTimePicker label="Fin Descanso"    value={editLog?.breakEnd}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakEnd: v }   : l)} />
+                <InlineTimePicker label="Salida"           value={editLog?.clockOut}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockOut: v }   : l)} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                <TouchableOpacity style={s.editCancelBtn} onPress={() => setEditLog(null)}>
+                  <Text style={{ color: '#6B7280', fontWeight: '600' }}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.editSaveBtn, { backgroundColor: primaryColor }]}
+                  onPress={handleSaveEdit} disabled={editSaving}>
+                  {editSaving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Guardar</Text>}
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
     </View>
   );
 }
@@ -914,7 +919,15 @@ const s = StyleSheet.create({
   logFooter: { flexDirection: 'row', alignItems: 'center', gap: 10, justifyContent: 'space-between' },
   logTotal: { fontSize: 14, fontWeight: '800', color: '#111827' },
 
-  // Edit card
+  // Edit modal
+  editOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
+  },
+  editModal: {
+    width: '100%', backgroundColor: '#fff', borderRadius: 20, padding: 20, gap: 12,
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 30, shadowOffset: { width: 0, height: 10 }, elevation: 12,
+  },
   editCard: {
     backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, gap: 12,
     borderWidth: 2,
@@ -942,6 +955,7 @@ const s = StyleSheet.create({
   pickerConfirmText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   editCancelBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: '#F3F4F6' },
   editSaveBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  editDeleteBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', alignItems: 'center', justifyContent: 'center' },
 
   // Report card
   reportCard: {
@@ -1023,14 +1037,22 @@ const s = StyleSheet.create({
   },
   expandedLogDate: { fontSize: 13, fontWeight: '700', color: '#374151', marginRight: 8 },
   expandedLogTimes: { flex: 1, fontSize: 12, color: '#6B7280' },
-  logTimeChips: { flexDirection: 'row', gap: 8 },
-  logTimeChip: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 8,
-    paddingVertical: 6, paddingHorizontal: 8, alignItems: 'center',
-    borderWidth: 1, borderColor: '#E5E7EB',
+  // Week grouping inside expanded logs
+  weekGroup: { gap: 6 },
+  weekGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 2, paddingTop: 4 },
+  weekGroupLabel: { fontSize: 12, fontWeight: '800', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.4 },
+  weekGroupRange: { fontSize: 12, color: '#9CA3AF', fontWeight: '500' },
+
+  // Timeline: Entrada → Descanso → Salida
+  logTimeline: { flexDirection: 'row', alignItems: 'center' },
+  logTimelineStep: {
+    alignItems: 'center', backgroundColor: '#fff',
+    borderRadius: 8, paddingVertical: 5, paddingHorizontal: 8,
+    borderWidth: 1, borderColor: '#E5E7EB', minWidth: 64,
   },
-  logTimeChipLabel: { fontSize: 10, color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
-  logTimeChipValue: { fontSize: 12, fontWeight: '700', color: '#374151', marginTop: 2 },
+  logTimelineLabel: { fontSize: 9, color: '#9CA3AF', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 },
+  logTimelineValue: { fontSize: 12, fontWeight: '700', color: '#374151', marginTop: 2 },
+  logTimelineArrow: { marginHorizontal: 4 },
 
   // Day grouping header
   dayHeaderRow: {

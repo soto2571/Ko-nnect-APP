@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  Animated, Pressable, Image,
+  Animated, Pressable, Image, ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
@@ -50,10 +50,16 @@ export default function EmployeeLoginScreen() {
 
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar style="dark" />
       <AnimatedBackground primaryColor={BRAND} />
 
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
       <View style={[s.outer, { paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}>
 
         {/* Header */}
@@ -139,6 +145,7 @@ export default function EmployeeLoginScreen() {
         </Animated.View>
 
       </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

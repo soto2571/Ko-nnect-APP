@@ -358,6 +358,10 @@ export async function updateTimeLog(
   });
 }
 
+export async function deleteTimeLog(logId: string): Promise<void> {
+  return request<void>(`timelog-delete/${logId}`, { method: 'DELETE' });
+}
+
 // ─── Availability ─────────────────────────────────────────────────────────────
 
 export async function getAvailability(businessId: string, employeeId?: string): Promise<Availability[]> {
