@@ -266,6 +266,19 @@ export default function ShiftsScreen() {
   const isOvernight = endMins <= startMins;
   const shiftDurH   = Math.round(((isOvernight ? endMins + 1440 : endMins) - startMins) / 60 * 10) / 10;
 
+  // Conflict detection: returns conflicting shift if employee already has overlapping shift
+  const checkConflict = (empId: string, newStartISO: string, newEndISO: string, excludeShiftId?: string): Shift | null => {
+    const newStart = new Date(newStartISO).getTime();
+    const newEnd   = new Date(newEndISO).getTime();
+    return shifts.find(s => {
+      if (s.shiftId === excludeShiftId) return false;
+      if ((s.employeeId ?? '') !== empId) return false;
+      const sStart = new Date(s.startTime).getTime();
+      const sEnd   = new Date(s.endTime).getTime();
+      return newStart < sEnd && sStart < newEnd;
+    }) ?? null;
+  };
+
   const load = useCallback(async () => {
     if (!business?.businessId) return;
     setLoading(true);
@@ -372,6 +385,43 @@ export default function ShiftsScreen() {
   const doCreate = async () => {
     if (!selEmp) return;
     const s24 = to24(startH, startAp), e24 = to24(endH, endAp);
+    const empId = selEmp.userId || selEmp.employeeId;
+
+    // Check for conflicts across all selected dates
+    const conflictingDates: string[] = [];
+    for (const dateStr of Array.from(selectedDates)) {
+      const startISO = new Date(`${dateStr}T${String(s24).padStart(2,'0')}:${String(startM).padStart(2,'0')}:00`).toISOString();
+      const endISO   = buildEndISO(dateStr, s24, e24);
+      if (checkConflict(empId, startISO, endISO)) conflictingDates.push(dateStr);
+    }
+
+    if (conflictingDates.length > 0) {
+      const names = conflictingDates.map(d => {
+        const dt = new Date(d + 'T12:00:00');
+        return dt.toLocaleDateString('es', { weekday: 'short', month: 'short', day: 'numeric' });
+      }).join(', ');
+      const conflictShift = checkConflict(
+        empId,
+        new Date(`${conflictingDates[0]}T${String(s24).padStart(2,'0')}:${String(startM).padStart(2,'0')}:00`).toISOString(),
+        buildEndISO(conflictingDates[0], s24, e24),
+      )!;
+      Alert.alert(
+        'Conflicto de horario',
+        `${selEmp.firstName} ya tiene un turno de ${fmt12(conflictShift.startTime)} a ${fmt12(conflictShift.endTime)} que se superpone con el nuevo turno en: ${names}.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Crear de todas formas', onPress: () => doCreateForced() },
+        ]
+      );
+      return;
+    }
+
+    doCreateForced();
+  };
+
+  const doCreateForced = async () => {
+    if (!selEmp) return;
+    const s24 = to24(startH, startAp), e24 = to24(endH, endAp);
     setSaving(true);
     try {
       await Promise.all(Array.from(selectedDates).map(dateStr => {
@@ -399,6 +449,26 @@ export default function ShiftsScreen() {
     const newStart = new Date(`${dateStr}T${String(s24).padStart(2,'0')}:${String(startM).padStart(2,'0')}:00`).toISOString();
     const newEnd   = buildEndISO(dateStr, s24, e24);
     const empId    = selEmp ? (selEmp.userId || selEmp.employeeId) : (editShift.employeeId ?? '');
+
+    // Check for schedule conflict (exclude the shift being edited)
+    const conflict = checkConflict(empId, newStart, newEnd, editShift.shiftId);
+    if (conflict) {
+      const empName = selEmp ? `${selEmp.firstName} ${selEmp.lastName}` : 'Este empleado';
+      Alert.alert(
+        'Conflicto de horario',
+        `${empName} ya tiene un turno de ${fmt12(conflict.startTime)} a ${fmt12(conflict.endTime)} que se superpone con los cambios.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Guardar de todas formas', onPress: () => doSaveEdit(newStart, newEnd, empId) },
+        ]
+      );
+      return;
+    }
+    doSaveEdit(newStart, newEnd, empId);
+  };
+
+  const doSaveEdit = async (newStart: string, newEnd: string, empId: string) => {
+    if (!editShift) return;
     setSaving(true);
     try {
       const breakTimeISO = breakDuration > 0
@@ -621,6 +691,8 @@ export default function ShiftsScreen() {
                    l.date === todayStr
             );
             const liveColor = liveLog?.status === 'on_break' ? '#D97706' : '#10B981';
+            const durMs  = new Date(shift.endTime).getTime() - new Date(shift.startTime).getTime();
+            const durH   = Math.round(durMs / 360000) / 10;
             return (
               <View style={[
                 s.card,
@@ -629,7 +701,12 @@ export default function ShiftsScreen() {
               ]}>
                 <View style={[s.colorBar, { backgroundColor: liveLog ? liveColor : color }]} />
                 <View style={{ flex:1, paddingLeft: 12, gap: 4 }}>
-                  <Text style={s.cardTime}>{fmt12(shift.startTime)} – {fmt12(shift.endTime)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={s.cardTime}>{fmt12(shift.startTime)} – {fmt12(shift.endTime)}</Text>
+                    <View style={[s.durPill, { backgroundColor: color + '15' }]}>
+                      <Text style={[s.durPillText, { color }]}>{durH}h</Text>
+                    </View>
+                  </View>
                   <View style={s.cardMeta}>
                     {emp && (
                       <TouchableOpacity
@@ -646,7 +723,11 @@ export default function ShiftsScreen() {
                     {(shift.breakDuration ?? 0) > 0 && (
                       <View style={s.breakPill}>
                         <Ionicons name="cafe-outline" size={11} color="#9CA3AF"/>
-                        <Text style={s.breakPillText}>{shift.breakDuration}m</Text>
+                        <Text style={s.breakPillText}>
+                          {(shift.breakDuration ?? 0) >= 60
+                            ? `${(shift.breakDuration ?? 0) / 60}h descanso`
+                            : `${shift.breakDuration}m descanso`}
+                        </Text>
                       </View>
                     )}
                     {liveLog && (
@@ -902,6 +983,8 @@ const s = StyleSheet.create({
   empBadgeName: { fontSize:12, fontWeight:'600' },
   cardActions: { flexDirection:'column', gap:4, paddingRight:4 },
   iconBtn: { padding:7 },
+  durPill: { borderRadius:10, paddingHorizontal:7, paddingVertical:2 },
+  durPillText: { fontSize:12, fontWeight:'700' },
   breakPill: { flexDirection:'row', alignItems:'center', gap:3, backgroundColor:'#F9FAFB', borderRadius:20, paddingHorizontal:8, paddingVertical:3, borderWidth:1, borderColor:'#F3F4F6' },
   breakPillText: { fontSize:11, fontWeight:'600', color:'#6B7280' },
   liveBadge: { flexDirection:'row', alignItems:'center', gap:4, borderRadius:20, paddingHorizontal:8, paddingVertical:3 },
