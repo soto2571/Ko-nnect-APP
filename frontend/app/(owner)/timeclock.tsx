@@ -499,17 +499,21 @@ export default function TimeclockScreen() {
     const bStart   = editLog.breakStart ? new Date(editLog.breakStart).getTime() : null;
     const bEnd     = editLog.breakEnd   ? new Date(editLog.breakEnd).getTime()   : null;
 
-    if (bStart !== null && clockIn !== null && bStart < clockIn) {
-      Alert.alert('Descanso inválido', 'El descanso no puede comenzar antes de la entrada.'); return;
+    if (bStart !== null) {
+      if (clockIn !== null && bStart < clockIn) {
+        Alert.alert('Descanso inválido', 'El descanso no puede comenzar antes de la entrada.'); return;
+      }
+      if (clockOut !== null && bStart >= clockOut) {
+        Alert.alert('Descanso inválido', 'El descanso no puede comenzar después de la salida.'); return;
+      }
     }
-    if (bEnd !== null && clockOut !== null && bEnd > clockOut) {
-      Alert.alert('Descanso inválido', 'El descanso no puede terminar después de la salida.'); return;
-    }
-    if (bStart !== null && bEnd !== null && bEnd <= bStart) {
-      Alert.alert('Descanso inválido', 'La hora de fin del descanso debe ser después del inicio.'); return;
-    }
-    if (bStart !== null && clockOut !== null && bStart >= clockOut) {
-      Alert.alert('Descanso inválido', 'El descanso no puede comenzar después de la salida.'); return;
+    if (bEnd !== null) {
+      if (clockOut !== null && bEnd > clockOut) {
+        Alert.alert('Descanso inválido', 'El descanso no puede terminar después de la salida.'); return;
+      }
+      if (bStart !== null && bEnd <= bStart) {
+        Alert.alert('Descanso inválido', 'La hora de fin del descanso debe ser después del inicio.'); return;
+      }
     }
 
     setEditSaving(true);
