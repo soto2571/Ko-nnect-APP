@@ -29,7 +29,7 @@ function fmtHours(minutes: number) {
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString('es', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 function getPayPeriodDates(
@@ -40,7 +40,7 @@ function getPayPeriodDates(
   today.setHours(0, 0, 0, 0);
   const type = business.payPeriodType ?? 'weekly';
   const startDay = business.payPeriodStartDay ?? 0;
-  const fmt = (d: Date) => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const fmt = (d: Date) => d.toLocaleDateString('es', { month: 'short', day: 'numeric' });
 
   if (type === 'semi-monthly') {
     // Find current half-month, then apply offset
@@ -303,7 +303,7 @@ export default function TimeclockScreen() {
       wEnd.setDate(wEnd.getDate() + 6);
       if (wEnd > p.end) wEnd.setTime(p.end.getTime());
       wEnd.setHours(23, 59, 59);
-      const fmt = (d: Date) => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      const fmt = (d: Date) => d.toLocaleDateString('es', { month: 'short', day: 'numeric' });
       weeks.push({ start: wStart, end: wEnd, label: `Semana ${weekNum}: ${fmt(wStart)} – ${fmt(wEnd)}` });
       cursor.setDate(cursor.getDate() + 7);
       weekNum++;
@@ -345,7 +345,7 @@ export default function TimeclockScreen() {
       if (!canShare) { Alert.alert('No disponible', 'El compartir no está disponible en este dispositivo.'); return; }
 
       const weeks = getPeriodWeeks(period);
-      const generatedDate = new Date().toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
+      const generatedDate = new Date().toLocaleDateString('es', { month: 'long', day: 'numeric', year: 'numeric' });
 
       // Build week sections HTML
       let weekSections = '';
@@ -357,7 +357,7 @@ export default function TimeclockScreen() {
         // Group by date
         const byDate = new Map<string, typeof weekLogs>();
         for (const l of weekLogs) {
-          const key = new Date(l.clockIn).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+          const key = new Date(l.clockIn).toLocaleDateString('es', { weekday: 'long', month: 'long', day: 'numeric' });
           if (!byDate.has(key)) byDate.set(key, []);
           byDate.get(key)!.push(l);
         }
@@ -369,7 +369,7 @@ export default function TimeclockScreen() {
           shiftRows = '<tr><td colspan="6" class="empty">Sin turnos esta semana</td></tr>';
         } else {
           for (const l of weekLogs) {
-            const dateLabel = new Date(l.clockIn).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+            const dateLabel = new Date(l.clockIn).toLocaleDateString('es', { weekday: 'short', month: 'short', day: 'numeric' });
             const breaks = l.breaks && l.breaks.length > 0
               ? l.breaks
               : (l.breakStart ? [{ start: l.breakStart, end: l.breakEnd }] : []);
@@ -657,13 +657,22 @@ export default function TimeclockScreen() {
           return (
             <>
               {/* Period navigation */}
-              <View style={s.periodNav}>
+              <View style={[s.periodNav, periodOffset === 0 && { borderColor: primaryColor, borderWidth: 1.5 }]}>
                 <TouchableOpacity onPress={() => setPeriodOffset(o => o - 1)} style={s.periodNavBtn}>
                   <Ionicons name="chevron-back" size={18} color="#374151" />
                 </TouchableOpacity>
-                <View style={{ flex: 1, alignItems: 'center' }}>
+                <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+                  {periodOffset === 0 ? (
+                    <View style={[s.periodCurrentBadge, { backgroundColor: primaryColor + '18' }]}>
+                      <Text style={[s.periodCurrentText, { color: primaryColor }]}>● Período actual</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity onPress={() => setPeriodOffset(0)} style={s.periodGoCurrentBtn}>
+                      <Ionicons name="return-up-forward-outline" size={12} color={primaryColor} />
+                      <Text style={[s.periodGoCurrentText, { color: primaryColor }]}>Ir al actual</Text>
+                    </TouchableOpacity>
+                  )}
                   <Text style={s.periodLabel}>{period?.label}</Text>
-                  {periodOffset < 0 && <Text style={s.periodPastLabel}>Período anterior</Text>}
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <TouchableOpacity
@@ -750,7 +759,7 @@ export default function TimeclockScreen() {
                           <Text style={[s.emptyText, { fontSize: 13 }]}>Sin registros.</Text>
                         ) : allEmpLogs.map(log => {
                           const dateKey = log.date ?? new Date(log.clockIn).toISOString().slice(0, 10);
-                          const dayLabel = new Date(dateKey + 'T12:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+                          const dayLabel = new Date(dateKey + 'T12:00:00').toLocaleDateString('es', { weekday: 'short', month: 'short', day: 'numeric' });
                           const breaks = log.breaks && log.breaks.length > 0
                             ? log.breaks
                             : (log.breakStart ? [{ start: log.breakStart, end: log.breakEnd }] : []);
@@ -949,6 +958,20 @@ const s = StyleSheet.create({
   periodPastLabel: {
     fontSize: 10, color: '#9CA3AF', fontWeight: '600',
     textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 1,
+  },
+  periodCurrentBadge: {
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  periodCurrentText: {
+    fontSize: 11, fontWeight: '700', letterSpacing: 0.2,
+  },
+  periodGoCurrentBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  periodGoCurrentText: {
+    fontSize: 11, fontWeight: '700',
   },
 
   // Expandable employee rows
