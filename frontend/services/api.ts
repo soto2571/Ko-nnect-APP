@@ -187,6 +187,10 @@ export async function getBusiness(businessId: string): Promise<Business> {
   return request<Business>(`business-get/${businessId}`);
 }
 
+export async function deleteBusiness(businessId: string): Promise<void> {
+  return request<void>(`business-delete/${businessId}`, { method: 'DELETE' });
+}
+
 export async function updateBusiness(
   businessId: string,
   payload: {

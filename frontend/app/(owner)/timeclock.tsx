@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, RefreshControl, Modal, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert, RefreshControl, Modal, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -226,6 +226,49 @@ function InlineTimePicker({
   );
 }
 
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+function SkeletonBox({ width, height, radius = 8, style }: { width?: number|string; height: number; radius?: number; style?: any }) {
+  const opacity = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    const anim = Animated.loop(Animated.sequence([
+      Animated.timing(opacity, { toValue: 0.9, duration: 700, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0.35, duration: 700, useNativeDriver: true }),
+    ]));
+    anim.start();
+    return () => anim.stop();
+  }, []);
+  return (
+    <Animated.View style={[{ backgroundColor: '#E5E7EB', borderRadius: radius, height, width: width ?? '100%', opacity }, style]} />
+  );
+}
+
+function ReportSkeleton() {
+  return (
+    <View style={{ gap: 12 }}>
+      {/* Export pill skeleton */}
+      <SkeletonBox height={42} radius={50} width={200} style={{ alignSelf: 'center' }} />
+      {/* Employee card skeletons */}
+      {[0, 1, 2].map(i => (
+        <View key={i} style={{ backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)', elevation: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <SkeletonBox width={44} height={44} radius={22} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <SkeletonBox height={14} width="55%" />
+              <SkeletonBox height={12} width="35%" />
+            </View>
+            <SkeletonBox width={60} height={28} radius={14} />
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <SkeletonBox height={28} radius={10} style={{ flex: 1 }} />
+            <SkeletonBox height={28} radius={10} style={{ flex: 1 }} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function TimeclockScreen() {
@@ -256,9 +299,13 @@ export default function TimeclockScreen() {
   // Key changes whenever the visible period window changes
   const periodKey = period ? `${toDateStr(period.start)}|${toDateStr(period.end)}` : '';
 
+  // Show skeleton immediately when period changes, before load() fires
+  useEffect(() => { setLoading(true); }, [periodOffset]);
+
   const load = useCallback(async () => {
     if (!business?.businessId || !periodKey) return;
     const p = business ? getPayPeriodDates(business, periodOffset) : null;
+    setLoading(true);
     try {
       const emps = await api.getEmployees(business.businessId);
       setEmployees(emps);
@@ -545,12 +592,6 @@ export default function TimeclockScreen() {
     </View>
   );
 
-  if (loading) return (
-    <View style={{ flex:1, alignItems:'center', justifyContent:'center' }}>
-      <AnimatedBackground primaryColor={primaryColor} />
-      <ActivityIndicator color={primaryColor} />
-    </View>
-  );
 
   return (
     <View style={{ flex: 1 }}>
@@ -617,23 +658,27 @@ export default function TimeclockScreen() {
                   <View style={{ flex: 1, alignItems: 'center' }}>
                     <Text style={s.periodLabel}>{period?.label}</Text>
                   </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <TouchableOpacity
-                      onPress={() => { if (periodOffset < 0) setPeriodOffset(o => o + 1); }}
-                      style={[s.periodNavBtn, periodOffset === 0 && { opacity: 0.25 }]}
-                      disabled={periodOffset === 0}
-                    >
-                      <Ionicons name="chevron-forward" size={18} color="#374151" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleExport} style={s.exportBtn}>
-                      <Ionicons name="download-outline" size={14} color="#374151" />
-                      <Text style={s.exportText}>PDF</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    onPress={() => { if (periodOffset < 0) setPeriodOffset(o => o + 1); }}
+                    style={[s.periodNavBtn, periodOffset === 0 && { opacity: 0.25 }]}
+                    disabled={periodOffset === 0}
+                  >
+                    <Ionicons name="chevron-forward" size={18} color="#374151" />
+                  </TouchableOpacity>
                 </View>
               </View>
 
-              {empRows.length === 0 ? (
+              {/* Export pill — disabled while loading */}
+              <TouchableOpacity
+                onPress={handleExport}
+                disabled={loading}
+                style={[s.exportPill, loading && { opacity: 0.4 }]}
+              >
+                <Ionicons name="download-outline" size={15} color="#111827" />
+                <Text style={s.exportPillText}>Exportar nómina · PDF</Text>
+              </TouchableOpacity>
+
+              {loading ? <ReportSkeleton /> : empRows.length === 0 ? (
                 <View style={s.emptyCard}><Text style={s.emptyText}>Sin empleados.</Text></View>
               ) : empRows.map(({ emp, empId, allEmpLogs, totalMin, weeks, overtimeWeek, missed }) => {
                 const isExpanded = expandedEmps.has(empId);
@@ -882,8 +927,15 @@ const s = StyleSheet.create({
 
   periodRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   periodLabel: { fontSize: 12, fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.4 },
-  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#F9FAFB' },
-  exportText: { fontSize: 12, fontWeight: '700', color: '#374151' },
+  exportPill: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 50, borderWidth: 2, borderColor: '#111827',
+    paddingHorizontal: 20, paddingVertical: 11,
+    backgroundColor: '#fff', alignSelf: 'center',
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  exportPillText: { fontSize: 14, fontWeight: '700', color: '#111827' },
 
   // Live card
   liveCard: {
@@ -993,7 +1045,7 @@ const s = StyleSheet.create({
   // Period navigation
   periodNavWrapper: { gap: 6 },
   periodNavHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 },
-  periodNavTitle: { fontSize: 13, fontWeight: '700', color: '#6B7280' },
+  periodNavTitle: { fontSize: 13, fontWeight: '800', color: '#6B7280' },
   periodVolverBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: 1, borderRadius: 8,

@@ -55,23 +55,19 @@ export default function EmployeeLoginScreen() {
       <AnimatedBackground primaryColor={BRAND} />
 
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
+        contentContainerStyle={[s.scroll, { paddingTop: insets.top, paddingBottom: insets.bottom + 40 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-      <View style={[s.outer, { paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}>
-
         {/* Header */}
         <Animated.View style={[s.logoBlock, {
           opacity: headerAnim,
           transform: [{ translateY: headerAnim.interpolate({ inputRange: [0,1], outputRange: [-24, 0] }) }],
         }]}>
-          {/* Back to role select */}
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
             <Ionicons name="chevron-back" size={18} color={BRAND} />
           </TouchableOpacity>
-
           <Image source={require('@/assets/konnectaBigWhite.png')} style={s.logoImg} resizeMode="contain" />
           <Text style={s.logoText}>Acceso Empleado</Text>
           <Text style={s.tagline}>Usa las credenciales que te envió tu patrono.</Text>
@@ -82,77 +78,73 @@ export default function EmployeeLoginScreen() {
           opacity: cardAnim,
           transform: [{ translateY: cardAnim.interpolate({ inputRange: [0,1], outputRange: [32, 0] }) }],
         }]}>
+          {error !== '' && (
+            <View style={s.errorBox}>
+              <Ionicons name="alert-circle-outline" size={15} color="#EF4444" />
+              <Text style={s.errorText}>{error}</Text>
+            </View>
+          )}
 
-            <>
-              {error !== '' && (
-                <View style={s.errorBox}>
-                  <Ionicons name="alert-circle-outline" size={15} color="#EF4444" />
-                  <Text style={s.errorText}>{error}</Text>
-                </View>
-              )}
+          <View style={s.hintBox}>
+            <Ionicons name="information-circle-outline" size={15} color="#3B82F6" />
+            <Text style={s.hintText}>
+              Tu correo es algo como{' '}
+              <Text style={s.hintCode}>nombre.apellido@negocio.app</Text>
+            </Text>
+          </View>
 
-              {/* Hint box */}
-              <View style={s.hintBox}>
-                <Ionicons name="information-circle-outline" size={15} color="#3B82F6" />
-                <Text style={s.hintText}>
-                  Tu correo es algo como{' '}
-                  <Text style={s.hintCode}>nombre.apellido@negocio.app</Text>
-                </Text>
+          <View style={[s.inputWrap, emailFocused && s.inputFocused]}>
+            <Ionicons name="mail-outline" size={17} color={emailFocused ? BRAND : '#9CA3AF'} style={s.icon} />
+            <TextInput
+              style={s.input} placeholder="Correo electrónico" placeholderTextColor="#B0B0BA"
+              value={email} onChangeText={t => { setEmail(t); setError(''); }}
+              autoCapitalize="none" keyboardType="email-address"
+              returnKeyType="next"
+              onFocus={() => setEmailFocused(true)} onBlur={() => setEmailFocused(false)}
+            />
+          </View>
+
+          <View style={[s.inputWrap, passwordFocused && s.inputFocused]}>
+            <Ionicons name="lock-closed-outline" size={17} color={passwordFocused ? BRAND : '#9CA3AF'} style={s.icon} />
+            <TextInput
+              style={[s.input, { flex: 1 }]} placeholder="Contraseña" placeholderTextColor="#B0B0BA"
+              value={password} onChangeText={t => { setPassword(t); setError(''); }}
+              secureTextEntry={!showPw}
+              returnKeyType="done" onSubmitEditing={handleLogin}
+              onFocus={() => setPasswordFocused(true)} onBlur={() => setPasswordFocused(false)}
+            />
+            <TouchableOpacity onPress={() => setShowPw(v => !v)} style={{ padding: 4 }}>
+              <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={17} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={s.forgotHint}>¿Olvidaste tu contraseña? Contacta a tu patrono.</Text>
+
+          <Pressable
+            onPressIn={() => Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start()}
+            onPressOut={() => Animated.spring(btnScale, { toValue: 1, useNativeDriver: true }).start()}
+            onPress={handleLogin} disabled={loading}
+          >
+            <Animated.View style={{ transform: [{ scale: btnScale }] }}>
+              <View style={s.btn}>
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Iniciar Sesión</Text>}
               </View>
-
-              <View style={[s.inputWrap, emailFocused && s.inputFocused]}>
-                <Ionicons name="mail-outline" size={17} color={emailFocused ? BRAND : '#9CA3AF'} style={s.icon} />
-                <TextInput
-                  style={s.input} placeholder="Correo electrónico" placeholderTextColor="#B0B0BA"
-                  value={email} onChangeText={t => { setEmail(t); setError(''); }}
-                  autoCapitalize="none" keyboardType="email-address"
-                  onFocus={() => setEmailFocused(true)} onBlur={() => setEmailFocused(false)}
-                />
-              </View>
-
-              <View style={[s.inputWrap, passwordFocused && s.inputFocused]}>
-                <Ionicons name="lock-closed-outline" size={17} color={passwordFocused ? BRAND : '#9CA3AF'} style={s.icon} />
-                <TextInput
-                  style={[s.input, { flex: 1 }]} placeholder="Contraseña" placeholderTextColor="#B0B0BA"
-                  value={password} onChangeText={t => { setPassword(t); setError(''); }}
-                  secureTextEntry={!showPw}
-                  onFocus={() => setPasswordFocused(true)} onBlur={() => setPasswordFocused(false)}
-                />
-                <TouchableOpacity onPress={() => setShowPw(v => !v)} style={{ padding: 4 }}>
-                  <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={17} color="#9CA3AF" />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={s.forgotHint}>¿Olvidaste tu contraseña? Contacta a tu patrono.</Text>
-
-              <Pressable
-                onPressIn={() => Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start()}
-                onPressOut={() => Animated.spring(btnScale, { toValue: 1, useNativeDriver: true }).start()}
-                onPress={handleLogin} disabled={loading}
-              >
-                <Animated.View style={{ transform: [{ scale: btnScale }] }}>
-                  <View style={s.btn}>
-                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Iniciar Sesión</Text>}
-                  </View>
-                </Animated.View>
-              </Pressable>
-            </>
+            </Animated.View>
+          </Pressable>
         </Animated.View>
 
         {/* Footer */}
         <Animated.View style={[s.footer, { opacity: cardAnim }]}>
           <Text style={s.footerText}>Ko-nnecta' · Mantén a tu equipo siempre connecta'o.</Text>
         </Animated.View>
-
-      </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const s = StyleSheet.create({
-  outer: {
-    flex: 1, paddingHorizontal: 24, justifyContent: 'space-between',
+  scroll: {
+    paddingHorizontal: 24, gap: 24,
   },
 
   logoBlock: {

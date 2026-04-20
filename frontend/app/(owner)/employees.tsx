@@ -46,21 +46,24 @@ function fmt12(iso: string) {
 }
 
 function LiveBadge({ status }: { status: string }) {
-  const cfg: Record<string, { label: string; bg: string; fg: string }> = {
-    clocked_in:   { label: '● Activo',          bg: '#D1FAE5', fg: '#065F46' },
-    on_break:     { label: '☕ En Descanso',     bg: '#FEF3C7', fg: '#92400E' },
-    clocked_out:  { label: '✓ Terminó',          bg: '#F3F4F6', fg: '#6B7280' },
-    missed_punch: { label: '⚠ Marcaje Perdido', bg: '#FEE2E2', fg: '#991B1B' },
+  type Cfg = { label: string; bg: string; fg: string; icon?: React.ReactNode };
+  const cfg: Record<string, Cfg> = {
+    clocked_in:   { label: 'Activo',          bg: '#D1FAE5', fg: '#065F46', icon: <View style={[ls.dot, { backgroundColor: '#065F46' }]} /> },
+    on_break:     { label: 'En Descanso',     bg: '#FEF3C7', fg: '#92400E', icon: <Ionicons name="cafe-outline" size={12} color="#92400E" /> },
+    clocked_out:  { label: 'Terminó',         bg: '#F3F4F6', fg: '#6B7280', icon: <Ionicons name="checkmark" size={12} color="#6B7280" /> },
+    missed_punch: { label: 'Marcaje Perdido', bg: '#FEE2E2', fg: '#991B1B', icon: <Ionicons name="warning-outline" size={12} color="#991B1B" /> },
   };
   const c = cfg[status] ?? { label: status, bg: '#F9FAFB', fg: '#6B7280' };
   return (
     <View style={[ls.badge, { backgroundColor: c.bg }]}>
+      {c.icon}
       <Text style={[ls.badgeText, { color: c.fg }]}>{c.label}</Text>
     </View>
   );
 }
 const ls = StyleSheet.create({
-  badge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  dot:   { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 11, fontWeight: '700' },
 });
 

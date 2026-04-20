@@ -105,14 +105,7 @@ function TimePicker({ label, hour, minute, ampm, onHour, onMinute, onAmpm, color
   const hours = Array.from({ length: 12 }, (_, i) => i+1);
   return (
     <View style={tp.wrap}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-        <Text style={tp.label}>{label}</Text>
-        {dimmed && (
-          <View style={{ backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-            <Text style={{ fontSize: 10, fontWeight: '700', color: '#92400E' }}>Selecciona</Text>
-          </View>
-        )}
-      </View>
+      <Text style={tp.label}>{label}</Text>
       <View style={[tp.row, dimmed && { opacity: 0.45 }]}>
         <ScrollView style={tp.scroll} showsVerticalScrollIndicator={false} nestedScrollEnabled>
           {hours.map(h => (
@@ -191,36 +184,37 @@ function MiniCalendar({ selected, onToggle, color, startDay = 0 }: {
 
 // ─── Weekly Calendar strip ────────────────────────────────────────────────────
 
-function WeeklyCalendar({ offset, shifts, employees, color, startDay = 0 }: {
-  offset:number; shifts:Shift[]; employees:Employee[]; color:string; startDay?: number;
+function WeeklyCalendar({ offset, shifts, totalEmployees, color, startDay = 0 }: {
+  offset:number; shifts:Shift[]; totalEmployees:number; color:string; startDay?: number;
 }) {
   const dates = getWeekDates(offset, startDay);
-  const empById = (id?: string) => id ? employees.find(e => e.userId===id||e.employeeId===id) : undefined;
   const shiftsForDay = (d: Date) => shifts.filter(s => isSameDay(new Date(s.startTime), d));
+  const maxForDay = Math.max(1, totalEmployees);
 
   return (
     <View style={wk.container}>
       <View style={wk.grid}>
         {dates.map((date, i) => {
           const dayShifts = shiftsForDay(date);
+          const count = dayShifts.length;
           const today = isToday(date);
           const past  = isPastDay(date);
+          const fill  = Math.min(count / maxForDay, 1);
           return (
             <View key={i} style={[wk.col, past && { opacity: 0.38 }]}>
               <Text style={[wk.abbr, today && { color }]}>{DAY_ABBR[date.getDay()]}</Text>
               <View style={[wk.numWrap, today && { backgroundColor: color }]}>
                 <Text style={[wk.num, today && { color: '#fff' }]}>{date.getDate()}</Text>
               </View>
-              <View style={wk.dots}>
-                {dayShifts.slice(0,3).map(s => {
-                  const emp = empById(s.employeeId);
-                  return (
-                    <View key={s.shiftId} style={[wk.dot, { backgroundColor: past ? '#9CA3AF' : color }]}>
-                      <Text style={wk.dotText}>{emp ? `${emp.firstName[0]}${emp.lastName[0]}` : '?'}</Text>
-                    </View>
-                  );
-                })}
-                {dayShifts.length > 3 && <Text style={[wk.more, { color }]}>+{dayShifts.length-3}</Text>}
+              {/* Shift count dot */}
+              <View style={wk.dotWrap}>
+                {count > 0 ? (
+                  <View style={[wk.dot, { backgroundColor: past ? '#D1D5DB' : color }]}>
+                    <Text style={wk.dotCount}>{count}</Text>
+                  </View>
+                ) : (
+                  <View style={wk.dotEmpty} />
+                )}
               </View>
             </View>
           );
@@ -274,7 +268,8 @@ export default function ShiftsScreen() {
   const startMins   = to24(startH, startAp) * 60 + startM;
   const endMins     = to24(endH, endAp) * 60 + endM;
   const isOvernight = endMins <= startMins;
-  const shiftDurH   = Math.round(((isOvernight ? endMins + 1440 : endMins) - startMins) / 60 * 10) / 10;
+  const shiftTotalH = Math.round(((isOvernight ? endMins + 1440 : endMins) - startMins) / 60 * 10) / 10;
+  const shiftDurH   = Math.round((shiftTotalH - breakDuration / 60) * 10) / 10;
 
   // Conflict detection: returns conflicting shift if employee already has overlapping shift
   const checkConflict = (empId: string, newStartISO: string, newEndISO: string, excludeShiftId?: string): Shift | null => {
@@ -384,8 +379,8 @@ export default function ShiftsScreen() {
 
   const handleCreate = async () => {
     if (!selEmp) return;
-    if (shiftDurH > 16) {
-      Alert.alert('Turno muy largo', `Este turno dura ${shiftDurH} horas. ¿Estás seguro?`, [
+    if (shiftTotalH > 16) {
+      Alert.alert('Turno muy largo', `Este turno dura ${shiftTotalH} horas. ¿Estás seguro?`, [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Crear de todas formas', onPress: () => doCreate() },
       ]);
@@ -593,30 +588,6 @@ export default function ShiftsScreen() {
           )}
         </View>
 
-        {/* Quick filters */}
-        <View style={s.filterRow}>
-          {([
-            { key: 'clocked_in', label: 'Activos', count: clockedInCount, icon: 'pulse-outline', activeColor: '#10B981' },
-            { key: 'today',      label: 'Hoy',     count: scheduledTodayCount, icon: 'today-outline',  activeColor: color },
-            { key: 'late',       label: 'Tarde',   count: lateCount,       icon: 'alert-circle-outline', activeColor: '#EF4444' },
-          ] as const).map(f => {
-            const isActive = activeFilter === f.key;
-            return (
-              <TouchableOpacity
-                key={f.key}
-                style={[s.filterChip, isActive && { backgroundColor: f.activeColor }]}
-                onPress={() => setActiveFilter(isActive ? 'all' : f.key)}
-              >
-                <Ionicons name={f.icon} size={13} color={isActive ? '#fff' : '#6B7280'} />
-                <Text style={[s.filterChipText, isActive && { color: '#fff' }]}>{f.label}</Text>
-                <View style={[s.filterBadge, isActive && { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
-                  <Text style={[s.filterBadgeText, isActive && { color: '#fff' }]}>{f.count}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
         {/* Weekly calendar */}
         <View style={s.calendarSection}>
           <View style={s.calSectionHeader}>
@@ -638,9 +609,35 @@ export default function ShiftsScreen() {
           </View>
           <WeeklyCalendar
             offset={weekOffset}
-            shifts={shifts} employees={employees} color={color}
+            shifts={shifts}
+            totalEmployees={employees.length}
+            color={color}
             startDay={business?.payPeriodStartDay ?? 0}
           />
+        </View>
+
+        {/* Quick filters */}
+        <View style={s.filterRow}>
+          {([
+            { key: 'clocked_in', label: 'En turno', count: clockedInCount,      icon: 'pulse-outline',        activeColor: '#10B981' },
+            { key: 'today',      label: 'Hoy',       count: scheduledTodayCount, icon: 'today-outline',        activeColor: color },
+            { key: 'late',       label: 'Tarde',     count: lateCount,           icon: 'alert-circle-outline', activeColor: '#EF4444' },
+          ] as const).map(f => {
+            const isActive = activeFilter === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                style={[s.filterChip, isActive && { backgroundColor: f.activeColor }]}
+                onPress={() => setActiveFilter(isActive ? 'all' : f.key)}
+              >
+                <Ionicons name={f.icon} size={13} color={isActive ? '#fff' : '#6B7280'} />
+                <Text style={[s.filterChipText, isActive && { color: '#fff' }]}>{f.label}</Text>
+                <View style={[s.filterBadge, isActive && { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+                  <Text style={[s.filterBadgeText, isActive && { color: '#fff' }]}>{f.count}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <View style={s.listHeader}>
@@ -704,7 +701,7 @@ export default function ShiftsScreen() {
             );
             const liveColor = liveLog?.status === 'on_break' ? '#D97706' : '#10B981';
             const durMs  = new Date(shift.endTime).getTime() - new Date(shift.startTime).getTime();
-            const durH   = Math.round(durMs / 360000) / 10;
+            const durH   = Math.round((durMs / 3600000 - (shift.breakDuration ?? 0) / 60) * 10) / 10;
             return (
               <View style={[
                 s.card,
@@ -822,12 +819,12 @@ export default function ShiftsScreen() {
               {step==='time' && (
                 <View style={{ gap: 16 }}>
                   <Text style={s.stepTitle}>Horas del turno</Text>
-                  <TimePicker label="Hora inicio" hour={startH} minute={startM} ampm={startAp}
+                  <TimePicker label="Hora de entrada" hour={startH} minute={startM} ampm={startAp}
                     onHour={h => { setStartH(h); setStartPicked(true); }}
                     onMinute={m => { setStartM(m); setStartPicked(true); }}
                     onAmpm={a => { setStartAp(a); setStartPicked(true); }}
                     color={color} dimmed={modalMode === 'create' && !startPicked}/>
-                  <TimePicker label="Hora fin" hour={endH} minute={endM} ampm={endAp}
+                  <TimePicker label="Hora de salida" hour={endH} minute={endM} ampm={endAp}
                     onHour={h => { setEndH(h); setEndPicked(true); }}
                     onMinute={m => { setEndM(m); setEndPicked(true); }}
                     onAmpm={a => { setEndAp(a); setEndPicked(true); }}
@@ -843,7 +840,11 @@ export default function ShiftsScreen() {
                     ) : (
                       <Text style={[s.timeSummaryText, { color }]}>
                         {fmtDisplay(startH, startM, startAp)} – {fmtDisplay(endH, endM, endAp)}
-                        {isOvernight ? '  (+1 día)' : `  · ${shiftDurH}h`}
+                        {isOvernight
+                          ? '  (+1 día)'
+                          : breakDuration > 0
+                            ? `  · ${shiftDurH}h trabajadas`
+                            : `  · ${shiftDurH}h`}
                       </Text>
                     )}
                   </View>
@@ -1084,7 +1085,7 @@ const s = StyleSheet.create({
   breakHintText: { fontSize:12, color:'#9CA3AF' },
   overnightBadge: { flexDirection:'row', alignItems:'center', gap:6, backgroundColor:'#EEF2FF', borderRadius:10, padding:10, borderWidth:1, borderColor:'#C7D2FE' },
   overnightText: { fontSize:12, fontWeight:'600', color:'#4338CA', flex:1 },
-  filterRow: { flexDirection:'row', gap:8, paddingHorizontal:16, paddingBottom:10 },
+  filterRow: { flexDirection:'row', gap:8, paddingHorizontal:16, paddingTop:10, paddingBottom:6, justifyContent:'center' },
   filterChip: {
     flexDirection:'row', alignItems:'center', gap:5,
     backgroundColor:'#F3F4F6', borderRadius:20,
@@ -1107,15 +1108,15 @@ const wk = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.06,
     shadowRadius: 24, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
-  grid:  { flexDirection:'row' },
-  col:   { flex:1, alignItems:'center', gap:4 },
-  abbr:  { fontSize:11, fontWeight:'600', color:'#6B7280' },
-  numWrap: { width:28, height:28, borderRadius:14, alignItems:'center', justifyContent:'center' },
-  num:   { fontSize:13, fontWeight:'600', color:'#374151' },
-  dots:  { gap:2, alignItems:'center', minHeight:60 },
-  dot:   { width:26, height:26, borderRadius:13, alignItems:'center', justifyContent:'center' },
-  dotText: { color:'#fff', fontSize:9, fontWeight:'800' },
-  more:  { fontSize:10, fontWeight:'700' },
+  grid:     { flexDirection:'row' },
+  col:      { flex:1, alignItems:'center', gap:4 },
+  abbr:     { fontSize:11, fontWeight:'600', color:'#6B7280' },
+  numWrap:  { width:28, height:28, borderRadius:14, alignItems:'center', justifyContent:'center' },
+  num:      { fontSize:13, fontWeight:'600', color:'#374151' },
+  dotWrap:  { alignItems:'center', height:22 },
+  dot:      { width:20, height:20, borderRadius:10, alignItems:'center', justifyContent:'center' },
+  dotCount: { color:'#fff', fontSize:10, fontWeight:'800' },
+  dotEmpty: { width:20, height:20 },
 });
 
 const cal = StyleSheet.create({

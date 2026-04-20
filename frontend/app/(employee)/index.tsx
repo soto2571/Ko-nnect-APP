@@ -315,22 +315,36 @@ function ShiftCard({ shift, color, dimmed = false, showDate = false }: { shift: 
     Animated.spring(fadeAnim, { toValue: 1, tension: 60, friction: 10, useNativeDriver: true }).start();
   }, []);
   const d = new Date(shift.startTime);
-  const dateStr = d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  const dateStr = d.toLocaleDateString('es', { weekday: 'long', month: 'short', day: 'numeric' });
+  const today = isToday(d);
+  const durMs = new Date(shift.endTime).getTime() - new Date(shift.startTime).getTime();
+  const durH  = Math.round(durMs / 360000) / 10;
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange:[0,1], outputRange:[8,0] }) }] }}>
       <View style={[sc.card, dimmed && sc.dimmed]}>
         <View style={[sc.bar, { backgroundColor: dimmed ? '#E5E7EB' : color }]} />
-        <View style={{ flex: 1, paddingLeft: 14 }}>
-          <Text style={[sc.title, dimmed && { color: '#9CA3AF' }]}>{shift.title}</Text>
+        <View style={{ flex: 1, paddingLeft: 14, gap: 4 }}>
           {showDate && <Text style={sc.date}>{dateStr}</Text>}
-          <View style={sc.timeRow}>
-            <Ionicons name="time-outline" size={12} color="#6B7280" />
-            <Text style={sc.time}>{fmt12(shift.startTime)} – {fmt12(shift.endTime)}</Text>
+          <Text style={[sc.shiftTime, dimmed && { color: '#9CA3AF' }]}>
+            {fmt12(shift.startTime)} – {fmt12(shift.endTime)}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Text style={sc.durText}>{durH}h</Text>
+            {(shift.breakDuration ?? 0) > 0 && (
+              <View style={sc.breakRow}>
+                <Ionicons name="cafe-outline" size={11} color="#9CA3AF" />
+                <Text style={sc.breakText}>
+                  {(shift.breakDuration ?? 0) >= 60 ? '1h descanso' : `${shift.breakDuration}m descanso`}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
         {!dimmed && (
-          <View style={[sc.badge, { backgroundColor: color + '15' }]}>
-            <Text style={[sc.badgeText, { color }]}>Próximo</Text>
+          <View style={[sc.badge, { backgroundColor: today ? color : color + '15' }]}>
+            <Text style={[sc.badgeText, { color: today ? '#fff' : color }]}>
+              {today ? 'Hoy' : 'Próximo'}
+            </Text>
           </View>
         )}
       </View>
@@ -542,15 +556,13 @@ export default function MyShiftsScreen() {
           {tomorrowShift ? (
             <View style={[st.tomorrowChip, { borderColor: 'rgba(0,0,0,0.08)', backgroundColor: '#fff' }]}>
               <Ionicons name="sunny-outline" size={15} color={color} />
-              <Text style={[st.tomorrowLabel, { color }]}>Mañana</Text>
-              <Text style={[st.tomorrowTitle, { color: '#111827' }]}>{tomorrowShift.title}</Text>
-              <Text style={[st.tomorrowTime, { color }]}>{fmt12(tomorrowShift.startTime)}</Text>
+              <Text style={[st.tomorrowTitle, { color, flex: 1 }]}>Tu turno de mañana</Text>
+              <Text style={[st.tomorrowTime, { color }]}>{fmt12(tomorrowShift.startTime)} – {fmt12(tomorrowShift.endTime)}</Text>
             </View>
           ) : (
             <View style={[st.tomorrowChip, { borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' }]}>
-              <Ionicons name="moon-outline" size={15} color="#6B7280" />
-              <Text style={[st.tomorrowLabel, { color: '#374151' }]}>Mañana</Text>
-              <Text style={[st.tomorrowTitle, { color: '#374151' }]}>Sin turno programado</Text>
+              <Ionicons name="moon-outline" size={15} color="#9CA3AF" />
+              <Text style={[st.tomorrowTitle, { color: '#9CA3AF', flex: 1 }]}>No tienes turno mañana</Text>
             </View>
           )}
         </Animated.View>
@@ -712,11 +724,12 @@ const sc = StyleSheet.create({
   },
   dimmed: { opacity: 0.5 },
   bar:  { width: 4, alignSelf: 'stretch' },
-  title: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  date:  { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  time:    { fontSize: 12, color: '#6B7280' },
-  badge:   { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  date:     { fontSize: 12, color: '#6B7280' },
+  shiftTime:{ fontSize: 16, fontWeight: '800', color: '#111827', letterSpacing: -0.3 },
+  durText:  { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+  breakRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  breakText:{ fontSize: 12, color: '#9CA3AF' },
+  badge:   { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, marginRight: 4 },
   badgeText: { fontSize: 11, fontWeight: '700' },
 });
 

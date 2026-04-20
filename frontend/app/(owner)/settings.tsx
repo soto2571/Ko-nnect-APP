@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ActivityIndicator, Alert, ScrollView, Switch,
+  ActivityIndicator, Alert, ScrollView, Switch, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
@@ -34,6 +34,9 @@ export default function SettingsScreen() {
   const [newPw, setNewPw]           = useState('');
   const [confirmPw, setConfirmPw]   = useState('');
   const [changingPw, setChangingPw] = useState(false);
+  const [deletingBiz, setDeletingBiz] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   useEffect(() => {
     if (business) {
@@ -72,6 +75,37 @@ export default function SettingsScreen() {
       Alert.alert('Guardado','Perfil del negocio actualizado.');
     } catch(err:any) { Alert.alert('Error', err.message); }
     finally { setSaving(false); }
+  };
+
+  const handleDeleteBusiness = () => {
+    if (!business) return;
+    Alert.alert(
+      'Eliminar negocio',
+      `Esto borrará permanentemente "${business.name}", todos los empleados, turnos y registros de tiempo. Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: () => {
+            setDeleteConfirmText('');
+            setShowDeleteModal(true);
+          },
+        },
+      ],
+    );
+  };
+
+  const handleConfirmDelete = async () => {
+    setDeletingBiz(true);
+    try {
+      await api.deleteBusiness(business!.businessId);
+      setShowDeleteModal(false);
+      logout();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+      setDeletingBiz(false);
+    }
   };
 
   const handleChangePassword = async () => {
@@ -297,6 +331,32 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* 7 — Danger Zone */}
+        {business && (
+          <View style={[s.card, s.dangerCard]}>
+            <View style={s.dangerHeader}>
+              <Ionicons name="warning-outline" size={16} color="#B91C1C" />
+              <Text style={s.dangerLabel}>Zona de Peligro</Text>
+            </View>
+            <Text style={s.dangerHint}>
+              Eliminar el negocio borra permanentemente todos los datos: empleados, turnos e historial de tiempo. Esta acción no tiene vuelta atrás.
+            </Text>
+            <TouchableOpacity
+              style={[s.deleteBtn, deletingBiz && { opacity: 0.5 }]}
+              onPress={handleDeleteBusiness}
+              disabled={deletingBiz}
+            >
+              {deletingBiz
+                ? <ActivityIndicator color="#B91C1C" />
+                : <>
+                    <Ionicons name="trash-outline" size={16} color="#B91C1C" />
+                    <Text style={s.deleteBtnText}>Eliminar negocio</Text>
+                  </>
+              }
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {/* Fixed save button */}
@@ -308,6 +368,49 @@ export default function SettingsScreen() {
           }
         </TouchableOpacity>
       </View>
+
+      {/* Delete confirmation modal */}
+      <Modal visible={showDeleteModal} transparent animationType="fade" onRequestClose={() => setShowDeleteModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="warning" size={20} color="#B91C1C" />
+              <Text style={s.modalTitle}>Confirmación final</Text>
+            </View>
+            <Text style={s.modalBody}>
+              Escribe <Text style={{ fontWeight: '700', color: '#B91C1C' }}>BORRAR</Text> para confirmar que deseas eliminar el negocio permanentemente.
+            </Text>
+            <TextInput
+              style={[s.input, s.modalInput]}
+              placeholder="Escribe BORRAR"
+              placeholderTextColor="#C4C4CE"
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <View style={s.modalBtns}>
+              <TouchableOpacity
+                style={s.modalCancelBtn}
+                onPress={() => setShowDeleteModal(false)}
+                disabled={deletingBiz}
+              >
+                <Text style={s.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.modalDeleteBtn, deleteConfirmText.toLowerCase() !== 'borrar' && { opacity: 0.35 }]}
+                onPress={handleConfirmDelete}
+                disabled={deleteConfirmText.toLowerCase() !== 'borrar' || deletingBiz}
+              >
+                {deletingBiz
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={s.modalDeleteText}>Eliminar</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -396,4 +499,43 @@ const s = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   switchLabel: { fontSize: 14, fontWeight: '600', color: '#111827' },
   switchSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+
+  dangerCard: {
+    borderColor: '#FECACA', borderWidth: 1.5,
+    backgroundColor: '#FFF5F5',
+  },
+  dangerHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dangerLabel: { fontSize: 14, fontWeight: '700', color: '#B91C1C' },
+  dangerHint: { fontSize: 13, color: '#6B7280', lineHeight: 18 },
+  deleteBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 12, borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
+  },
+  deleteBtnText: { fontSize: 15, fontWeight: '700', color: '#B91C1C' },
+
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center', paddingHorizontal: 24,
+  },
+  modalCard: {
+    backgroundColor: '#fff', borderRadius: 20, padding: 24, gap: 16,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 }, elevation: 10,
+  },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: '#111827' },
+  modalBody: { fontSize: 14, color: '#6B7280', lineHeight: 20 },
+  modalInput: { borderColor: '#FECACA' },
+  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  modalCancelBtn: {
+    flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: 'center',
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  modalCancelText: { fontSize: 15, fontWeight: '600', color: '#374151' },
+  modalDeleteBtn: {
+    flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: 'center',
+    backgroundColor: '#B91C1C',
+  },
+  modalDeleteText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
