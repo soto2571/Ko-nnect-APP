@@ -17,12 +17,12 @@ Deno.serve(async (req) => {
 
     const sb = getServiceClient();
 
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    // Use a 28-hour window on clockIn so any timezone (up to UTC-12) is covered correctly
+    const cutoff = new Date(Date.now() - 28 * 3600000).toISOString();
 
     const { data, error } = await sb.from('timelogs').select('*')
       .eq('businessId', businessId)
-      .in('date', [today, yesterday]);
+      .gte('clockIn', cutoff);
     if (error) return err(error.message, 500);
 
     // Per employee keep only the most recent log
@@ -34,11 +34,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const cutoff = new Date(Date.now() - 86400000);
-    const result = Array.from(byEmployee.values()).filter(
-      log => log.status === 'clocked_in' || log.status === 'on_break' ||
-             new Date(log.clockIn) >= cutoff
-    );
+    const result = Array.from(byEmployee.values());
 
     return cors({ success: true, data: result });
   } catch (e) {

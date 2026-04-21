@@ -17,19 +17,21 @@ Deno.serve(async (req) => {
 
     const sb = getServiceClient();
 
-    // Get the employee to find their userId for auth deletion
+    // Get employee info before any changes
     const { data: emp } = await sb.from('employees').select('userId')
       .eq('employeeId', employeeId).single();
 
-    // Delete upcoming (future) shifts assigned to this employee
+    // Delete future shifts (anything starting after now)
     const now = new Date().toISOString();
     await sb.from('shifts').delete()
       .eq('employeeId', employeeId)
       .gt('startTime', now);
 
-    await sb.from('employees').delete().eq('employeeId', employeeId);
+    // Soft-delete: keep the row so past time_logs retain the employee name
+    await sb.from('employees').update({ deletedAt: now })
+      .eq('employeeId', employeeId);
 
-    // Delete their auth account too
+    // Revoke auth access so they can no longer log in
     if (emp?.userId) {
       await sb.auth.admin.deleteUser(emp.userId);
     }

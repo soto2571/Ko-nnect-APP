@@ -37,6 +37,7 @@ export interface Employee {
   email: string;
   tempPassword?: string;
   createdAt: string;
+  deletedAt?: string | null;
 }
 
 export interface Shift {

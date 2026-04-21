@@ -15,9 +15,14 @@ Deno.serve(async (req) => {
     const businessId = url.searchParams.get('businessId');
     if (!businessId) return err('Missing businessId');
 
+    // includeDeleted=true is used by the payroll report to resolve names of past employees
+    const includeDeleted = url.searchParams.get('includeDeleted') === 'true';
+
     const sb = getServiceClient();
-    const { data, error } = await sb.from('employees').select('*')
-      .eq('businessId', businessId);
+    let query = sb.from('employees').select('*').eq('businessId', businessId);
+    if (!includeDeleted) query = query.is('deletedAt', null);
+
+    const { data, error } = await query;
     if (error) return err(error.message, 500);
 
     return cors({ success: true, data: data ?? [] });

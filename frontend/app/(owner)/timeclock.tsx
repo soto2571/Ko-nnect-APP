@@ -167,22 +167,31 @@ function applyTime(baseIso: string | undefined, h: number, m: number, ap: 'AM'|'
 }
 
 function InlineTimePicker({
-  label, value, color, onChange,
-}: { label: string; value?: string; color: string; onChange: (iso: string) => void }) {
+  label, value, baseDateIso, mustBeAfterIso, color, onChange,
+}: { label: string; value?: string; baseDateIso?: string; mustBeAfterIso?: string; color: string; onChange: (iso: string) => void }) {
   const [open, setOpen] = useState(false);
   const init = parseIso(value);
   const [h, setH] = useState(init.h);
   const [m, setM] = useState(init.m);
   const [ap, setAp] = useState<'AM'|'PM'>(init.ap);
 
-  // Re-sync local state when value changes externally (e.g. different log opened)
   useEffect(() => {
     const p = parseIso(value); setH(p.h); setM(p.m); setAp(p.ap);
   }, [value]);
 
   const pick = (newH: number, newM: number, newAp: 'AM'|'PM') => {
     setH(newH); setM(newM); setAp(newAp);
-    onChange(applyTime(value, newH, newM, newAp));
+    let iso = applyTime(value ?? baseDateIso, newH, newM, newAp);
+    // Overnight: if no existing value and result ≤ clockIn, it crosses midnight → next day
+    if (!value && mustBeAfterIso) {
+      const ref = new Date(mustBeAfterIso);
+      const result = new Date(iso);
+      if (result <= ref) {
+        result.setDate(result.getDate() + 1);
+        iso = result.toISOString();
+      }
+    }
+    onChange(iso);
   };
 
   return (
@@ -280,6 +289,8 @@ export default function TimeclockScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [editLog, setEditLog] = useState<TimeLog | null>(null);
+  const [originalLog, setOriginalLog] = useState<TimeLog | null>(null);
+  const [confirmingEdit, setConfirmingEdit] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, etc.
   const [expandedEmps, setExpandedEmps] = useState<Set<string>>(new Set());
@@ -307,7 +318,7 @@ export default function TimeclockScreen() {
     const p = business ? getPayPeriodDates(business, periodOffset) : null;
     setLoading(true);
     try {
-      const emps = await api.getEmployees(business.businessId);
+      const emps = await api.getEmployees(business.businessId, true);
       setEmployees(emps);
 
       if (p) {
@@ -535,6 +546,37 @@ export default function TimeclockScreen() {
     }
   };
 
+  // ── Edit log helpers ──────────────────────────────────────────────────────
+
+  const openEditLog = (log: TimeLog) => {
+    setEditLog({ ...log });
+    setOriginalLog({ ...log });
+    setConfirmingEdit(false);
+  };
+
+  const closeEditLog = () => {
+    setEditLog(null);
+    setOriginalLog(null);
+    setConfirmingEdit(false);
+  };
+
+  const handleProceedToConfirm = () => {
+    if (!editLog) return;
+    const clockIn  = editLog.clockIn  ? new Date(editLog.clockIn).getTime()  : null;
+    const clockOut = editLog.clockOut ? new Date(editLog.clockOut).getTime() : null;
+    const bStart   = editLog.breakStart ? new Date(editLog.breakStart).getTime() : null;
+    const bEnd     = editLog.breakEnd   ? new Date(editLog.breakEnd).getTime()   : null;
+    if (bStart !== null) {
+      if (clockIn !== null && bStart < clockIn) { Alert.alert('Descanso inválido', 'El descanso no puede comenzar antes de la entrada.'); return; }
+      if (clockOut !== null && bStart >= clockOut) { Alert.alert('Descanso inválido', 'El descanso no puede comenzar después de la salida.'); return; }
+    }
+    if (bEnd !== null) {
+      if (clockOut !== null && bEnd > clockOut) { Alert.alert('Descanso inválido', 'El descanso no puede terminar después de la salida.'); return; }
+      if (bStart !== null && bEnd <= bStart) { Alert.alert('Descanso inválido', 'La hora de fin del descanso debe ser después del inicio.'); return; }
+    }
+    setConfirmingEdit(true);
+  };
+
   // ── Edit log save ─────────────────────────────────────────────────────────
 
   const handleSaveEdit = async () => {
@@ -580,7 +622,7 @@ export default function TimeclockScreen() {
         breaks,
       });
       setPeriodLogs(prev => prev.map(l => l.logId === updated.logId ? updated : l));
-      setEditLog(null);
+      closeEditLog();
     } catch (err: any) { Alert.alert('Error', err.message); }
     finally { setEditSaving(false); }
   };
@@ -692,7 +734,14 @@ export default function TimeclockScreen() {
                         <Text style={s.liveAvatarText}>{emp.firstName[0]}{emp.lastName[0]}</Text>
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={s.liveName}>{emp.firstName} {emp.lastName}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={s.liveName}>{emp.firstName} {emp.lastName}</Text>
+                          {emp.deletedAt && (
+                            <View style={{ backgroundColor: '#F3F4F6', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '600', color: '#9CA3AF' }}>inactivo</Text>
+                            </View>
+                          )}
+                        </View>
                         {hasData ? (
                           <>
                             <Text style={[s.reportTotal, { fontSize: 16 }]}>{fmtHours(totalMin)}</Text>
@@ -785,7 +834,7 @@ export default function TimeclockScreen() {
 
                               {/* Days */}
                               {group.logs.map(log => {
-                                const dateKey = log.date ?? new Date(log.clockIn).toISOString().slice(0, 10);
+                                const dateKey = toDateStr(new Date(log.clockIn));
                                 const dayLabel = new Date(dateKey + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric' });
                                 const breaks = log.breaks && log.breaks.length > 0
                                   ? log.breaks
@@ -806,7 +855,7 @@ export default function TimeclockScreen() {
                                           {fmtHours(log.totalMinutes)}{log.overtimeDay ? ' OT' : ''}
                                         </Text>
                                       )}
-                                      <TouchableOpacity onPress={() => setEditLog({ ...log })} style={s.editBtn}>
+                                      <TouchableOpacity onPress={() => openEditLog(log)} style={s.editBtn}>
                                         <Ionicons name="create-outline" size={15} color="#9CA3AF" />
                                       </TouchableOpacity>
                                     </View>
@@ -850,55 +899,116 @@ export default function TimeclockScreen() {
       </ScrollView>
 
       {/* ── Edit log modal (centered overlay) ── */}
-      <Modal visible={!!editLog} transparent animationType="fade" onRequestClose={() => setEditLog(null)}>
+      <Modal visible={!!editLog} transparent animationType="fade" onRequestClose={closeEditLog}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <TouchableOpacity style={s.editOverlay} activeOpacity={1} onPress={() => setEditLog(null)}>
+          <TouchableOpacity style={s.editOverlay} activeOpacity={1} onPress={closeEditLog}>
             <TouchableOpacity activeOpacity={1} style={[s.editModal, { borderTopColor: primaryColor, borderTopWidth: 3 }]}>
+
+              {/* Header */}
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[s.editTitle, { color: primaryColor }]}>Editar Registro</Text>
+                  <Text style={[s.editTitle, { color: primaryColor }]}>
+                    {confirmingEdit ? 'Confirmar cambios' : 'Editar Registro'}
+                  </Text>
                   {editLog && (
                     <Text style={s.editEmpName}>{empName(editLog.employeeId)} · {fmtDate(editLog.clockIn)}</Text>
                   )}
                 </View>
-                <TouchableOpacity
-                  style={s.editDeleteBtn}
-                  onPress={() => {
-                    if (!editLog) return;
-                    Alert.alert(
-                      'Eliminar registro',
-                      '¿Eliminar este registro de tiempo? Esta acción no se puede deshacer.',
-                      [
-                        { text: 'Cancelar', style: 'cancel' },
-                        { text: 'Eliminar', style: 'destructive', onPress: async () => {
-                          try {
-                            await api.deleteTimeLog(editLog.logId);
-                            setPeriodLogs(prev => prev.filter(l => l.logId !== editLog.logId));
-                            setEditLog(null);
-                          } catch (e: any) { Alert.alert('Error', e.message); }
-                        }},
-                      ]
+                {!confirmingEdit && (
+                  <TouchableOpacity
+                    style={s.editDeleteBtn}
+                    onPress={() => {
+                      if (!editLog) return;
+                      Alert.alert(
+                        'Eliminar registro',
+                        '¿Eliminar este registro de tiempo? Esta acción no se puede deshacer.',
+                        [
+                          { text: 'Cancelar', style: 'cancel' },
+                          { text: 'Eliminar', style: 'destructive', onPress: async () => {
+                            try {
+                              await api.deleteTimeLog(editLog.logId);
+                              setPeriodLogs(prev => prev.filter(l => l.logId !== editLog.logId));
+                              closeEditLog();
+                            } catch (e: any) { Alert.alert('Error', e.message); }
+                          }},
+                        ]
+                      );
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Body: pickers OR confirmation diff */}
+              {confirmingEdit ? (
+                <View style={{ marginTop: 14, gap: 0 }}>
+                  <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>
+                    Revisa los cambios antes de confirmar:
+                  </Text>
+                  {([
+                    { label: 'Entrada',        orig: originalLog?.clockIn,    curr: editLog?.clockIn    },
+                    { label: 'Inicio descanso',orig: originalLog?.breakStart, curr: editLog?.breakStart },
+                    { label: 'Fin descanso',   orig: originalLog?.breakEnd,   curr: editLog?.breakEnd   },
+                    { label: 'Salida',         orig: originalLog?.clockOut,   curr: editLog?.clockOut   },
+                  ] as { label: string; orig?: string; curr?: string }[]).map(({ label, orig, curr }) => {
+                    const origFmt = orig ? fmt12(orig) : '—';
+                    const currFmt = curr ? fmt12(curr) : '—';
+                    const changed = origFmt !== currFmt;
+                    return (
+                      <View key={label} style={s.diffRow}>
+                        <Text style={s.diffLabel}>{label}</Text>
+                        {changed ? (
+                          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={s.diffOld}>{origFmt}</Text>
+                            <Ionicons name="arrow-forward" size={11} color="#9CA3AF" />
+                            <Text style={s.diffNew}>{currFmt}</Text>
+                          </View>
+                        ) : (
+                          <Text style={s.diffSame}>{origFmt}</Text>
+                        )}
+                        {changed && <View style={[s.diffDot, { backgroundColor: primaryColor }]} />}
+                      </View>
                     );
-                  }}
-                >
-                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                </TouchableOpacity>
+                  })}
+                </View>
+              ) : (
+                <View style={[s.editGrid, { marginTop: 8 }]}>
+                  <InlineTimePicker label="Entrada"          value={editLog?.clockIn}    baseDateIso={editLog?.clockIn} color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockIn: v }    : l)} />
+                  <InlineTimePicker label="Inicio Descanso" value={editLog?.breakStart} baseDateIso={editLog?.clockIn} color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakStart: v } : l)} />
+                  <InlineTimePicker label="Fin Descanso"    value={editLog?.breakEnd}   baseDateIso={editLog?.clockIn} color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakEnd: v }   : l)} />
+                  <InlineTimePicker label="Salida"           value={editLog?.clockOut}   baseDateIso={editLog?.clockIn} mustBeAfterIso={editLog?.clockIn} color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockOut: v }   : l)} />
+                </View>
+              )}
+
+              {/* Action buttons */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                {confirmingEdit ? (
+                  <>
+                    <TouchableOpacity style={s.editCancelBtn} onPress={() => setConfirmingEdit(false)}>
+                      <Ionicons name="arrow-back" size={14} color="#6B7280" />
+                      <Text style={{ color: '#6B7280', fontWeight: '600', marginLeft: 4 }}>Volver</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[s.editSaveBtn, { backgroundColor: primaryColor }]}
+                      onPress={handleSaveEdit} disabled={editSaving}>
+                      {editSaving
+                        ? <ActivityIndicator color="#fff" size="small" />
+                        : <Text style={{ color: '#fff', fontWeight: '700' }}>Confirmar</Text>}
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <TouchableOpacity style={s.editCancelBtn} onPress={closeEditLog}>
+                      <Text style={{ color: '#6B7280', fontWeight: '600' }}>Cancelar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[s.editSaveBtn, { backgroundColor: primaryColor }]}
+                      onPress={handleProceedToConfirm}>
+                      <Text style={{ color: '#fff', fontWeight: '700' }}>Revisar</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
-              <View style={[s.editGrid, { marginTop: 8 }]}>
-                <InlineTimePicker label="Entrada"          value={editLog?.clockIn}    color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockIn: v }    : l)} />
-                <InlineTimePicker label="Inicio Descanso" value={editLog?.breakStart} color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakStart: v } : l)} />
-                <InlineTimePicker label="Fin Descanso"    value={editLog?.breakEnd}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, breakEnd: v }   : l)} />
-                <InlineTimePicker label="Salida"           value={editLog?.clockOut}   color={primaryColor} onChange={v => setEditLog(l => l ? { ...l, clockOut: v }   : l)} />
-              </View>
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-                <TouchableOpacity style={s.editCancelBtn} onPress={() => setEditLog(null)}>
-                  <Text style={{ color: '#6B7280', fontWeight: '600' }}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[s.editSaveBtn, { backgroundColor: primaryColor }]}
-                  onPress={handleSaveEdit} disabled={editSaving}>
-                  {editSaving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Guardar</Text>}
-                </TouchableOpacity>
-              </View>
+
             </TouchableOpacity>
           </TouchableOpacity>
         </KeyboardAvoidingView>
@@ -1009,9 +1119,17 @@ const s = StyleSheet.create({
   pickerItemText: { fontSize: 15, fontWeight: '600', color: '#374151' },
   pickerConfirm: { borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   pickerConfirmText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  editCancelBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: '#F3F4F6' },
+  editCancelBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', backgroundColor: '#F3F4F6' },
   editSaveBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
   editDeleteBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', alignItems: 'center', justifyContent: 'center' },
+
+  // Edit diff rows
+  diffRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  diffLabel: { width: 110, fontSize: 13, color: '#6B7280' },
+  diffOld: { fontSize: 13, color: '#9CA3AF', textDecorationLine: 'line-through' },
+  diffNew: { fontSize: 13, fontWeight: '700', color: '#111827' },
+  diffSame: { flex: 1, fontSize: 13, color: '#9CA3AF' },
+  diffDot: { width: 7, height: 7, borderRadius: 4, marginLeft: 6 },
 
   // Report card
   reportCard: {

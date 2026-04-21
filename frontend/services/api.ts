@@ -222,10 +222,10 @@ export async function addEmployee(payload: {
   });
 }
 
-export async function getEmployees(businessId: string): Promise<Employee[]> {
-  return request<Employee[]>('employees-list', {
-    query: { businessId },
-  });
+export async function getEmployees(businessId: string, includeDeleted = false): Promise<Employee[]> {
+  const query: Record<string, string> = { businessId };
+  if (includeDeleted) query.includeDeleted = 'true';
+  return request<Employee[]>('employees-list', { query });
 }
 
 export async function deleteEmployee(employeeId: string): Promise<void> {
@@ -264,10 +264,11 @@ export async function createShift(payload: {
   });
 }
 
-export async function getShifts(businessId: string): Promise<Shift[]> {
-  return request<Shift[]>('shifts-get', {
-    query: { businessId },
-  });
+export async function getShifts(businessId: string, startDate?: string, endDate?: string): Promise<Shift[]> {
+  const query: Record<string, string> = { businessId };
+  if (startDate) query.startDate = startDate;
+  if (endDate)   query.endDate   = endDate;
+  return request<Shift[]>('shifts-get', { query });
 }
 
 export async function assignShift(
@@ -291,8 +292,11 @@ export async function deleteShift(shiftId: string): Promise<void> {
   return request<void>(`shifts-delete/${shiftId}`, { method: 'DELETE' });
 }
 
-export async function getMyShifts(): Promise<Shift[]> {
-  return request<Shift[]>('shifts-my');
+export async function getMyShifts(startDate?: string, endDate?: string): Promise<Shift[]> {
+  const query: Record<string, string> = {};
+  if (startDate) query.startDate = startDate;
+  if (endDate)   query.endDate   = endDate;
+  return request<Shift[]>('shifts-my', { query: Object.keys(query).length ? query : undefined });
 }
 
 // ─── Timelog ──────────────────────────────────────────────────────────────────
@@ -303,9 +307,11 @@ export async function clockIn(payload: {
   scheduledBreakDuration?: number;
   breakTime?: string;
 }): Promise<TimeLog> {
+  const d = new Date();
+  const localDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   return request<TimeLog>('timelog-clock-in', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, localDate }),
   });
 }
 

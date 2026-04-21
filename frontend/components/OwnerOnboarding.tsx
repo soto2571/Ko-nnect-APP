@@ -46,6 +46,7 @@ export default function OwnerOnboarding({ onComplete }: Props) {
   const [addedEmployees, setAddedEmployees] = useState<AddedEmployee[]>([]);
   const [businessId, setBusinessId] = useState('');
   const [businessName, setBusinessName] = useState('');
+  const [createdBusiness, setCreatedBusiness] = useState<any>(null);
 
   const animateTransition = (next: Step) => {
     Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
@@ -63,7 +64,7 @@ export default function OwnerOnboarding({ onComplete }: Props) {
       });
       setBusinessId(biz.businessId);
       setBusinessName(biz.name);
-      setBusiness(biz);
+      setCreatedBusiness(biz);
       animateTransition('employees');
     } catch (err: any) { Alert.alert('Error', err.message); }
     finally { setSaving(false); }
@@ -289,7 +290,7 @@ export default function OwnerOnboarding({ onComplete }: Props) {
                 <Text style={s.doneTip}>Puedes ajustar todo desde Ajustes en cualquier momento.</Text>
               </View>
 
-              <TouchableOpacity style={[s.primaryBtn, { backgroundColor: color }]} onPress={onComplete}>
+              <TouchableOpacity style={[s.primaryBtn, { backgroundColor: color }]} onPress={() => { if (createdBusiness) setBusiness(createdBusiness); onComplete(); }}>
                 <Text style={s.primaryBtnText}>Ir al Calendario</Text>
                 <Ionicons name="arrow-forward" size={18} color="#fff" />
               </TouchableOpacity>

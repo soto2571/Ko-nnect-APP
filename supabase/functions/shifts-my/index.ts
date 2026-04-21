@@ -11,10 +11,18 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userErr } = await userSb.auth.getUser();
     if (userErr || !user) return err('Unauthorized', 401);
 
+    const url = new URL(req.url);
+    const startDate = url.searchParams.get('startDate');
+    const endDate   = url.searchParams.get('endDate');
+
     const sb = getServiceClient();
-    const { data, error } = await sb.from('shifts').select('*')
+    let query = sb.from('shifts').select('*')
       .eq('employeeId', user.id)
       .order('startTime', { ascending: true });
+    if (startDate) query = query.gte('startTime', startDate);
+    if (endDate)   query = query.lte('startTime', endDate + 'T23:59:59.999Z');
+
+    const { data, error } = await query;
     if (error) return err(error.message, 500);
 
     return cors({ success: true, data: data ?? [] });

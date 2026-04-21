@@ -22,9 +22,14 @@ Deno.serve(async (req) => {
       return cors({ success: true, data: data ?? null });
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    // 28-hour lookback on clockIn avoids UTC midnight rollover for any timezone
+    const cutoff = new Date(Date.now() - 28 * 3600000).toISOString();
     const { data } = await sb.from('timelogs').select('*')
-      .eq('employeeId', user.id).eq('date', today).maybeSingle();
+      .eq('employeeId', user.id)
+      .gte('clockIn', cutoff)
+      .order('clockIn', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     return cors({ success: true, data: data ?? null });
   } catch (e) {

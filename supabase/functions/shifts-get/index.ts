@@ -15,10 +15,14 @@ Deno.serve(async (req) => {
     const businessId = url.searchParams.get('businessId');
     if (!businessId) return err('Missing businessId');
 
+    const startDate = url.searchParams.get('startDate');
+    const endDate   = url.searchParams.get('endDate');
+
     const sb = getServiceClient();
-    const { data, error } = await sb.from('shifts').select('*')
-      .eq('businessId', businessId)
-      .order('startTime', { ascending: true });
+    let query = sb.from('shifts').select('*').eq('businessId', businessId);
+    if (startDate) query = query.gte('startTime', startDate);
+    if (endDate)   query = query.lte('startTime', endDate + 'T23:59:59');
+    const { data, error } = await query.order('startTime', { ascending: true });
     if (error) return err(error.message, 500);
 
     return cors({ success: true, data: data ?? [] });

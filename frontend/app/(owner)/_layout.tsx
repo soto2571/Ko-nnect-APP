@@ -8,7 +8,6 @@ export default function OwnerLayout() {
   const { business, primaryColor } = useAuth();
   const [onboardingDone, setOnboardingDone] = useState(false);
 
-  // Once business loads from server, skip onboarding
   useEffect(() => {
     if (business) setOnboardingDone(true);
   }, [business]);
@@ -30,42 +29,10 @@ export default function OwnerLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Turnos',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="employees"
-        options={{
-          title: 'Empleados',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="timeclock"
-        options={{
-          title: 'Reporte',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bar-chart-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Ajustes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: 'Turnos', tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} /> }} />
+      <Tabs.Screen name="employees" options={{ title: 'Empleados', tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} /> }} />
+      <Tabs.Screen name="timeclock" options={{ title: 'Reporte', tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart-outline" size={size} color={color} /> }} />
+      <Tabs.Screen name="settings" options={{ title: 'Ajustes', tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} /> }} />
     </Tabs>
   );
 }

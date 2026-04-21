@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userErr } = await userSb.auth.getUser();
     if (userErr || !user) return err('Unauthorized', 401);
 
-    const { shiftId, businessId, scheduledBreakDuration, breakTime } = await req.json();
+    const { shiftId, businessId, scheduledBreakDuration, breakTime, localDate } = await req.json();
     if (!shiftId || !businessId) return err('Missing shiftId or businessId');
 
     const sb = getServiceClient();
@@ -23,7 +23,8 @@ Deno.serve(async (req) => {
       return err('Already clocked in for this shift', 400);
 
     const now = new Date().toISOString();
-    const date = now.split('T')[0];
+    // Use local date from client — avoids UTC midnight rollover bug for timezones behind UTC
+    const date = localDate ?? now.split('T')[0];
 
     const { data, error } = await sb.from('timelogs').insert({
       businessId,

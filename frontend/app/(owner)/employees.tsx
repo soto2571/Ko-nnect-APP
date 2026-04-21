@@ -199,8 +199,9 @@ export default function EmployeesScreen() {
           }
           renderItem={({ item }) => {
             const empId = item.userId || item.employeeId;
+            const localMidnight = new Date(); localMidnight.setHours(0, 0, 0, 0);
             const empLogs = activeLogs
-              .filter(l => l.employeeId === empId)
+              .filter(l => l.employeeId === empId && new Date(l.clockIn) >= localMidnight)
               .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
             const log = empLogs[0] ?? null;
             const status = log?.status ?? 'not_in';

@@ -1,7 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, Alert, Modal, ScrollView, Animated,
+  Alert, Modal, ScrollView, Animated, ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,6 +52,7 @@ function weekLabel(dates: Date[]) {
     ? `${MONTH_SHORT[s.getMonth()]} ${s.getDate()} – ${e.getDate()}`
     : `${MONTH_SHORT[s.getMonth()]} ${s.getDate()} – ${MONTH_SHORT[e.getMonth()]} ${e.getDate()}`;
 }
+
 function groupByDay(shifts: Shift[]) {
   const map = new Map<string, Shift[]>();
   for (const s of shifts) {
@@ -70,6 +71,50 @@ function groupByDay(shifts: Shift[]) {
         shifts: dayShifts.sort((a,b) => new Date(a.startTime).getTime()-new Date(b.startTime).getTime()),
       };
     });
+}
+
+// ─── Skeleton pulse ──────────────────────────────────────────────────────────
+
+function Skel({ w, h, r = 8, style }: { w?: number | string; h: number; r?: number; style?: any }) {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(opacity, { toValue: 0.85, duration: 750, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0.3,  duration: 750, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, []);
+  return <Animated.View style={[{ backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: r, height: h, width: w ?? '100%', opacity }, style]} />;
+}
+
+function ShiftListSkeleton() {
+  return (
+    <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      {[0, 1].map(group => (
+        <View key={group}>
+          {/* Day header */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10 }}>
+            <Skel w="45%" h={26} r={20} />
+          </View>
+          {/* Shift cards */}
+          {[0, 1].map(i => (
+            <View key={i} style={[s.card, { gap: 0 }]}>
+              <View style={{ width: 5, alignSelf: 'stretch', backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 3 }} />
+              <View style={{ flex: 1, paddingLeft: 12, gap: 10 }}>
+                <Skel w="55%" h={16} r={6} />
+                <Skel w="35%" h={12} r={6} />
+              </View>
+              <View style={{ gap: 8, paddingRight: 8 }}>
+                <Skel w={28} h={28} r={8} />
+                <Skel w={28} h={28} r={8} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ))}
+    </ScrollView>
+  );
 }
 
 // ─── Pulsing live dot ─────────────────────────────────────────────────────────
@@ -184,42 +229,55 @@ function MiniCalendar({ selected, onToggle, color, startDay = 0 }: {
 
 // ─── Weekly Calendar strip ────────────────────────────────────────────────────
 
-function WeeklyCalendar({ offset, shifts, totalEmployees, color, startDay = 0 }: {
-  offset:number; shifts:Shift[]; totalEmployees:number; color:string; startDay?: number;
+function WeeklyCalendar({ offset, shifts, color, startDay = 0, expanded = false, onToggleExpand }: {
+  offset: number; shifts: Shift[]; color: string; startDay?: number;
+  expanded?: boolean; onToggleExpand?: () => void;
 }) {
-  const dates = getWeekDates(offset, startDay);
   const shiftsForDay = (d: Date) => shifts.filter(s => isSameDay(new Date(s.startTime), d));
-  const maxForDay = Math.max(1, totalEmployees);
 
-  return (
-    <View style={wk.container}>
-      <View style={wk.grid}>
+  const renderRow = (weekOffset: number, showAbbr: boolean, highlight: boolean) => {
+    const dates = getWeekDates(weekOffset, startDay);
+    return (
+      <View key={weekOffset} style={[wk.grid, highlight && expanded && { backgroundColor: color + '0D', borderRadius: 10 }]}>
         {dates.map((date, i) => {
-          const dayShifts = shiftsForDay(date);
-          const count = dayShifts.length;
+          const count = shiftsForDay(date).length;
           const today = isToday(date);
           const past  = isPastDay(date);
-          const fill  = Math.min(count / maxForDay, 1);
           return (
             <View key={i} style={[wk.col, past && { opacity: 0.38 }]}>
-              <Text style={[wk.abbr, today && { color }]}>{DAY_ABBR[date.getDay()]}</Text>
+              {showAbbr && <Text style={[wk.abbr, today && { color }]}>{DAY_ABBR[date.getDay()]}</Text>}
               <View style={[wk.numWrap, today && { backgroundColor: color }]}>
                 <Text style={[wk.num, today && { color: '#fff' }]}>{date.getDate()}</Text>
               </View>
-              {/* Shift count dot */}
               <View style={wk.dotWrap}>
-                {count > 0 ? (
-                  <View style={[wk.dot, { backgroundColor: past ? '#D1D5DB' : color }]}>
-                    <Text style={wk.dotCount}>{count}</Text>
-                  </View>
-                ) : (
-                  <View style={wk.dotEmpty} />
-                )}
+                {count > 0
+                  ? <View style={[wk.dotSimple, { backgroundColor: past ? '#D1D5DB' : color }]} />
+                  : <View style={wk.dotEmpty} />
+                }
               </View>
             </View>
           );
         })}
       </View>
+    );
+  };
+
+  return (
+    <View>
+      {/* Card — flat bottom, no bottom border */}
+      <View style={wk.container}>
+        {expanded && renderRow(offset - 1, true, false)}
+        {expanded && <View style={wk.weekDivider} />}
+        {renderRow(offset, !expanded, true)}
+        {expanded && <View style={wk.weekDivider} />}
+        {expanded && renderRow(offset + 1, false, false)}
+      </View>
+      {/* Half-moon bump */}
+      <TouchableOpacity style={wk.expandWrap} onPress={onToggleExpand} activeOpacity={0.7}>
+        <View style={wk.expandBump}>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={13} color="#9CA3AF" />
+        </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -239,6 +297,7 @@ export default function ShiftsScreen() {
   const [activeLogs, setActiveLogs] = useState<TimeLog[]>([]);
   const [loading, setLoading]       = useState(true);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [calExpanded, setCalExpanded] = useState(false);
 
   const headerAnim   = useRef(new Animated.Value(0)).current;
   const flatListRef  = useRef<any>(null);
@@ -248,7 +307,9 @@ export default function ShiftsScreen() {
     Animated.spring(headerAnim, { toValue: 1, tension: 60, friction: 9, useNativeDriver: true }).start();
   }, []);
 
-  const [activeFilter, setActiveFilter] = useState<'all'|'clocked_in'|'today'|'late'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all'|'today'|'late'>('all');
+  const [showActiveModal, setShowActiveModal] = useState(false);
+  const [showHoursModal,  setShowHoursModal]  = useState(false);
 
   const [modalMode, setModalMode]       = useState<ModalMode>('create');
   const [modalVisible, setModalVisible] = useState(false);
@@ -284,12 +345,22 @@ export default function ShiftsScreen() {
     }) ?? null;
   };
 
+  const rangeStart = useMemo(() => {
+    const startOff = calExpanded ? weekOffset - 1 : weekOffset;
+    return toDateStr(getWeekDates(startOff, business?.payPeriodStartDay ?? 0)[0]);
+  }, [calExpanded, weekOffset, business?.payPeriodStartDay]);
+
+  const rangeEnd = useMemo(() => {
+    const endOff = calExpanded ? weekOffset + 1 : weekOffset;
+    return toDateStr(getWeekDates(endOff, business?.payPeriodStartDay ?? 0)[6]);
+  }, [calExpanded, weekOffset, business?.payPeriodStartDay]);
+
   const load = useCallback(async () => {
     if (!business?.businessId) return;
     setLoading(true);
     try {
       const [s, e, active] = await Promise.all([
-        api.getShifts(business.businessId),
+        api.getShifts(business.businessId, rangeStart, rangeEnd),
         api.getEmployees(business.businessId),
         api.getActiveEmployees(business.businessId),
       ]);
@@ -298,18 +369,18 @@ export default function ShiftsScreen() {
       setActiveLogs(active);
     } catch(err:any) { Alert.alert('Error', err.message); }
     finally { setLoading(false); }
-  }, [business?.businessId]);
+  }, [business?.businessId, rangeStart, rangeEnd]);
 
   useFocusEffect(useCallback(() => {
     hasScrolled.current = false;
     load();
   }, [load]));
 
-  // Week strip uses the selected week offset (for the calendar header)
-  const weekDates  = getWeekDates(weekOffset, business?.payPeriodStartDay ?? 0);
-  const weekStart  = weekDates[0];
-  const weekEnd    = new Date(weekDates[6]); weekEnd.setHours(23,59,59);
-  const weekShifts = shifts.filter(s => { const d=new Date(s.startTime); return d>=weekStart && d<=weekEnd; });
+  // Calendar derived values
+  const weekDates       = getWeekDates(weekOffset, business?.payPeriodStartDay ?? 0);
+  const visibleShifts   = shifts; // server already filtered by range
+  const isCurrentPeriod = weekOffset === 0;
+  const maxFwd          = business?.schedulingWeeks ?? 6;
 
   const empById = (id?: string) => id ? employees.find(e => e.userId===id||e.employeeId===id) : undefined;
 
@@ -327,21 +398,33 @@ export default function ShiftsScreen() {
 
   // Apply active filter to shift list
   const filteredShifts = (() => {
-    if (activeFilter === 'clocked_in') {
-      const activeShiftIds = new Set(activeLogs.filter(l => l.status === 'clocked_in' || l.status === 'on_break').map(l => l.shiftId));
-      return weekShifts.filter(s => activeShiftIds.has(s.shiftId));
-    }
     if (activeFilter === 'today') return todayShifts;
     if (activeFilter === 'late') return lateShifts;
-    return weekShifts;
+    return visibleShifts;
   })();
+
+  // Weekly hours per employee (net of breaks)
+  const weeklyHours = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const emp of employees) {
+      const id = emp.userId || emp.employeeId;
+      const empShifts = visibleShifts.filter(s => s.employeeId === id);
+      const totalMs = empShifts.reduce((acc, s) => {
+        const ms = new Date(s.endTime).getTime() - new Date(s.startTime).getTime();
+        return acc + ms - (s.breakDuration ?? 0) * 60000;
+      }, 0);
+      map.set(id, Math.round(totalMs / 360000) / 10);
+    }
+    return map;
+  }, [employees, visibleShifts]);
 
   // The flat list shows only the selected week's shifts (filtered)
   const allGrouped = groupByDay(filteredShifts);
 
-  // Approximate item heights for scroll-to-today calculation
-  const HEADER_H = 54;  // day header pill row
-  const CARD_H   = 90;  // shift card + marginBottom
+  // Item heights for getItemLayout
+  const HEADER_H  = 58;
+  const CARD_H    = 94;
+  const DIVIDER_H = 44;
 
   const openCreate = () => {
     if (employees.length===0) { Alert.alert('Sin Empleados','Agrega empleados primero.'); return; }
@@ -444,7 +527,7 @@ export default function ShiftsScreen() {
           breakDuration, breakTime: breakTimeISO,
         }).then(shift => api.assignShift(shift.shiftId, { employeeId: selEmp.userId||selEmp.employeeId, status: 'assigned' }));
       }));
-      setModalVisible(false); await load();
+      setModalVisible(false); hasScrolled.current = false; await load();
     } catch(err:any) { Alert.alert('Error', err.message); }
     finally { setSaving(false); }
   };
@@ -485,7 +568,7 @@ export default function ShiftsScreen() {
         employeeId: empId, status: empId ? 'assigned' : 'open',
         startTime: newStart, endTime: newEnd, breakDuration, breakTime: breakTimeISO,
       });
-      setModalVisible(false); await load();
+      setModalVisible(false); hasScrolled.current = false; await load();
     } catch(err:any) { Alert.alert('Error', err.message); }
     finally { setSaving(false); }
   };
@@ -493,7 +576,7 @@ export default function ShiftsScreen() {
   const handleDelete = (shiftId: string) => {
     Alert.alert('Eliminar Turno','¿Estás seguro?',[
       { text:'Cancelar', style:'cancel' },
-      { text:'Eliminar', style:'destructive', onPress: async () => { await api.deleteShift(shiftId); load(); }},
+      { text:'Eliminar', style:'destructive', onPress: async () => { await api.deleteShift(shiftId); hasScrolled.current = false; load(); }},
     ]);
   };
 
@@ -507,19 +590,32 @@ export default function ShiftsScreen() {
   }
 
   type ListItem =
-    | { type:'header'; label:string; key:string; past:boolean }
-    | { type:'shift';  shift:Shift;  key:string; past:boolean };
+    | { type:'header';       label:string; key:string; past:boolean; today:boolean }
+    | { type:'shift';        shift:Shift;  key:string; past:boolean; today:boolean }
+    | { type:'past-divider'; key:string };
   const listItems: ListItem[] = [];
+  let pastDividerInserted = false;
+  const hasPastGroups = allGrouped.some(g => {
+    const [gy, gm, gd] = g.key.split('-').map(Number);
+    return isPastDay(new Date(gy, gm, gd));
+  });
   for (const group of allGrouped) {
     const [gy, gm, gd] = group.key.split('-').map(Number);
-    const groupPast = isPastDay(new Date(gy, gm, gd));
-    listItems.push({ type:'header', label:group.label, key:`h-${group.key}`, past:groupPast });
+    const groupDate = new Date(gy, gm, gd);
+    const groupPast  = isPastDay(groupDate);
+    const groupToday = isToday(groupDate);
+    // Insert divider right before the first today/future group when past groups exist
+    if (!groupPast && !pastDividerInserted && hasPastGroups) {
+      listItems.push({ type: 'past-divider', key: 'past-divider' });
+      pastDividerInserted = true;
+    }
+    listItems.push({ type:'header', label:group.label, key:`h-${group.key}`, past:groupPast, today:groupToday });
     for (const shift of group.shifts) {
-      listItems.push({ type:'shift', shift, key:shift.shiftId, past:groupPast });
+      listItems.push({ type:'shift', shift, key:shift.shiftId, past:groupPast, today:groupToday });
     }
   }
 
-  // Find the index of today's header (or first future day) and compute scroll offset
+  // Find the index of today's header (or first future day)
   const todayOrNextIdx = listItems.findIndex(item => {
     if (item.type !== 'header') return false;
     const keyPart = item.key.replace('h-', '');
@@ -527,27 +623,46 @@ export default function ShiftsScreen() {
     const d = new Date(gy, gm, gd);
     return isToday(d) || !isPastDay(d);
   });
-  const itemsOffset = listItems
-    .slice(0, Math.max(0, todayOrNextIdx))
-    .reduce((sum, item) => sum + (item.type === 'header' ? HEADER_H : CARD_H), 0);
+
+  const getItemHeight = (item: ListItem | undefined) => {
+    if (!item) return CARD_H;
+    if (item.type === 'header') return HEADER_H;
+    if (item.type === 'past-divider') return DIVIDER_H;
+    return CARD_H;
+  };
+
+  const getItemLayout = useCallback((_: any, index: number) => {
+    const length = getItemHeight(listItems[index]);
+    let offset = 0;
+    for (let i = 0; i < index; i++) offset += getItemHeight(listItems[i]);
+    return { length, offset, index };
+  }, [listItems]);
 
   const scrollToToday = useCallback(() => {
+    const idx = todayOrNextIdx >= 0 ? todayOrNextIdx : 0;
     setTimeout(() => {
-      if (itemsOffset > 0) {
-        flatListRef.current?.scrollToOffset({ offset: itemsOffset, animated: true });
-      } else {
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-      }
-    }, 80);
-  }, [itemsOffset]);
+      try {
+        if (idx > 0) {
+          flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewOffset: 8 });
+        } else {
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        }
+      } catch {}
+    }, 120);
+  }, [todayOrNextIdx]);
 
-  // Scroll to top when week changes to another week; scroll to today when returning to current week
+  // Reset scroll flag when expand/collapse or week changes so post-load scroll fires
+  useEffect(() => { hasScrolled.current = false; }, [calExpanded, weekOffset]);
+
+  // When a filter is cleared (returning to 'all'), scroll back to today
   useEffect(() => {
-    if (weekOffset === 0) {
-      scrollToToday();
-    } else {
-      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-    }
+    if (activeFilter === 'all') scrollToToday();
+  }, [activeFilter]);
+
+  // Scroll on navigation
+  useEffect(() => {
+    if (weekOffset === 0) scrollToToday();
+    else flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, [weekOffset]);
 
   // Scroll to today on initial load
@@ -579,50 +694,60 @@ export default function ShiftsScreen() {
             {business && <Text style={s.bizName}>{business.name}</Text>}
           </View>
           {activeLogs.filter(l => l.status === 'clocked_in' || l.status === 'on_break').length > 0 && (
-            <View style={[s.activePill, { backgroundColor: color + '15' }]}>
-              <View style={[s.activeDot, { backgroundColor: color }]} />
+            <TouchableOpacity style={[s.activePill, { backgroundColor: color + '15' }]} onPress={() => setShowActiveModal(true)}>
+              <PulseDot color={color} />
               <Text style={[s.activeCount, { color }]}>
                 {activeLogs.filter(l => l.status === 'clocked_in' || l.status === 'on_break').length} en turno
               </Text>
-            </View>
+              <Ionicons name="chevron-forward" size={12} color={color} />
+            </TouchableOpacity>
           )}
         </View>
 
-        {/* Weekly calendar */}
+        {/* Calendar */}
         <View style={s.calendarSection}>
           <View style={s.calSectionHeader}>
             <TouchableOpacity
               onPress={() => setWeekOffset(o => o - 1)}
-              style={[s.calNavBtn, weekOffset <= -(business?.schedulingWeeks ?? 6) && { opacity: 0.3 }]}
-              disabled={weekOffset <= -(business?.schedulingWeeks ?? 6)}
+              style={[s.calNavBtn, weekOffset <= -maxFwd && { opacity: 0.3 }]}
+              disabled={weekOffset <= -maxFwd}
             >
               <Ionicons name="chevron-back" size={18} color="#374151" />
             </TouchableOpacity>
             <Text style={s.calSectionTitle}>{weekLabel(weekDates)}</Text>
             <TouchableOpacity
               onPress={() => setWeekOffset(o => o + 1)}
-              style={[s.calNavBtn, weekOffset >= (business?.schedulingWeeks ?? 6) && { opacity: 0.3 }]}
-              disabled={weekOffset >= (business?.schedulingWeeks ?? 6)}
+              style={[s.calNavBtn, weekOffset >= maxFwd && { opacity: 0.3 }]}
+              disabled={weekOffset >= maxFwd}
             >
               <Ionicons name="chevron-forward" size={18} color="#374151" />
             </TouchableOpacity>
           </View>
           <WeeklyCalendar
             offset={weekOffset}
-            shifts={shifts}
-            totalEmployees={employees.length}
+            shifts={visibleShifts}
             color={color}
             startDay={business?.payPeriodStartDay ?? 0}
+            expanded={calExpanded}
+            onToggleExpand={() => setCalExpanded(v => !v)}
           />
         </View>
 
         {/* Quick filters */}
         <View style={s.filterRow}>
+          {/* Horas semanales — opens overlay */}
+          <TouchableOpacity
+            style={[s.filterChip, { backgroundColor: '#F3F4F6' }]}
+            onPress={() => setShowHoursModal(true)}
+          >
+            <Ionicons name="time-outline" size={13} color="#6B7280" />
+            <Text style={s.filterChipText}>Horas sem.</Text>
+          </TouchableOpacity>
+          {/* Hoy filter */}
           {([
-            { key: 'clocked_in', label: 'En turno', count: clockedInCount,      icon: 'pulse-outline',        activeColor: '#10B981' },
-            { key: 'today',      label: 'Hoy',       count: scheduledTodayCount, icon: 'today-outline',        activeColor: color },
-            { key: 'late',       label: 'Tarde',     count: lateCount,           icon: 'alert-circle-outline', activeColor: '#EF4444' },
-          ] as const).map(f => {
+            { key: 'today' as const, label: 'Hoy',   count: scheduledTodayCount, icon: 'today-outline' as const,        activeColor: color },
+            { key: 'late'  as const, label: 'Tarde',  count: lateCount,           icon: 'alert-circle-outline' as const, activeColor: '#EF4444' },
+          ]).map(f => {
             const isActive = activeFilter === f.key;
             return (
               <TouchableOpacity
@@ -642,9 +767,9 @@ export default function ShiftsScreen() {
 
         <View style={s.listHeader}>
           <Text style={s.listHeaderText}>
-            {weekShifts.length} turno{weekShifts.length!==1?'s':''}{weekOffset === 0 ? ' esta semana' : ' esa semana'}
+            {visibleShifts.length} turno{visibleShifts.length!==1?'s':''}{isCurrentPeriod ? ' esta semana' : ' esa semana'}
           </Text>
-          {weekOffset === 0 ? (
+          {isCurrentPeriod ? (
             <View style={[s.currentWeekBadge, { backgroundColor: color }]}>
               <View style={[s.currentWeekDot, { backgroundColor: '#fff' }]} />
               <Text style={s.currentWeekText}>Semana actual</Text>
@@ -659,14 +784,13 @@ export default function ShiftsScreen() {
       </Animated.View>
 
       {loading ? (
-        <View style={{ flex:1, alignItems:'center', justifyContent:'center' }}>
-          <ActivityIndicator color={color} />
-        </View>
+        <ShiftListSkeleton />
       ) : (
         <FlatList
           ref={flatListRef}
           data={listItems}
           keyExtractor={item => item.key}
+          getItemLayout={getItemLayout}
           contentContainerStyle={{ paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -676,18 +800,35 @@ export default function ShiftsScreen() {
             </View>
           }
           renderItem={({ item }) => {
+            if (item.type === 'past-divider') {
+              return (
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}>
+                  <View style={{ flex: 1, height: 1, backgroundColor: '#E5E7EB' }} />
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.8, textTransform: 'uppercase' }}>Turnos anteriores</Text>
+                  <View style={{ flex: 1, height: 1, backgroundColor: '#E5E7EB' }} />
+                </View>
+              );
+            }
             if (item.type === 'header') {
               return (
-                <View style={s.dayHeader}>
+                <View style={[s.dayHeader, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
                   <View style={[s.dayHeaderPill,
-                    item.past
-                      ? { backgroundColor: 'rgba(0,0,0,0.05)' }
-                      : { backgroundColor: 'rgba(0,0,0,0.07)' }
+                    item.today
+                      ? { backgroundColor: primaryColor }
+                      : item.past
+                        ? { backgroundColor: 'rgba(0,0,0,0.05)' }
+                        : { backgroundColor: 'rgba(0,0,0,0.07)' }
                   ]}>
                     <Text style={[s.dayHeaderText,
-                      item.past ? { color: '#9CA3AF' } : { color: '#374151' }
+                      item.today ? { color: '#fff' } : item.past ? { color: '#9CA3AF' } : { color: '#374151' }
                     ]}>{item.label}</Text>
                   </View>
+                  {item.today && (
+                    <View style={[s.todayBadge, { backgroundColor: primaryColor + '20' }]}>
+                      <View style={[s.todayBadgeDot, { backgroundColor: primaryColor }]} />
+                      <Text style={[s.todayBadgeText, { color: primaryColor }]}>HOY</Text>
+                    </View>
+                  )}
                 </View>
               );
             }
@@ -697,7 +838,7 @@ export default function ShiftsScreen() {
             const liveLog  = activeLogs.find(
               l => l.shiftId === shift.shiftId &&
                    (l.status === 'clocked_in' || l.status === 'on_break') &&
-                   l.date === todayStr
+                   toDateStr(new Date(l.clockIn)) === todayStr
             );
             const liveColor = liveLog?.status === 'on_break' ? '#D97706' : '#10B981';
             const durMs  = new Date(shift.endTime).getTime() - new Date(shift.startTime).getTime();
@@ -762,6 +903,91 @@ export default function ShiftsScreen() {
           }}
         />
       )}
+
+      {/* ── Active Employees Modal ── */}
+      <Modal visible={showActiveModal} animationType="slide" transparent>
+        <View style={s.overlay}>
+          <View style={s.sheet}>
+            <View style={s.sheetHeader}>
+              <TouchableOpacity onPress={() => setShowActiveModal(false)} style={s.sheetClose}>
+                <Ionicons name="arrow-back" size={18} color="#374151"/>
+              </TouchableOpacity>
+              <Text style={s.sheetTitle}>Empleados en turno</Text>
+              <View style={{ width: 32 }}/>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {activeLogs
+                .filter(l => l.status === 'clocked_in' || l.status === 'on_break')
+                .map(l => {
+                  const emp = empById(l.employeeId);
+                  if (!emp) return null;
+                  const isBreak = l.status === 'on_break';
+                  const statusColor = isBreak ? '#D97706' : '#10B981';
+                  const statusBg    = isBreak ? '#FEF3C7' : '#D1FAE5';
+                  const clockInTime = l.clockIn ? fmt12(l.clockIn) : '—';
+                  return (
+                    <View key={l.employeeId} style={[s.empRow, { marginBottom: 10 }]}>
+                      <View style={[s.avatar, { backgroundColor: color }]}>
+                        <Text style={s.avatarText}>{emp.firstName[0]}{emp.lastName[0]}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.empName}>{emp.firstName} {emp.lastName}</Text>
+                        <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 1 }}>Entró: {clockInTime}</Text>
+                      </View>
+                      <View style={[s.liveBadge, { backgroundColor: statusBg }]}>
+                        <PulseDot color={statusColor} />
+                        <Text style={[s.liveBadgeText, { color: isBreak ? '#92400E' : '#065F46' }]}>
+                          {isBreak ? 'Descanso' : 'Activo'}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Weekly Hours Modal ── */}
+      <Modal visible={showHoursModal} animationType="slide" transparent>
+        <View style={s.overlay}>
+          <View style={s.sheet}>
+            <View style={s.sheetHeader}>
+              <TouchableOpacity onPress={() => setShowHoursModal(false)} style={s.sheetClose}>
+                <Ionicons name="arrow-back" size={18} color="#374151"/>
+              </TouchableOpacity>
+              <Text style={s.sheetTitle}>Horas esta semana</Text>
+              <View style={{ width: 32 }}/>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {employees.length === 0 && (
+                <Text style={{ color: '#9CA3AF', textAlign: 'center', marginTop: 20 }}>Sin empleados aún</Text>
+              )}
+              {employees.map(emp => {
+                const id    = emp.userId || emp.employeeId;
+                const hours = weeklyHours.get(id) ?? 0;
+                const pct   = Math.min(hours / 40, 1);
+                return (
+                  <View key={id} style={[s.empRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 8, marginBottom: 10 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%' }}>
+                      <View style={[s.avatar, { backgroundColor: color }]}>
+                        <Text style={s.avatarText}>{emp.firstName[0]}{emp.lastName[0]}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.empName}>{emp.firstName} {emp.lastName}</Text>
+                      </View>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: hours >= 40 ? '#EF4444' : color }}>{hours}h</Text>
+                    </View>
+                    <View style={{ width: '100%', height: 6, backgroundColor: '#F3F4F6', borderRadius: 4 }}>
+                      <View style={{ width: `${pct * 100}%`, height: 6, borderRadius: 4, backgroundColor: hours >= 40 ? '#EF4444' : color }} />
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* FAB */}
       <TouchableOpacity style={[s.fab, { backgroundColor: color }]} onPress={openCreate}>
@@ -975,7 +1201,7 @@ const s = StyleSheet.create({
   activeCount: { fontSize:13, fontWeight:'700' },
 
   calendarSection: { paddingHorizontal: 20, marginTop: 8, marginBottom: 4 },
-  calSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  calSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   calSectionTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
   calNavBtn: {
     width: 32, height: 32, borderRadius: 10,
@@ -995,6 +1221,9 @@ const s = StyleSheet.create({
   dayHeader: { paddingHorizontal:16, paddingTop:18, paddingBottom:6 },
   dayHeaderPill: { alignSelf:'flex-start', borderRadius:20, paddingHorizontal:12, paddingVertical:5 },
   dayHeaderText: { fontSize:12, fontWeight:'700', textTransform:'uppercase', letterSpacing:0.5 },
+  todayBadge: { flexDirection:'row', alignItems:'center', gap:5, borderRadius:20, paddingHorizontal:10, paddingVertical:5 },
+  todayBadgeDot: { width:6, height:6, borderRadius:3 },
+  todayBadgeText: { fontSize:11, fontWeight:'800', letterSpacing:0.4 },
 
   card: {
     backgroundColor: '#fff',
@@ -1100,11 +1329,15 @@ const s = StyleSheet.create({
   filterBadgeText: { fontSize:11, fontWeight:'700', color:'#374151' },
 });
 
+
+const BORDER_COLOR = 'rgba(0,0,0,0.08)';
+
 const wk = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
-    borderRadius: 20, padding: 14,
-    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1, borderBottomWidth: 0, borderColor: BORDER_COLOR,
     shadowColor: '#000', shadowOpacity: 0.06,
     shadowRadius: 24, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
@@ -1113,10 +1346,20 @@ const wk = StyleSheet.create({
   abbr:     { fontSize:11, fontWeight:'600', color:'#6B7280' },
   numWrap:  { width:28, height:28, borderRadius:14, alignItems:'center', justifyContent:'center' },
   num:      { fontSize:13, fontWeight:'600', color:'#374151' },
-  dotWrap:  { alignItems:'center', height:22 },
-  dot:      { width:20, height:20, borderRadius:10, alignItems:'center', justifyContent:'center' },
-  dotCount: { color:'#fff', fontSize:10, fontWeight:'800' },
-  dotEmpty: { width:20, height:20 },
+  dotWrap:     { alignItems:'center', height:14 },
+  dotSimple:   { width:6, height:6, borderRadius:3 },
+  dotEmpty:    { width:6, height:6 },
+  weekDivider: { height:1, backgroundColor:'#F3F4F6', marginVertical:6 },
+  expandWrap:  { alignItems:'center' },
+  expandBump:  {
+    width: 40, height: 20,
+    borderBottomLeftRadius: 20, borderBottomRightRadius: 20,
+    backgroundColor: '#fff',
+    borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderTopWidth: 0,
+    borderColor: BORDER_COLOR,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
+  },
 });
 
 const cal = StyleSheet.create({
