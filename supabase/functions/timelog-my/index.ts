@@ -12,17 +12,30 @@ Deno.serve(async (req) => {
     if (userErr || !user) return err('Unauthorized', 401);
 
     const url = new URL(req.url);
-    const shiftId = url.searchParams.get('shiftId');
+    const shiftId  = url.searchParams.get('shiftId');
+    const startUTC = url.searchParams.get('startUTC');
+    const endUTC   = url.searchParams.get('endUTC');
 
     const sb = getServiceClient();
 
+    // Fetch single log by shift
     if (shiftId) {
       const { data } = await sb.from('timelogs').select('*')
         .eq('shiftId', shiftId).maybeSingle();
       return cors({ success: true, data: data ?? null });
     }
 
-    // 28-hour lookback on clockIn avoids UTC midnight rollover for any timezone
+    // Fetch all logs for the employee in a date range (for pay period history)
+    if (startUTC && endUTC) {
+      const { data } = await sb.from('timelogs').select('*')
+        .eq('employeeId', user.id)
+        .gte('clockIn', startUTC)
+        .lte('clockIn', endUTC)
+        .order('clockIn', { ascending: false });
+      return cors({ success: true, data: data ?? [] });
+    }
+
+    // 28-hour lookback — current/recent active log
     const cutoff = new Date(Date.now() - 28 * 3600000).toISOString();
     const { data } = await sb.from('timelogs').select('*')
       .eq('employeeId', user.id)

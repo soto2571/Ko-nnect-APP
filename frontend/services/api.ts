@@ -342,6 +342,12 @@ export async function getMyTimeLog(shiftId?: string): Promise<TimeLog | null> {
   });
 }
 
+export async function getMyTimeLogs(startDate: string, endDate: string): Promise<TimeLog[]> {
+  const startUTC = new Date(startDate + 'T00:00:00').toISOString();
+  const endUTC   = new Date(endDate   + 'T23:59:59').toISOString();
+  return request<TimeLog[]>('timelog-my', { query: { startUTC, endUTC } });
+}
+
 export async function getActiveEmployees(businessId: string): Promise<TimeLog[]> {
   return request<TimeLog[]>('timelog-active', {
     query: { businessId },

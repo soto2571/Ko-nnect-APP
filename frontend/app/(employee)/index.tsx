@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, Alert, RefreshControl, Animated, Pressable,
@@ -74,6 +75,52 @@ function groupByDay(shifts: Shift[]) {
     }));
 }
 
+function fmtHours(minutes: number) {
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function getPayPeriodDates(
+  business: { payPeriodType?: string; payPeriodStartDay?: number; payPeriodAnchorDate?: string },
+  offset = 0
+): { start: Date; end: Date; label: string } {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const type     = business.payPeriodType ?? 'weekly';
+  const startDay = business.payPeriodStartDay ?? 0;
+  const fmt = (d: Date) => d.toLocaleDateString('es', { month: 'short', day: 'numeric' });
+
+  if (type === 'semi-monthly') {
+    const d = today.getDate();
+    let month = today.getMonth(), year = today.getFullYear();
+    let half = d <= 15 ? 0 : 1;
+    let totalHalf = month * 2 + half + offset;
+    month = Math.floor(totalHalf / 2);
+    year  = today.getFullYear() + Math.floor(month / 12);
+    month = ((month % 12) + 12) % 12;
+    half  = ((totalHalf % 2) + 2) % 2;
+    const start = new Date(year, month, half === 0 ? 1 : 16);
+    const end   = new Date(year, month, half === 0 ? 15 : new Date(year, month + 1, 0).getDate());
+    end.setHours(23, 59, 59);
+    return { start, end, label: `${fmt(start)} – ${fmt(end)}` };
+  }
+
+  const periodDays = type === 'biweekly' ? 14 : 7;
+  let currentStart: Date;
+  if (type === 'biweekly' && business.payPeriodAnchorDate) {
+    const anchor = new Date(business.payPeriodAnchorDate + 'T00:00:00');
+    const daysSince = Math.floor((today.getTime() - anchor.getTime()) / 86400000);
+    const cycleDay  = ((daysSince % 14) + 14) % 14;
+    currentStart = new Date(today); currentStart.setDate(today.getDate() - cycleDay);
+  } else {
+    const diff = (today.getDay() - startDay + 7) % 7;
+    currentStart = new Date(today); currentStart.setDate(today.getDate() - diff);
+  }
+  const start = new Date(currentStart); start.setDate(currentStart.getDate() + offset * periodDays);
+  const end   = new Date(start);        end.setDate(start.getDate() + periodDays - 1);
+  end.setHours(23, 59, 59);
+  return { start, end, label: `${fmt(start)} – ${fmt(end)}` };
+}
+
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function Skel({ w, h, r = 8, style }: { w?: number | string; h: number; r?: number; style?: any }) {
@@ -104,23 +151,21 @@ function ShiftListSkeleton() {
 
 // ── Weekly Calendar ───────────────────────────────────────────────────────────
 
-function WeeklyCalendar({ offset, shifts, color, startDay = 0, expanded = false, onToggleExpand }: {
+function WeeklyCalendar({ offset, shifts, color, startDay = 0 }: {
   offset: number; shifts: Shift[]; color: string; startDay?: number;
-  expanded?: boolean; onToggleExpand?: () => void;
 }) {
   const shiftsForDay = (d: Date) => shifts.filter(s => isSameDay(new Date(s.startTime), d));
-
-  const renderRow = (weekOffset: number, showAbbr: boolean, highlight: boolean) => {
-    const dates = getWeekDates(weekOffset, startDay);
-    return (
-      <View key={weekOffset} style={[wk.grid, highlight && expanded && { backgroundColor: color + '0D', borderRadius: 10 }]}>
+  const dates = getWeekDates(offset, startDay);
+  return (
+    <View style={wk.container}>
+      <View style={wk.grid}>
         {dates.map((date, i) => {
           const count = shiftsForDay(date).length;
           const today = isToday(date);
           const past  = isPastDay(date);
           return (
             <View key={i} style={[wk.col, past && { opacity: 0.38 }]}>
-              {showAbbr && <Text style={[wk.abbr, today && { color }]}>{DAY_ABBR[date.getDay()]}</Text>}
+              <Text style={[wk.abbr, today && { color }]}>{DAY_ABBR[date.getDay()]}</Text>
               <View style={[wk.numWrap, today && { backgroundColor: color }]}>
                 <Text style={[wk.num, today && { color: '#fff' }]}>{date.getDate()}</Text>
               </View>
@@ -134,23 +179,6 @@ function WeeklyCalendar({ offset, shifts, color, startDay = 0, expanded = false,
           );
         })}
       </View>
-    );
-  };
-
-  return (
-    <View>
-      <View style={wk.container}>
-        {expanded && renderRow(offset - 1, true, false)}
-        {expanded && <View style={wk.weekDivider} />}
-        {renderRow(offset, !expanded, true)}
-        {expanded && <View style={wk.weekDivider} />}
-        {expanded && renderRow(offset + 1, false, false)}
-      </View>
-      <TouchableOpacity style={wk.expandWrap} onPress={onToggleExpand} activeOpacity={0.7}>
-        <View style={wk.expandBump}>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={13} color="#9CA3AF" />
-        </View>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -249,7 +277,7 @@ function TodayClockCard({
                   <Animated.View style={[cc.pulseDot, { backgroundColor: accentColor, transform: [{ scale: pulse }] }]} />
                 )}
                 <Text style={[cc.statusText, { color: accentColor }]}>
-                  {onBreak ? 'En descanso' : 'Activo'}
+                  {onBreak ? 'Descanso' : 'Activo'}
                 </Text>
               </View>
             )}
@@ -433,9 +461,9 @@ function UpcomingShiftCard({ shift, nextShift, color }: {
   const displayShift = shift ?? nextShift ?? null;
   if (!displayShift) {
     return (
-      <View style={[st.noTodayCard, { marginTop: 10 }]}>
-        <Ionicons name="moon-outline" size={18} color="#9CA3AF" />
-        <Text style={[st.noTodayText, { color: '#9CA3AF' }]}>NO TIENES TURNO MAÑANA</Text>
+      <View style={[st.noTodayCard, { marginTop: 10, borderColor: color + '40', backgroundColor: 'rgba(255,255,255,0.75)' }]}>
+        <Ionicons name="moon-outline" size={18} color={color} />
+        <Text style={[st.noTodayText, { color }]}>NO TIENES TURNO MAÑANA</Text>
       </View>
     );
   }
@@ -487,25 +515,19 @@ export default function MyShiftsScreen() {
   const [loading, setLoading]           = useState(true);
   const [refreshing, setRefreshing]     = useState(false);
   const [weekOffset, setWeekOffset]     = useState(0);
-  const [calExpanded, setCalExpanded]   = useState(false);
   const [timeLog, setTimeLog]           = useState<TimeLog | null>(null);
   const [clockLoading, setClockLoading] = useState(false);
+  const [pastExpanded, setPastExpanded]   = useState(false);
 
   const flatListRef = useRef<any>(null);
 
   const startDay = business?.payPeriodStartDay ?? 0;
 
-  const rangeStart = useMemo(() => {
-    const startOff = calExpanded ? weekOffset - 1 : weekOffset;
-    return toDateStr(getWeekDates(startOff, startDay)[0]);
-  }, [calExpanded, weekOffset, startDay]);
+  const rangeStart = useMemo(() => toDateStr(getWeekDates(weekOffset, startDay)[0]), [weekOffset, startDay]);
+  const rangeEnd   = useMemo(() => toDateStr(getWeekDates(weekOffset, startDay)[6]), [weekOffset, startDay]);
 
-  const rangeEnd = useMemo(() => {
-    const endOff = calExpanded ? weekOffset + 1 : weekOffset;
-    return toDateStr(getWeekDates(endOff, startDay)[6]);
-  }, [calExpanded, weekOffset, startDay]);
-
-  const load = useCallback(async () => {
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const data = await api.getMyShifts(rangeStart, rangeEnd);
       setShifts(data.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
@@ -521,7 +543,9 @@ export default function MyShiftsScreen() {
     try { setTimeLog(await api.getMyTimeLog(shiftId)); } catch {}
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+useEffect(() => { load(); }, [load]);
+
+  useFocusEffect(useCallback(() => { setWeekOffset(0); }, []));
 
   const todayShiftRef = useRef<Shift | null>(null);
   useEffect(() => {
@@ -531,6 +555,7 @@ export default function MyShiftsScreen() {
       loadTimeLog(todayS.shiftId);
     }
   }, [shifts, loadTimeLog]);
+
 
   const handleClockIn = async (shift: Shift) => {
     setClockLoading(true);
@@ -574,37 +599,36 @@ export default function MyShiftsScreen() {
   const allGrouped = useMemo(() => groupByDay(shifts), [shifts]);
 
   type ListItem =
-    | { type: 'header';    label: string; key: string }
-    | { type: 'shift';     shift: Shift;  key: string }
-    | { type: 'empty-day'; key: string };
+    | { type: 'header';    label: string; key: string; today: boolean }
+    | { type: 'shift';     shift: Shift;  key: string; today: boolean }
+    | { type: 'empty-day'; key: string;                today: boolean };
 
-  // Show all days of the visible week (from day after tomorrow to end of week),
-  // including empty days so the employee can see their full week at a glance.
   const listItems = useMemo<ListItem[]>(() => {
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0,0,0,0);
-    const weekEnd  = getWeekDates(weekOffset, startDay)[6];
-    weekEnd.setHours(23,59,59,999);
-
-    // Build a map of shifts by day key for quick lookup
     const shiftMap = new Map<string, Shift[]>();
-    for (const group of allGrouped) {
-      shiftMap.set(group.key, group.shifts);
-    }
+    for (const group of allGrouped) shiftMap.set(group.key, group.shifts);
+
+    const weekDays = getWeekDates(weekOffset, startDay);
+    const isCurrentWeek = weekOffset === 0;
+
+    // On current week: start from today so all remaining days are shown
+    // On other weeks: show all 7 days
+    const startFromDate = isCurrentWeek
+      ? (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })()
+      : weekDays[0];
 
     const items: ListItem[] = [];
-    // Iterate every day from tomorrow through end of week
-    const cursor = new Date(tomorrow);
-    while (cursor <= weekEnd) {
-      const key = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
-      const label = new Date(cursor).toLocaleDateString('es', { weekday: 'long', month: 'long', day: 'numeric' });
-      items.push({ type: 'header', label, key: `h-${key}` });
+    for (const date of weekDays) {
+      if (date < startFromDate) continue;
+      const key      = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      const label    = date.toLocaleDateString('es', { weekday: 'long', month: 'long', day: 'numeric' });
+      const dayToday = isToday(date);
+      items.push({ type: 'header', label, key: `h-${key}`, today: dayToday });
       const dayShifts = shiftMap.get(key) ?? [];
       if (dayShifts.length > 0) {
-        for (const s of dayShifts) items.push({ type: 'shift', shift: s, key: s.shiftId });
+        for (const s of dayShifts) items.push({ type: 'shift', shift: s, key: s.shiftId, today: dayToday });
       } else {
-        items.push({ type: 'empty-day', key: `e-${key}` });
+        items.push({ type: 'empty-day', key: `e-${key}`, today: dayToday });
       }
-      cursor.setDate(cursor.getDate() + 1);
     }
     return items;
   }, [allGrouped, weekOffset, startDay]);
@@ -671,15 +695,16 @@ export default function MyShiftsScreen() {
           <View style={st.sectionHeader}>
             <TouchableOpacity
               onPress={() => setWeekOffset(o => o - 1)}
-              style={st.navBtn}
+              style={[st.navBtn, weekOffset <= -(business?.schedulingWeeks ?? 4) && { opacity: 0.3 }]}
+              disabled={weekOffset <= -(business?.schedulingWeeks ?? 4)}
             >
               <Ionicons name="chevron-back" size={16} color="#374151" />
             </TouchableOpacity>
             <Text style={st.sectionTitle}>{weekLabel(weekDates)}</Text>
             <TouchableOpacity
-              onPress={() => setWeekOffset(o => Math.min(3, o + 1))}
-              style={[st.navBtn, weekOffset >= 3 && { opacity: 0.3 }]}
-              disabled={weekOffset >= 3}
+              onPress={() => setWeekOffset(o => o + 1)}
+              style={[st.navBtn, weekOffset >= (business?.schedulingWeeks ?? 4) && { opacity: 0.3 }]}
+              disabled={weekOffset >= (business?.schedulingWeeks ?? 4)}
             >
               <Ionicons name="chevron-forward" size={16} color="#374151" />
             </TouchableOpacity>
@@ -689,8 +714,6 @@ export default function MyShiftsScreen() {
             shifts={shifts}
             color={color}
             startDay={startDay}
-            expanded={calExpanded}
-            onToggleExpand={() => setCalExpanded(v => !v)}
           />
         </View>
 
@@ -729,55 +752,63 @@ export default function MyShiftsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); load(); }}
+              onRefresh={() => { setRefreshing(true); load(true); }}
               tintColor={color}
             />
           }
           ListHeaderComponent={
-            <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4 }}>
-              {/* Today card */}
-              {todayShift ? (
-                <TodayClockCard
-                  shift={todayShift} log={timeLog}
-                  onClockIn={() => handleClockIn(todayShift)}
-                  onBreakStart={handleBreakStart}
-                  onBreakEnd={handleBreakEnd}
-                  onClockOut={handleClockOut}
-                  loading={clockLoading} color={color}
-                />
-              ) : (
-                <>
-                  <View style={[st.dayHeader, { paddingHorizontal: 0 }]}>
-                    <View style={st.dayHeaderPill}>
-                      <Text style={st.dayHeaderText}>{new Date().toLocaleDateString('es', { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
+            weekOffset === 0 ? (
+              <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4 }}>
+                {todayShift ? (
+                  <TodayClockCard
+                    shift={todayShift} log={timeLog}
+                    onClockIn={() => handleClockIn(todayShift)}
+                    onBreakStart={handleBreakStart}
+                    onBreakEnd={handleBreakEnd}
+                    onClockOut={handleClockOut}
+                    loading={clockLoading} color={color}
+                  />
+                ) : (
+                  <>
+                    <View style={[st.dayHeader, { paddingHorizontal: 0 }]}>
+                      <View style={st.dayHeaderPill}>
+                        <Text style={st.dayHeaderText}>{new Date().toLocaleDateString('es', { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
+                      </View>
                     </View>
-                  </View>
-                  <View style={[st.noTodayCard, { borderColor: color + '40', backgroundColor: 'rgba(255,255,255,0.75)' }]}>
-                    <Ionicons name="moon-outline" size={18} color={color} />
-                    <Text style={[st.noTodayText, { color }]}>SIN TURNO HOY</Text>
-                  </View>
-                </>
-              )}
-
-              {/* Tomorrow / next shift card */}
-              <UpcomingShiftCard shift={tomorrowShift} nextShift={!todayShift ? nextUpcomingShift : null} color={color} />
-
-              {/* "TURNOS" divider */}
-              <View style={[st.pastDivider, { marginTop: 18, marginBottom: 0 }]}>
-                <View style={st.pastDividerLine} />
-                <Text style={st.pastDividerLabel}>Turnos</Text>
-                <View style={st.pastDividerLine} />
+                    <View style={[st.noTodayCard, { borderColor: color + '40', backgroundColor: 'rgba(255,255,255,0.75)' }]}>
+                      <Ionicons name="moon-outline" size={18} color={color} />
+                      <Text style={[st.noTodayText, { color }]}>SIN TURNO HOY</Text>
+                    </View>
+                  </>
+                )}
+                <UpcomingShiftCard shift={tomorrowShift} nextShift={!todayShift ? nextUpcomingShift : null} color={color} />
+                <View style={[st.pastDivider, { marginTop: 18, marginBottom: 0 }]}>
+                  <View style={[st.pastDividerLine, { backgroundColor: '#6B7280' }]} />
+                  <Text style={[st.pastDividerLabel, { color: '#374151', fontWeight: '700' }]}>Turnos</Text>
+                  <View style={[st.pastDividerLine, { backgroundColor: '#6B7280' }]} />
+                </View>
               </View>
-            </View>
+            ) : null
           }
-          ListFooterComponent={pastShifts.length > 0 ? (
-            <View style={{ marginTop: 16 }}>
-              <View style={st.pastDivider}>
+          ListFooterComponent={weekOffset === 0 && pastShifts.length > 0 ? (
+            <View style={{ marginTop: 16, paddingBottom: 8 }}>
+              <TouchableOpacity
+                style={st.pastDivider}
+                onPress={() => setPastExpanded(v => !v)}
+                activeOpacity={0.7}
+              >
                 <View style={st.pastDividerLine} />
-                <Text style={st.pastDividerLabel}>Turnos anteriores</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Text style={st.pastDividerLabel}>Turnos anteriores</Text>
+                  <Ionicons
+                    name={pastExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={11}
+                    color="#C4C4C4"
+                  />
+                </View>
                 <View style={st.pastDividerLine} />
-              </View>
-              {groupByDay(pastShifts).reverse().map(group => (
+              </TouchableOpacity>
+              {pastExpanded && groupByDay(pastShifts).reverse().map(group => (
                 <View key={group.key}>
                   <View style={st.dayHeader}>
                     <View style={[st.dayHeaderPill, { backgroundColor: 'transparent' }]}>
@@ -802,10 +833,16 @@ export default function MyShiftsScreen() {
           renderItem={({ item }) => {
             if (item.type === 'header') {
               return (
-                <View style={st.dayHeader}>
-                  <View style={st.dayHeaderPill}>
-                    <Text style={st.dayHeaderText}>{item.label}</Text>
+                <View style={[st.dayHeader, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+                  <View style={[st.dayHeaderPill, item.today && { backgroundColor: color + '20' }]}>
+                    <Text style={[st.dayHeaderText, item.today && { color }]}>{item.label}</Text>
                   </View>
+                  {item.today && (
+                    <View style={[st.todayBadge, { backgroundColor: color + '20' }]}>
+                      <View style={[st.todayBadgeDot, { backgroundColor: color }]} />
+                      <Text style={[st.todayBadgeText, { color }]}>HOY</Text>
+                    </View>
+                  )}
                 </View>
               );
             }
@@ -813,7 +850,7 @@ export default function MyShiftsScreen() {
               return (
                 <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
                   <View style={st.emptyDayRow}>
-                    <Ionicons name="moon-outline" size={13} color="#D1D5DB" />
+                    <Ionicons name="moon-outline" size={13} color="#9CA3AF" />
                     <Text style={st.emptyDayText}>Sin turno</Text>
                   </View>
                 </View>
@@ -827,6 +864,7 @@ export default function MyShiftsScreen() {
           }}
         />
       )}
+
     </View>
   );
 }
@@ -888,10 +926,14 @@ const st = StyleSheet.create({
   emptyDayRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingVertical: 10,
-    backgroundColor: 'rgba(0,0,0,0.02)', borderRadius: 12,
-    borderWidth: 1, borderColor: '#F3F4F6', borderStyle: 'dashed',
+    backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 12,
+    borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed',
   },
-  emptyDayText: { fontSize: 13, color: '#D1D5DB', fontWeight: '500' },
+  emptyDayText: { fontSize: 13, color: '#9CA3AF', fontWeight: '600' },
+
+  todayBadge:    { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  todayBadgeDot: { width: 6, height: 6, borderRadius: 3 },
+  todayBadgeText:{ fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
 
   pastDivider:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, gap: 10, marginBottom: 4 },
   pastDividerLine:  { flex: 1, height: 1, backgroundColor: '#E5E7EB' },

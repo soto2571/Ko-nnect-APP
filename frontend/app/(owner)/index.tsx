@@ -371,10 +371,13 @@ export default function ShiftsScreen() {
     finally { setLoading(false); }
   }, [business?.businessId, rangeStart, rangeEnd]);
 
+  // Reload when range changes (week navigation while screen is already focused)
+  useEffect(() => { load(); }, [load]);
+
+  // Reset scroll flag on screen focus
   useFocusEffect(useCallback(() => {
     hasScrolled.current = false;
-    load();
-  }, [load]));
+  }, []));
 
   // Calendar derived values
   const weekDates       = getWeekDates(weekOffset, business?.payPeriodStartDay ?? 0);
@@ -592,26 +595,40 @@ export default function ShiftsScreen() {
   type ListItem =
     | { type:'header';       label:string; key:string; past:boolean; today:boolean }
     | { type:'shift';        shift:Shift;  key:string; past:boolean; today:boolean }
+    | { type:'empty-day';    key:string;   past:boolean; today:boolean }
     | { type:'past-divider'; key:string };
+
+  const shiftMap = new Map<string, Shift[]>();
+  for (const g of allGrouped) shiftMap.set(g.key, g.shifts);
+
   const listItems: ListItem[] = [];
   let pastDividerInserted = false;
-  const hasPastGroups = allGrouped.some(g => {
-    const [gy, gm, gd] = g.key.split('-').map(Number);
-    return isPastDay(new Date(gy, gm, gd));
-  });
-  for (const group of allGrouped) {
-    const [gy, gm, gd] = group.key.split('-').map(Number);
-    const groupDate = new Date(gy, gm, gd);
-    const groupPast  = isPastDay(groupDate);
-    const groupToday = isToday(groupDate);
-    // Insert divider right before the first today/future group when past groups exist
-    if (!groupPast && !pastDividerInserted && hasPastGroups) {
+  const showAllDays = activeFilter === 'all';
+
+  for (const date of weekDates) {
+    const dayKey   = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    const dayPast  = isPastDay(date);
+    const dayToday = isToday(date);
+    const label    = date.toLocaleDateString('es', { weekday: 'long', month: 'long', day: 'numeric' });
+    const dayShifts = shiftMap.get(dayKey) ?? [];
+
+    // Skip empty past days when filter is active (keeps filtered view clean)
+    if (dayShifts.length === 0 && !showAllDays) continue;
+
+    // Insert divider before the first today/future day when there are past days
+    if (!dayPast && !pastDividerInserted && weekDates.some(d => isPastDay(d))) {
       listItems.push({ type: 'past-divider', key: 'past-divider' });
       pastDividerInserted = true;
     }
-    listItems.push({ type:'header', label:group.label, key:`h-${group.key}`, past:groupPast, today:groupToday });
-    for (const shift of group.shifts) {
-      listItems.push({ type:'shift', shift, key:shift.shiftId, past:groupPast, today:groupToday });
+
+    listItems.push({ type: 'header', label, key: `h-${dayKey}`, past: dayPast, today: dayToday });
+
+    if (dayShifts.length > 0) {
+      for (const shift of dayShifts) {
+        listItems.push({ type: 'shift', shift, key: shift.shiftId, past: dayPast, today: dayToday });
+      }
+    } else {
+      listItems.push({ type: 'empty-day', key: `e-${dayKey}`, past: dayPast, today: dayToday });
     }
   }
 
@@ -624,10 +641,13 @@ export default function ShiftsScreen() {
     return isToday(d) || !isPastDay(d);
   });
 
+  const EMPTY_DAY_H = 52;
+
   const getItemHeight = (item: ListItem | undefined) => {
     if (!item) return CARD_H;
     if (item.type === 'header') return HEADER_H;
     if (item.type === 'past-divider') return DIVIDER_H;
+    if (item.type === 'empty-day') return EMPTY_DAY_H;
     return CARD_H;
   };
 
@@ -796,10 +816,25 @@ export default function ShiftsScreen() {
           ListEmptyComponent={
             <View style={s.emptyWeek}>
               <Ionicons name="calendar-outline" size={36} color="#D1D5DB"/>
-              <Text style={s.emptyText}>Sin turnos programados aún</Text>
+              <Text style={s.emptyText}>{activeFilter !== 'all' ? 'Sin resultados para este filtro' : 'Sin turnos programados aún'}</Text>
             </View>
           }
           renderItem={({ item }) => {
+            if (item.type === 'empty-day') {
+              return (
+                <View style={{
+                  marginHorizontal: 16, marginBottom: 8, borderRadius: 14,
+                  paddingHorizontal: 14, paddingVertical: 13,
+                  backgroundColor: 'rgba(255,255,255,0.45)',
+                  borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(0,0,0,0.10)',
+                  flexDirection: 'row', alignItems: 'center', gap: 8,
+                  opacity: item.past ? 0.45 : 1,
+                }}>
+                  <Ionicons name="calendar-outline" size={14} color="#9CA3AF" />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.3 }}>SIN TURNO</Text>
+                </View>
+              );
+            }
             if (item.type === 'past-divider') {
               return (
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}>
@@ -875,8 +910,8 @@ export default function ShiftsScreen() {
                         <Ionicons name="cafe-outline" size={11} color="#9CA3AF"/>
                         <Text style={s.breakPillText}>
                           {(shift.breakDuration ?? 0) >= 60
-                            ? `${(shift.breakDuration ?? 0) / 60}h descanso`
-                            : `${shift.breakDuration}m descanso`}
+                            ? `${(shift.breakDuration ?? 0) / 60}h`
+                            : `${shift.breakDuration}m`}
                         </Text>
                       </View>
                     )}
@@ -884,7 +919,7 @@ export default function ShiftsScreen() {
                       <View style={[s.liveBadge, { backgroundColor: liveLog.status === 'on_break' ? '#FEF3C7' : '#D1FAE5' }]}>
                         <PulseDot color={liveColor} />
                         <Text style={[s.liveBadgeText, { color: liveLog.status === 'on_break' ? '#92400E' : '#065F46' }]}>
-                          {liveLog.status === 'on_break' ? 'En Descanso' : 'Activo'}
+                          {liveLog.status === 'on_break' ? 'En Descanso' : 'En Turno'}
                         </Text>
                       </View>
                     )}

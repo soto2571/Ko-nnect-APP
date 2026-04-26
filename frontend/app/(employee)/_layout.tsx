@@ -16,7 +16,7 @@ export default function EmployeeLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'My Shifts',
+          title: 'Mis turnos',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar-outline" size={size} color={color} />
           ),
@@ -25,7 +25,7 @@ export default function EmployeeLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'Perfil',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),

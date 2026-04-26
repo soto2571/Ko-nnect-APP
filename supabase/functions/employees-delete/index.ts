@@ -31,9 +31,11 @@ Deno.serve(async (req) => {
     await sb.from('employees').update({ deletedAt: now })
       .eq('employeeId', employeeId);
 
-    // Revoke auth access so they can no longer log in
+    // Ban the auth user (prevents login) instead of hard-deleting them.
+    // Hard-deleting cascades and destroys the employees row, losing the name
+    // from historical reports. Banning keeps everything intact.
     if (emp?.userId) {
-      await sb.auth.admin.deleteUser(emp.userId);
+      await sb.auth.admin.updateUserById(emp.userId, { ban_duration: '876000h' });
     }
 
     return cors({ success: true, message: 'Employee deleted' });
