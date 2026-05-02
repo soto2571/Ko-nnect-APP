@@ -10,10 +10,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-config({ path: path.resolve(__dirname, '../.env.test') });
+config({ path: path.resolve(__dirname, '../../../web/.env.local') });
+config({ path: path.resolve(__dirname, '../.env.test'), override: false });
 
-const SUPABASE_URL  = process.env.SUPABASE_URL!;
-const FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
+const SUPABASE_URL  = (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL)!;
+const FUNCTIONS_URL = (process.env.NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL ?? `${SUPABASE_URL}/functions/v1`);
 const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const BASE_URL      = process.env.BASE_URL ?? 'http://localhost:3000';
 
