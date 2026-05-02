@@ -818,8 +818,42 @@ export default function TimeclockPage() {
 
   if (authLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-        <Spinner color={color} size={28} />
+      <div style={{ padding: '32px 36px', maxWidth: 900, margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <div className="sk" style={{ width: 130, height: 26, borderRadius: 8 }} />
+            <div className="sk" style={{ width: 210, height: 14, borderRadius: 6 }} />
+          </div>
+          <div className="sk" style={{ width: 130, height: 44, borderRadius: 14 }} />
+        </div>
+        {/* Period nav */}
+        <div className="sk-card" style={{ height: 66, borderRadius: 16, marginBottom: 20 }} />
+        {/* Stat cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 24 }}>
+          {[0, 1].map(i => (
+            <div key={i} className="sk-card" style={{ borderRadius: 16, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8, animationDelay: `${i * 100}ms` }}>
+              <div className="sk" style={{ width: '55%', height: 11 }} />
+              <div className="sk" style={{ width: '40%', height: 26 }} />
+              <div className="sk" style={{ width: '70%', height: 11 }} />
+            </div>
+          ))}
+        </div>
+        {/* Employee rows */}
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="sk-card" style={{
+            borderRadius: 16, padding: '14px 18px', marginBottom: 10,
+            display: 'flex', alignItems: 'center', gap: 14,
+            animationDelay: `${i * 80}ms`,
+          }}>
+            <div className="sk" style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0 }} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <div className="sk" style={{ height: 13, width: '38%' }} />
+              <div className="sk" style={{ height: 10, width: '22%' }} />
+            </div>
+            <div className="sk" style={{ width: 56, height: 28, borderRadius: 8 }} />
+          </div>
+        ))}
       </div>
     );
   }
@@ -925,8 +959,21 @@ export default function TimeclockPage() {
 
         {/* ── Loading ── */}
         {loading && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 64 }}>
-            <Spinner color={color} size={28} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="sk-card" style={{
+                borderRadius: 16, padding: '14px 18px',
+                display: 'flex', alignItems: 'center', gap: 14,
+                animationDelay: `${i * 80}ms`,
+              }}>
+                <div className="sk" style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0 }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  <div className="sk" style={{ height: 13, width: '38%' }} />
+                  <div className="sk" style={{ height: 10, width: '22%' }} />
+                </div>
+                <div className="sk" style={{ width: 56, height: 28, borderRadius: 8 }} />
+              </div>
+            ))}
           </div>
         )}
 

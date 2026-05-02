@@ -54,14 +54,15 @@ function relativeWeekLabel(offset: number) {
   if (offset ===  1) return 'Próx. semana';
   return offset > 0 ? `En ${offset} sem.` : `Hace ${-offset} sem.`;
 }
-function getMonthGrid(monthOffset: number) {
+function getMonthGrid(monthOffset: number, startDay = 0) {
   const today = new Date();
   const d = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
   const year = d.getFullYear(), month = d.getMonth();
   const firstOfMonth = new Date(year, month, 1);
   const lastOfMonth  = new Date(year, month + 1, 0);
   const startDate    = new Date(firstOfMonth);
-  startDate.setDate(1 - firstOfMonth.getDay());
+  const daysBack = (firstOfMonth.getDay() - startDay + 7) % 7;
+  startDate.setDate(1 - daysBack);
   startDate.setHours(0, 0, 0, 0);
   const weeks: Date[][] = [];
   const cur = new Date(startDate);
@@ -73,6 +74,24 @@ function getMonthGrid(monthOffset: number) {
   }
   return { weeks, year, month };
 }
+function getPayPeriodStartDates(allDates: Date[], payPeriodType?: string, payPeriodStartDay = 0, anchorDate?: string): Set<string> {
+  const starts = new Set<string>();
+  if (!payPeriodType) return starts;
+  if (payPeriodType === 'weekly') {
+    allDates.forEach(d => { if (d.getDay() === payPeriodStartDay) starts.add(toDateStr(d)); });
+  } else if (payPeriodType === 'biweekly' && anchorDate) {
+    const anchor = new Date(anchorDate + 'T12:00:00');
+    const MS_DAY = 86400000;
+    allDates.forEach(d => {
+      const diff = Math.round((d.getTime() - anchor.getTime()) / MS_DAY);
+      if (diff % 14 === 0) starts.add(toDateStr(d));
+    });
+  } else if (payPeriodType === 'semi-monthly') {
+    allDates.forEach(d => { if (d.getDate() === 1 || d.getDate() === 16) starts.add(toDateStr(d)); });
+  }
+  return starts;
+}
+
 function shiftDurH(s: Shift) {
   const ms = new Date(s.endTime).getTime() - new Date(s.startTime).getTime();
   return Math.round((ms - (s.breakDuration ?? 0) * 60000) / 360000) / 10;
@@ -89,8 +108,11 @@ function IconChevronRight({ size=16 }: { size?: number }){ return <svg width={si
 function IconPlus({ size=18 }: { size?: number })       { return <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M12 5v14M5 12h14"/></svg>; }
 function IconCoffee()                                   { return <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/></svg>; }
 function IconCheck({ size=12 }: { size?: number })      { return <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" d="M5 13l4 4L19 7"/></svg>; }
+function IconChevronUp({ size=14 }: { size?: number })  { return <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M5 15l7-7 7 7"/></svg>; }
+function IconChevronDown({ size=14 }: { size?: number }){ return <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M19 9l-7 7-7-7"/></svg>; }
 function IconUser({ size=14 }: { size?: number })       { return <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>; }
 function IconLock({ size=11 }: { size?: number })       { return <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>; }
+function IconCalendarToday({ size=13 }: { size?: number }) { return <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><rect x="3" y="4" width="18" height="18" rx="3"/><path strokeLinecap="round" d="M16 2v4M8 2v4M3 10h18"/><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/></svg>; }
 
 // ── Shift status helper ───────────────────────────────────────────────────────
 function shiftStatus(shift: Shift, activeLogs: TimeLog[], color: string) {
@@ -115,63 +137,91 @@ function checkConflict(empId: string, startISO: string, endISO: string, allShift
   }) ?? null;
 }
 
-// ── ShiftCard (week view) ─────────────────────────────────────────────────────
+// ── ShiftCard (week view — vertical) ─────────────────────────────────────────
 function ShiftCard({ shift, employees, activeLogs, color, onClick }: {
   shift: Shift; employees: Employee[]; activeLogs: TimeLog[]; color: string; onClick: () => void;
 }) {
   const emp = employees.find(e => e.userId === shift.employeeId || e.employeeId === shift.employeeId);
-  const { live, done, sc, label } = shiftStatus(shift, activeLogs, color);
+  const { live, done, sc } = shiftStatus(shift, activeLogs, color);
+  const brk = shift.breakDuration ?? 0;
+  const brkLabel = brk >= 60 ? `${brk / 60}h` : `${brk}m`;
   return (
     <button
       onClick={done ? undefined : onClick}
-      className="w-full text-left rounded-2xl bg-white p-3 transition-all"
-      style={{ borderLeft: `4px solid ${sc}`, boxShadow: '0 2px 12px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04)', cursor: done ? 'default' : 'pointer', opacity: done ? 0.7 : 1 }}
-      onMouseEnter={e => { if (!done) (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
+      style={{
+        width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3,
+        padding: '8px 10px', borderRadius: 12, textAlign: 'left',
+        borderLeft: `4px solid ${sc}`,
+        backgroundColor: '#fff',
+        boxShadow: '0 1px 6px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04)',
+        cursor: done ? 'default' : 'pointer', opacity: done ? 0.7 : 1,
+        transition: 'transform 0.12s, box-shadow 0.12s',
+      }}
+      onMouseEnter={e => { if (!done) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)'; }}}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 6px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04)'; }}
     >
-      <div className="flex items-center justify-between gap-1 mb-1.5">
-        <span className="text-[10px] font-bold rounded-full px-2 py-0.5 leading-tight flex items-center gap-1" style={{ backgroundColor: sc+'18', color: sc }}>
-          {live && <span className="w-1.5 h-1.5 rounded-full inline-block animate-pulse" style={{ backgroundColor: sc }} />}
-          {done && <span style={{ display:'inline-flex', marginRight:2 }}><IconLock /></span>}
-          {label}
+      {/* Name row with live dot */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, width: '100%', minWidth: 0 }}>
+        {live && <div style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: sc, flexShrink: 0, animation: 'pulse 2s infinite' }} />}
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
+          {emp ? `${emp.firstName} ${emp.lastName}` : <span style={{ color: '#9CA3AF', fontStyle: 'italic', fontWeight: 400 }}>Sin asignar</span>}
         </span>
-        <span className="text-[10px] font-bold text-gray-400">{shiftDurH(shift)}h</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: sc, backgroundColor: sc+'14', borderRadius: 6, padding: '2px 6px', flexShrink: 0 }}>
+          {shiftDurH(shift)}h
+        </span>
       </div>
-      <p className="text-xs font-bold text-gray-900 truncate leading-tight">
-        {emp ? `${emp.firstName} ${emp.lastName}` : <span className="text-gray-400 italic font-normal">Sin asignar</span>}
-      </p>
-      <p className="text-xs text-gray-500 mt-0.5 font-medium">{fmt12(shift.startTime)} – {fmt12(shift.endTime)}</p>
-      {(shift.breakDuration ?? 0) > 0 && (
-        <div className="flex items-center gap-1 mt-1">
-          <span className="text-gray-300"><IconCoffee /></span>
-          <span className="text-[10px] text-gray-400 font-medium">{shift.breakDuration}m descanso</span>
-        </div>
+
+      {/* Time row */}
+      <span style={{ fontSize: 11, fontWeight: 600, color: '#4B5563' }}>
+        {fmt12(shift.startTime)} – {fmt12(shift.endTime)}
+      </span>
+
+      {/* Break row */}
+      {brk > 0 && (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#9CA3AF' }}>
+          <IconCoffee />
+          <span style={{ fontSize: 10, fontWeight: 600 }}>{brkLabel} descanso</span>
+        </span>
       )}
     </button>
   );
 }
 
-// ── ShiftCardMini (month view) ────────────────────────────────────────────────
+// ── ShiftCardMini (month view — vertical compact) ─────────────────────────────
 function ShiftCardMini({ shift, employees, activeLogs, color, onClick }: {
   shift: Shift; employees: Employee[]; activeLogs: TimeLog[]; color: string; onClick: () => void;
 }) {
   const emp = employees.find(e => e.userId === shift.employeeId || e.employeeId === shift.employeeId);
   const { done, sc } = shiftStatus(shift, activeLogs, color);
-  const name = emp ? emp.firstName : 'Sin asignar';
+  const name = emp ? `${emp.firstName} ${emp.lastName}` : 'Sin asignar';
+  const brk = shift.breakDuration ?? 0;
   return (
     <button
       onClick={done ? undefined : onClick}
-      title={`${name} · ${fmt12(shift.startTime)}–${fmt12(shift.endTime)}`}
       style={{
-        width: '100%', textAlign: 'left', cursor: done ? 'default' : 'pointer',
-        padding: '2px 5px 2px 6px', borderRadius: 5,
+        width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1,
+        padding: '4px 6px', borderRadius: 7,
         borderLeft: `3px solid ${sc}`,
-        backgroundColor: sc + '14',
-        overflow: 'hidden', opacity: done ? 0.65 : 1,
+        backgroundColor: sc + '12',
+        cursor: done ? 'default' : 'pointer', opacity: done ? 0.65 : 1,
+        textAlign: 'left',
       }}
     >
-      <p style={{ fontSize: 10, fontWeight: 700, color: '#111827', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</p>
-      <p style={{ fontSize: 9, color: '#6B7280', margin: 0, whiteSpace: 'nowrap', fontWeight: 500 }}>{fmt12(shift.startTime)}</p>
+      {/* Name */}
+      <span style={{ fontSize: 10, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{name}</span>
+
+      {/* Times */}
+      <span style={{ fontSize: 9.5, fontWeight: 600, color: '#4B5563', whiteSpace: 'nowrap' }}>
+        {fmt12(shift.startTime)} – {fmt12(shift.endTime)}
+      </span>
+
+      {/* Break */}
+      {brk > 0 && (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#9CA3AF' }}>
+          <IconCoffee />
+          <span style={{ fontSize: 9, fontWeight: 600 }}>{brk >= 60 ? `${brk/60}h` : `${brk}m`} desc.</span>
+        </span>
+      )}
     </button>
   );
 }
@@ -334,30 +384,57 @@ function DrumColumn({ options, value, onChange, color, fmt }: {
     onChange(options[i]);
   };
 
+  const step = (dir: 1 | -1) => {
+    const i = options.indexOf(value);
+    pick(((i + dir) + options.length) % options.length);
+  };
+
+  const arrowBtn: React.CSSProperties = {
+    width: 60, height: 28, border: 'none', background: 'transparent', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#9CA3AF', borderRadius: 8, flexShrink: 0, transition: 'background 120ms, color 120ms',
+  };
+
   return (
-    <div style={{ position: 'relative', width: 60, height: D_H * 3, overflow: 'hidden', flexShrink: 0 }}>
-      <div style={{ position: 'absolute', top: D_H, left: 3, right: 3, height: D_H, backgroundColor: `${color}10`, border: `1.5px solid ${color}25`, borderRadius: 12, pointerEvents: 'none', zIndex: 1 }} />
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: D_H, background: 'linear-gradient(to bottom, white 40%, transparent)', pointerEvents: 'none', zIndex: 2 }} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: D_H, background: 'linear-gradient(to top, white 40%, transparent)', pointerEvents: 'none', zIndex: 2 }} />
-      <div ref={ref} onScroll={onScroll}
-        style={{ height: D_H * 3, overflowY: 'scroll', scrollbarWidth: 'none' } as React.CSSProperties}>
-        <div style={{ height: D_H }} />
-        {options.map((opt, i) => {
-          const sel = opt === value;
-          return (
-            <div key={opt} onClick={() => pick(i)}
-              style={{
-                height: D_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', userSelect: 'none',
-                fontSize: sel ? 26 : 16, fontWeight: sel ? 900 : 400,
-                color: sel ? color : '#C4C9D4', transition: 'font-size 0.1s, color 0.1s',
-              }}>
-              {fmt ? fmt(opt) : String(opt)}
-            </div>
-          );
-        })}
-        <div style={{ height: D_H }} />
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+      <button style={arrowBtn} onClick={() => step(-1)}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#F3F4F6'; (e.currentTarget as HTMLElement).style.color = '#374151'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9CA3AF'; }}>
+        <IconChevronUp size={14} />
+      </button>
+
+      <div
+        style={{ position: 'relative', width: 60, height: D_H * 3, overflow: 'hidden', flexShrink: 0 }}
+      >
+        <div style={{ position: 'absolute', top: D_H, left: 3, right: 3, height: D_H, backgroundColor: `${color}10`, border: `1.5px solid ${color}25`, borderRadius: 12, pointerEvents: 'none', zIndex: 1 }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: D_H, background: 'linear-gradient(to bottom, white 40%, transparent)', pointerEvents: 'none', zIndex: 2 }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: D_H, background: 'linear-gradient(to top, white 40%, transparent)', pointerEvents: 'none', zIndex: 2 }} />
+        <div ref={ref} onScroll={onScroll}
+          style={{ height: D_H * 3, overflowY: 'scroll', scrollbarWidth: 'none' } as React.CSSProperties}>
+          <div style={{ height: D_H }} />
+          {options.map((opt, i) => {
+            const sel = opt === value;
+            return (
+              <div key={opt} onClick={() => pick(i)}
+                style={{
+                  height: D_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', userSelect: 'none',
+                  fontSize: sel ? 26 : 16, fontWeight: sel ? 900 : 400,
+                  color: sel ? color : '#C4C9D4', transition: 'font-size 0.1s, color 0.1s',
+                }}>
+                {fmt ? fmt(opt) : String(opt)}
+              </div>
+            );
+          })}
+          <div style={{ height: D_H }} />
+        </div>
       </div>
+
+      <button style={arrowBtn} onClick={() => step(1)}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#F3F4F6'; (e.currentTarget as HTMLElement).style.color = '#374151'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9CA3AF'; }}>
+        <IconChevronDown size={14} />
+      </button>
     </div>
   );
 }
@@ -797,10 +874,10 @@ function WeekGrid({ dates, shifts, employees, activeLogs, color, setModal }: {
 }
 
 // ── Month view ────────────────────────────────────────────────────────────────
-const MONTH_MAX = 3;
+const MONTH_MAX = 2;
 
-function MonthView({ weeks, month, shifts, employees, activeLogs, color, setModal }: {
-  weeks: Date[][]; month: number;
+function MonthView({ weeks, month, startDay, shifts, employees, activeLogs, color, setModal }: {
+  weeks: Date[][]; month: number; startDay: number;
   shifts: Shift[]; employees: Employee[]; activeLogs: TimeLog[];
   color: string; setModal: (s: ModalState) => void;
 }) {
@@ -810,29 +887,30 @@ function MonthView({ weeks, month, shifts, employees, activeLogs, color, setModa
   });
 
   const todayWeekIdx = weeks.findIndex(w => w.some(d => isToday(d)));
+  const orderedDays = Array.from({ length: 7 }, (_, i) => DAY_SHORT[(startDay + i) % 7]);
 
   return (
-    <div style={{ minWidth: 700 }}>
-      {/* Day-name header */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 8, padding: '0 2px' }}>
-        {DAY_SHORT.map(d => (
-          <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 800, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 1, padding: '4px 0' }}>
+    <div style={{ minWidth: 680 }}>
+      {/* Day-name header — ordered by business startDay */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 5, marginBottom: 5 }}>
+        {orderedDays.map((d, i) => (
+          <div key={i} style={{ textAlign: 'right', fontSize: 11, fontWeight: 800, color: '#4B5563', textTransform: 'uppercase', letterSpacing: 0.8, padding: '3px 8px 3px 0' }}>
             {d}
           </div>
         ))}
       </div>
 
       {/* Week rows */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         {weeks.map((dates, wi) => {
           const isCurrentWeek = wi === todayWeekIdx;
           return (
             <div key={wi} style={{
-              display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6,
-              padding: isCurrentWeek ? '6px' : '0',
-              borderRadius: isCurrentWeek ? 16 : 0,
+              display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 5,
+              padding: isCurrentWeek ? '4px' : '0',
+              borderRadius: isCurrentWeek ? 14 : 0,
               backgroundColor: isCurrentWeek ? `${color}07` : 'transparent',
-              border: isCurrentWeek ? `2px solid ${color}20` : '2px solid transparent',
+              border: isCurrentWeek ? `2px solid ${color}22` : '2px solid transparent',
             }}>
               {dates.map(date => {
                 const inMonth   = date.getMonth() === month;
@@ -846,19 +924,25 @@ function MonthView({ weeks, month, shifts, employees, activeLogs, color, setModa
 
                 return (
                   <div key={dateStr} style={{
-                    backgroundColor: today ? `${color}10` : !inMonth ? '#FAFAFA' : past ? 'rgba(0,0,0,0.018)' : '#fff',
-                    border: today ? `2px solid ${color}35` : `1px solid ${!inMonth ? '#F0F0F0' : '#E9ECEF'}`,
-                    borderRadius: 12, padding: '8px 6px',
-                    display: 'flex', flexDirection: 'column', gap: 3, minHeight: 110,
-                    opacity: !inMonth ? 0.4 : 1,
-                    boxShadow: today ? `0 2px 12px ${color}18` : inMonth ? '0 1px 4px rgba(0,0,0,0.04)' : 'none',
+                    backgroundColor: today
+                      ? `${color}12`
+                      : !inMonth ? '#F4F5F7' : past ? '#F9FAFB' : '#FFFFFF',
+                    border: today
+                      ? `2px solid ${color}45`
+                      : `1.5px solid ${!inMonth ? '#DDE0E6' : '#D1D5DB'}`,
+                    borderRadius: 12, padding: '6px 5px',
+                    display: 'flex', flexDirection: 'column',
+                    minHeight: 120,
+                    boxShadow: today
+                      ? `0 3px 14px ${color}22`
+                      : inMonth && !past ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
                   }}>
-                    {/* Date number */}
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 3 }}>
+                    {/* Date number — right-aligned */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 3, flexShrink: 0 }}>
                       <span style={{
-                        fontSize: 14, fontWeight: 800, lineHeight: 1,
-                        color: today ? '#fff' : (!inMonth || past) ? '#C9D0D8' : '#1F2937',
-                        width: 26, height: 26, borderRadius: 13,
+                        fontSize: 13, fontWeight: 800, lineHeight: 1,
+                        color: today ? '#fff' : !inMonth ? '#A0A8B4' : past ? '#BEC5CF' : '#1F2937',
+                        width: 24, height: 24, borderRadius: 12,
                         backgroundColor: today ? color : 'transparent',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
@@ -866,34 +950,35 @@ function MonthView({ weeks, month, shifts, employees, activeLogs, color, setModa
                       </span>
                     </div>
 
-                    {inMonth && (
-                      <>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          {visible.map(shift => (
-                            <ShiftCardMini key={shift.shiftId} shift={shift} employees={employees} activeLogs={activeLogs} color={color}
-                              onClick={() => setModal({ mode: 'edit', shift })} />
-                          ))}
-                        </div>
-                        {!isExp && hidden > 0 && (
-                          <button onClick={() => toggleDay(dateStr)} style={{ fontSize: 9, fontWeight: 700, color, background: `${color}12`, border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 2 }}>
-                            +{hidden} más
-                          </button>
-                        )}
-                        {isExp && dayShifts.length > MONTH_MAX && (
-                          <button onClick={() => toggleDay(dateStr)} style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', background: '#F3F4F6', border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 2 }}>
-                            Menos
-                          </button>
-                        )}
-                        {dayShifts.length === 0 && !past && (
-                          <button onClick={() => setModal({ mode: 'create', date: dateStr })}
-                            style={{ width: '100%', flex: 1, minHeight: 24, border: '1.5px dashed #E5E7EB', backgroundColor: 'transparent', color: '#D1D5DB', borderRadius: 8, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'border-color 150ms, color 150ms' }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = color+'60'; (e.currentTarget as HTMLElement).style.color = color; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#E5E7EB'; (e.currentTarget as HTMLElement).style.color = '#D1D5DB'; }}
-                          >
-                            <IconPlus size={11} />
-                          </button>
-                        )}
-                      </>
+                    {/* Shifts — capped at MONTH_MAX, always visible */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0, opacity: !inMonth ? 0.65 : 1 }}>
+                      {visible.map(shift => (
+                        <ShiftCardMini key={shift.shiftId} shift={shift} employees={employees} activeLogs={activeLogs} color={color}
+                          onClick={() => setModal({ mode: 'edit', shift })} />
+                      ))}
+                    </div>
+
+                    {/* +N más / Menos — always rendered after the list, never clipped */}
+                    {!isExp && hidden > 0 && (
+                      <button onClick={() => toggleDay(dateStr)} style={{ fontSize: 9, fontWeight: 700, color: inMonth ? color : '#9CA3AF', background: inMonth ? `${color}12` : '#F3F4F6', border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 3, flexShrink: 0 }}>
+                        +{hidden} más
+                      </button>
+                    )}
+                    {isExp && dayShifts.length > MONTH_MAX && (
+                      <button onClick={() => toggleDay(dateStr)} style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', background: '#F3F4F6', border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 3, flexShrink: 0 }}>
+                        Menos
+                      </button>
+                    )}
+
+                    {/* Add button — in-month future empty days only */}
+                    {inMonth && dayShifts.length === 0 && !past && (
+                      <button onClick={() => setModal({ mode: 'create', date: dateStr })}
+                        style={{ flex: 1, minHeight: 20, border: '1.5px dashed #D1D5DB', backgroundColor: 'transparent', color: '#C4C9D4', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 4, transition: 'border-color 150ms, color 150ms' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = color+'60'; (e.currentTarget as HTMLElement).style.color = color; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#D1D5DB'; (e.currentTarget as HTMLElement).style.color = '#C4C9D4'; }}
+                      >
+                        <IconPlus size={11} />
+                      </button>
                     )}
                   </div>
                 );
@@ -932,7 +1017,7 @@ export default function DashboardPage() {
   , [weekOffset, startDay]);
   const currentWeekDates = weekGroups4[2];
 
-  const monthGrid = useMemo(() => getMonthGrid(monthOffset), [monthOffset]);
+  const monthGrid = useMemo(() => getMonthGrid(monthOffset, startDay), [monthOffset, startDay]);
 
   const rangeStart = viewMode === 'week'
     ? toDateStr(weekGroups4[0][0])
@@ -961,6 +1046,18 @@ export default function DashboardPage() {
 
   const clockedIn = activeLogs.filter(l => l.status === 'clocked_in' || l.status === 'on_break').length;
   const todayStr  = toDateStr(new Date());
+
+  const weekShiftCount = useMemo(() => {
+    const weekDateStrs = new Set(currentWeekDates.map(toDateStr));
+    return shifts.filter(s => weekDateStrs.has(toDateStr(new Date(s.startTime)))).length;
+  }, [shifts, currentWeekDates]);
+
+  const monthShiftCount = useMemo(() => {
+    return shifts.filter(s => {
+      const d = new Date(s.startTime);
+      return d.getFullYear() === monthGrid.year && d.getMonth() === monthGrid.month;
+    }).length;
+  }, [shifts, monthGrid]);
 
   const navLabel = viewMode === 'week'
     ? weekRangeStr(currentWeekDates)
@@ -999,9 +1096,10 @@ export default function DashboardPage() {
           {(viewMode === 'week' ? weekOffset !== 0 : monthOffset !== 0) && (
             <button
               onClick={() => viewMode === 'week' ? setWeekOffset(0) : setMonthOffset(0)}
-              style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 9, border: `1.5px solid ${color}40`, backgroundColor: color+'10', color, cursor: 'pointer' }}
+              style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 9, border: `1.5px solid ${color}40`, backgroundColor: color+'10', color, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
             >
-              Período actual
+              <IconCalendarToday size={13} />
+              Ir a hoy
             </button>
           )}
         </div>
@@ -1052,7 +1150,9 @@ export default function DashboardPage() {
             </div>
           )}
           <div style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF', backgroundColor: '#F3F4F6', padding: '5px 12px', borderRadius: 20 }}>
-            {shifts.length} turno{shifts.length !== 1 ? 's' : ''}
+            {viewMode === 'week'
+              ? `${weekShiftCount} turno${weekShiftCount !== 1 ? 's' : ''}`
+              : `${monthShiftCount} turno${monthShiftCount !== 1 ? 's' : ''}`}
           </div>
         </div>
       </div>
@@ -1105,10 +1205,36 @@ export default function DashboardPage() {
       )}
 
       {/* ── Body ── */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '20px 24px 100px' }}>
+      <div style={{
+        flex: 1, minHeight: 0,
+        overflowY: 'auto',
+        overflowX: 'auto',
+        padding: '20px 24px 100px',
+      }}>
         {(authLoading || loading) ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 160 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', border: `3px solid ${color}30`, borderTopColor: color, animation: 'spin 0.7s linear infinite' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10, minWidth: 700 }}>
+            {Array.from({ length: 7 }).map((_, col) => (
+              <div key={col} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* Day header */}
+                <div className="sk-card" style={{ height: 80, borderRadius: 18, animationDelay: `${col * 80}ms` }} />
+                {/* Shift cards */}
+                {Array.from({ length: col % 3 === 0 ? 3 : col % 3 === 1 ? 2 : 1 }).map((_, j) => (
+                  <div key={j} className="sk-card" style={{
+                    borderRadius: 14, padding: '10px 12px',
+                    display: 'flex', flexDirection: 'column', gap: 7,
+                    borderLeft: '4px solid rgba(0,0,0,0.08)',
+                    animationDelay: `${col * 80 + j * 120}ms`,
+                  }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <div className="sk" style={{ flex: 1, height: 12 }} />
+                      <div className="sk" style={{ width: 28, height: 12 }} />
+                    </div>
+                    <div className="sk" style={{ width: '75%', height: 10 }} />
+                    <div className="sk" style={{ width: '45%', height: 9 }} />
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         ) : !business ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 160, color: '#9CA3AF', fontSize: 14 }}>
@@ -1117,7 +1243,7 @@ export default function DashboardPage() {
         ) : viewMode === 'week' ? (
           <WeekGrid dates={currentWeekDates} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
         ) : (
-          <MonthView weeks={monthGrid.weeks} month={monthGrid.month} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
+          <MonthView weeks={monthGrid.weeks} month={monthGrid.month} startDay={startDay} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
         )}
       </div>
 

@@ -399,8 +399,20 @@ export default function EmployeesPage() {
 
         {/* Loading */}
         {loading && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 80 }}>
-            <Spinner color={color} size={28} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="sk-card" style={{
+                borderRadius: 20, padding: 20,
+                display: 'flex', alignItems: 'center', gap: 14,
+                animationDelay: `${i * 70}ms`,
+              }}>
+                <div className="sk" style={{ width: 52, height: 52, borderRadius: 14, flexShrink: 0 }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div className="sk" style={{ height: 14, width: '60%' }} />
+                  <div className="sk" style={{ height: 11, width: '85%' }} />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

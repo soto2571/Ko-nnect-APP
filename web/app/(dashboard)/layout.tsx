@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 
@@ -60,10 +61,28 @@ const NAV = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, business, logout } = useAuth();
+  const router   = useRouter();
+  const { user, business, loading, logout } = useAuth();
   const color = business?.color ?? '#E11D48';
 
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { router.replace('/login'); return; }
+    if (!business) { router.replace('/onboarding'); return; }
+  }, [loading, user, business, router]);
+
   const initials = user ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() : '';
+
+  // Don't flash dashboard content while redirecting
+  if (loading || !user || !business) {
+    return (
+      <div className="flex h-screen overflow-hidden items-center justify-center" style={{ backgroundColor: '#fff8f9' }}>
+        <AnimatedBackground color={color} />
+        <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${color}30`, borderTopColor: color, animation: 'spin 0.7s linear infinite', position: 'relative', zIndex: 1 }} />
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">

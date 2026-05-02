@@ -14,11 +14,12 @@ interface AuthContextValue {
   loading: boolean;
   logout: () => Promise<void>;
   refreshBusiness: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null, business: null, loading: true,
-  logout: async () => {}, refreshBusiness: async () => {},
+  logout: async () => {}, refreshBusiness: async () => {}, refreshUser: async () => {},
 });
 
 async function fetchProfile(token: string): Promise<User | null> {
@@ -96,8 +97,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user?.businessId) await loadBusiness(user.businessId);
   };
 
+  const refreshUser = async () => {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) await applySession(session.access_token);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, business, loading, logout, refreshBusiness }}>
+    <AuthContext.Provider value={{ user, business, loading, logout, refreshBusiness, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
