@@ -24,13 +24,10 @@ export class TimeclockPage {
 
   // ── Period navigation ─────────────────────────────────────────────────────
   get prevPeriodBtn() {
-    // Left chevron button in period nav card
-    return this.page.locator('button').filter({ has: this.page.locator('svg') })
-      .filter({ hasText: '' }).first();
+    return this.page.getByRole('button', { name: 'Ir al período anterior' });
   }
   get nextPeriodBtn() {
-    return this.page.locator('button').filter({ has: this.page.locator('svg') })
-      .filter({ hasText: '' }).nth(1);
+    return this.page.getByRole('button', { name: 'Ir al período siguiente' });
   }
   get periodLabel()       { return this.page.locator('text=/período actual|período anterior|hace \\d+/i').first(); }
   get periodDateRange()   { return this.page.locator('text=/ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic/i').first(); }
@@ -63,7 +60,7 @@ export class TimeclockPage {
   }
 
   async getPersonCount(): Promise<string> {
-    const el = this.page.locator('text=/^\\d+$/').nth(1);
+    const el = this.page.locator('text=/^\\d+$/').first();
     return el.innerText().catch(() => '0');
   }
 
@@ -123,21 +120,9 @@ export class TimeclockPage {
 
   // ── Edit log modal ────────────────────────────────────────────────────────
   async openEditForFirstLog() {
-    // Edit buttons are pencil icons next to log rows
-    const editBtns = this.page.locator('button').filter({ has: this.page.locator('svg') })
-      .filter({ hasText: '' });
-    // Find the first visible edit button (not delete - delete is red)
-    const btns = await editBtns.all();
-    for (const btn of btns) {
-      const box = await btn.boundingBox();
-      if (!box) continue;
-      const style = await btn.getAttribute('style') ?? '';
-      if (!style.includes('EF4444') && !style.includes('red') && await btn.isVisible()) {
-        await btn.click();
-        await this.page.waitForTimeout(400);
-        return;
-      }
-    }
+    const btn = this.page.getByRole('button', { name: 'Editar registro' }).first();
+    await btn.click();
+    await this.page.waitForTimeout(400);
   }
 
   get editModal()       { return this.page.locator('text=Editar Registro').first(); }
@@ -168,15 +153,11 @@ export class TimeclockPage {
 
   // ── Delete log confirmation ────────────────────────────────────────────────
   async openDeleteForFirstLog() {
-    // Delete buttons have red border/color
-    const allBtns = await this.page.locator('button').filter({ has: this.page.locator('svg') }).all();
-    for (const btn of allBtns) {
-      const style = await btn.getAttribute('style') ?? '';
-      if ((style.includes('EF4444') || style.includes('fee2e2') || style.includes('FEE2E2')) && await btn.isVisible()) {
-        await btn.click();
-        await this.page.waitForTimeout(400);
-        return;
-      }
+    // Delete button is in the log row (title="Eliminar registro")
+    const btn = this.page.getByRole('button', { name: 'Eliminar registro' }).first();
+    if (await btn.isVisible()) {
+      await btn.click();
+      await this.page.waitForTimeout(400);
     }
   }
 

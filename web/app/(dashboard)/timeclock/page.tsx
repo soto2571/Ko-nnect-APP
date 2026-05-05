@@ -903,6 +903,7 @@ export default function TimeclockPage() {
         }}>
           <button
             onClick={() => setPeriodOffset(o => o - 1)}
+            aria-label="Ir al período anterior"
             style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#374151' }}
           >
             <IconChevLeft />
@@ -918,6 +919,7 @@ export default function TimeclockPage() {
           <button
             onClick={() => setPeriodOffset(o => o + 1)}
             disabled={isCurrentPeriod}
+            aria-label="Ir al período siguiente"
             style={{
               width: 36, height: 36, borderRadius: 10, border: '1px solid #E5E7EB',
               backgroundColor: isCurrentPeriod ? '#F3F4F6' : '#F9FAFB',

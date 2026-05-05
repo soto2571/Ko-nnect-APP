@@ -109,9 +109,8 @@ test.describe('Timeclock — Period navigation', () => {
     const tc = new TimeclockPage(page);
     await tc.goto();
 
-    // On current period, next button should be disabled
-    const disabled = await tc.nextPeriodBtn.getAttribute('disabled');
-    expect(disabled).not.toBeNull();
+    // On current period, next button should be disabled (checks disabled attr or aria-disabled)
+    await expect(tc.nextPeriodBtn).toBeDisabled();
   });
 
   test('forward navigation enables after navigating back', async ({ page }) => {
@@ -119,8 +118,7 @@ test.describe('Timeclock — Period navigation', () => {
     await tc.goto();
 
     await tc.navigateToPreviousPeriod();
-    const disabled = await tc.nextPeriodBtn.getAttribute('disabled');
-    expect(disabled).toBeNull();
+    await expect(tc.nextPeriodBtn).toBeEnabled();
   });
 
   test('can navigate multiple periods back', async ({ page }) => {
