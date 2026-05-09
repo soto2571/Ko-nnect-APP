@@ -39,7 +39,7 @@ test.describe('Dashboard — Week view', () => {
     await dash.goto();
 
     const before = await dash.periodLabel.innerText().catch(() => '');
-    await page.locator('button[aria-label], button').filter({ has: page.locator('svg') }).first().click();
+    await page.getByLabel('Semana anterior').click();
     await page.waitForTimeout(400);
     const after = await dash.periodLabel.innerText().catch(() => '');
 
@@ -53,7 +53,7 @@ test.describe('Dashboard — Week view', () => {
     await dash.goto();
 
     // Navigate back
-    await page.locator('button').filter({ has: page.locator('svg') }).first().click();
+    await page.getByLabel('Semana anterior').click();
     await page.waitForTimeout(300);
     await expect(dash.goToTodayBtn).toBeVisible();
 
@@ -67,15 +67,15 @@ test.describe('Dashboard — Week view', () => {
     const dash = new DashboardPage(page);
     await dash.goto();
 
-    const filterBtn = page.getByText('Empleado').first();
+    const filterBtn = page.getByText('Empleado', { exact: true }).first();
     await filterBtn.click();
     await page.waitForTimeout(300);
 
     // Modal should be visible
     await expect(page.getByText('Filtrar por empleado')).toBeVisible();
 
-    // Select Ana García
-    await page.getByText('Ana García').click();
+    // Click the filter dropdown button for Ana García (accessible name includes initials "AG")
+    await page.getByRole('button', { name: /AG\s+Ana García/ }).click();
     await page.waitForTimeout(400);
 
     // Filter should now show her name
@@ -101,10 +101,10 @@ test.describe('Dashboard — Week view', () => {
     await dash.goto();
 
     // Apply a filter first
-    const filterBtn = page.getByText('Empleado').first();
+    const filterBtn = page.getByText('Empleado', { exact: true }).first();
     await filterBtn.click();
     await page.waitForTimeout(200);
-    await page.getByText('Ana García').click();
+    await page.getByRole('button', { name: /AG\s+Ana García/ }).click();
     await page.waitForTimeout(300);
 
     // Clear
@@ -139,7 +139,7 @@ test.describe('Dashboard — Month view', () => {
     await dash.goto();
     await dash.switchToMonth();
 
-    await page.locator('button').filter({ has: page.locator('svg') }).first().click();
+    await page.getByLabel('Semana anterior').click();
     await page.waitForTimeout(400);
 
     // "Ir a hoy" should appear after navigating away
@@ -169,7 +169,7 @@ test.describe('Dashboard — Create shift', () => {
     await dash.goto();
     await dash.openCreateShift();
 
-    await expect(page.getByText('Nuevo turno')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Nuevo turno' })).toBeVisible();
     await expect(page.getByText('Paso 1 de 3')).toBeVisible();
   });
 
@@ -178,11 +178,16 @@ test.describe('Dashboard — Create shift', () => {
     await dash.goto();
     await dash.openCreateShift();
 
-    // Try to continue without selecting a date
-    await dash.clickContinue();
-    await page.waitForTimeout(400);
+    // FAB pre-selects today — deselect it so no dates are selected
+    const calSelector = 'button[style*="cursor: pointer"][style*="aspect-ratio"]';
+    await page.waitForSelector(calSelector, { state: 'visible', timeout: 10_000 });
+    await page.locator(calSelector).first().click();
+    await page.waitForTimeout(300);
 
-    // Should still be on step 1 (no progress to step 2)
+    // Continue button should now be disabled
+    const continueBtn = page.getByRole('button', { name: /continuar|siguiente|crear/i }).last();
+    await expect(continueBtn).toBeDisabled();
+    // Still on step 1
     await expect(page.getByText('Paso 1 de 3')).toBeVisible();
   });
 
@@ -211,7 +216,7 @@ test.describe('Dashboard — Create shift', () => {
 
     await expect(page.getByText('Entrada')).toBeVisible();
     await expect(page.getByText('Salida')).toBeVisible();
-    await expect(page.getByText('Descanso')).toBeVisible();
+    await expect(page.getByText('Descanso', { exact: true })).toBeVisible();
     await expect(page.getByText('Sin descanso')).toBeVisible();
     await expect(page.getByText('30 min')).toBeVisible();
   });
@@ -264,15 +269,17 @@ test.describe('Dashboard — Create shift', () => {
     await dash.selectEmployee('Ana García');
     await page.waitForTimeout(200);
 
-    // Create the shift
-    const createBtn = page.getByRole('button', { name: /crear turno/i }).last();
+    // Create the shift (button says "Crear turno" or "Crear N turnos" depending on date count)
+    const createBtn = page.getByRole('button', { name: /crear.*turno/i }).last();
     await createBtn.click();
-    await page.waitForTimeout(1_500);
 
-    // Modal should close
-    await expect(page.getByText('Nuevo turno').first()).not.toBeVisible({ timeout: 5_000 });
+    // Modal should close (check heading, not FAB button which always says "Nuevo turno")
+    await expect(page.getByRole('heading', { name: 'Nuevo turno' })).not.toBeVisible({ timeout: 8_000 });
 
-    // Shift count might have increased (if the day is visible)
+    // Wait for dashboard to re-fetch shifts after creation
+    await page.waitForTimeout(2_000);
+
+    // Shift count should have increased (at least the seeded shifts + new ones)
     const afterCount = await dash.getShiftCount();
     expect(afterCount).toBeGreaterThanOrEqual(beforeCount);
   });
@@ -285,7 +292,7 @@ test.describe('Dashboard — Create shift', () => {
     await page.getByRole('button', { name: /cancelar/i }).first().click();
     await page.waitForTimeout(300);
 
-    await expect(page.getByText('Nuevo turno')).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Nuevo turno' })).not.toBeVisible();
   });
 });
 

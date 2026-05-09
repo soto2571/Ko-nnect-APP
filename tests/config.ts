@@ -1,13 +1,15 @@
 // ─── Configuracion de pruebas ────────────────────────────────────────────────
-// Cambia estos valores si tu proyecto es diferente.
+import { config } from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-export const SUPABASE_URL = 'https://izfcsiqucpkroylkgjei.supabase.co';
-export const FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.resolve(__dirname, '../.env') });
 
-// Service role key — necesario para limpiar datos de prueba.
-// NUNCA subir esto a git. Lo leemos de variable de entorno.
+export const SUPABASE_URL  = process.env.SUPABASE_URL  ?? '';
+export const FUNCTIONS_URL = process.env.SUPABASE_FUNCTIONS_URL ?? `${SUPABASE_URL}/functions/v1`;
 export const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-export const ANON_KEY = process.env.SUPABASE_ANON_KEY ?? '';
+export const ANON_KEY         = process.env.SUPABASE_ANON_KEY ?? '';
 
 // Credenciales de prueba (se crean y borran automaticamente)
 export const TEST_OWNER = {

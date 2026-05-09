@@ -1122,6 +1122,7 @@ export default function DashboardPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 2, backgroundColor: '#F3F4F6', borderRadius: 12, padding: 3 }}>
             <button
+              aria-label="Semana anterior"
               onClick={() => viewMode === 'week' ? setWeekOffset(o => o - 1) : setMonthOffset(o => o - 1)}
               disabled={viewMode === 'week' && weekOffset - 1 <= -(maxWeeks + 1)}
               style={{ width: 32, height: 32, borderRadius: 9, border: 'none', backgroundColor: 'transparent', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: viewMode === 'week' && weekOffset - 1 <= -(maxWeeks + 1) ? 0.3 : 1 }}
@@ -1132,6 +1133,7 @@ export default function DashboardPage() {
               {navLabel}
             </span>
             <button
+              aria-label="Semana siguiente"
               onClick={() => viewMode === 'week' ? setWeekOffset(o => o + 1) : setMonthOffset(o => o + 1)}
               disabled={viewMode === 'week' && weekOffset + 1 >= maxWeeks}
               style={{ width: 32, height: 32, borderRadius: 9, border: 'none', backgroundColor: 'transparent', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: viewMode === 'week' && weekOffset + 1 >= maxWeeks ? 0.3 : 1 }}

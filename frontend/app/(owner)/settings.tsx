@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ActivityIndicator, Alert, ScrollView, Switch, Modal, KeyboardAvoidingView, Platform,
+  Dimensions, FlatList, PanResponder, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import MapView, { type Region } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +15,144 @@ import * as api from '@/services/api';
 import { DEFAULT_PRIMARY_COLOR } from '@/constants';
 
 const PRESET_COLORS = ['#4F46E5','#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6'];
+const RADIUS_MIN = 50; const RADIUS_MAX = 500;
+const MAP_H = 230;    // must match s.mapContainer height
+const CIRCLE_PX = 70; // pixel radius of the fixed overlay circle
+
+const STEPS = Array.from({ length: 19 }, (_, i) => 50 + i * 25); // 50,75,...,500
+
+function RadiusSlider({ value, onChange, color, radiusRef, dragBaseRef, onDragStart, onDragEnd }: {
+  value: number; onChange: (v: number) => void; color: string;
+  radiusRef: React.MutableRefObject<number>; dragBaseRef: React.MutableRefObject<number>;
+  onDragStart: () => void; onDragEnd: () => void;
+}) {
+  const [trackWidth, setTrackWidth] = useState(0);
+  const trackWidthRef = useRef(0);          // ref so the PanResponder closure always reads fresh
+  const onDragStartRef = useRef(onDragStart);
+  const onDragEndRef   = useRef(onDragEnd);
+  const onChangeRef    = useRef(onChange);
+  useEffect(() => { onDragStartRef.current = onDragStart; }, [onDragStart]);
+  useEffect(() => { onDragEndRef.current   = onDragEnd;   }, [onDragEnd]);
+  useEffect(() => { onChangeRef.current    = onChange;    }, [onChange]);
+
+  const activeIdx = Math.round((value - RADIUS_MIN) / 25);
+  const thumbPct  = (value - RADIUS_MIN) / (RADIUS_MAX - RADIUS_MIN);
+  const thumbX    = trackWidth > 0 ? thumbPct * trackWidth : 0;
+
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder:        () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder:         () => true,
+      onMoveShouldSetPanResponderCapture:  () => true,
+      onPanResponderGrant: () => {
+        dragBaseRef.current = radiusRef.current;
+        onDragStartRef.current();
+      },
+      onPanResponderMove: (_, g) => {
+        const tw = trackWidthRef.current;
+        if (tw === 0) return;
+        const basePct = (dragBaseRef.current - RADIUS_MIN) / (RADIUS_MAX - RADIUS_MIN);
+        const newPct  = Math.max(0, Math.min(1, basePct + g.dx / tw));
+        const raw     = RADIUS_MIN + newPct * (RADIUS_MAX - RADIUS_MIN);
+        onChangeRef.current(Math.round(raw / 25) * 25);
+      },
+      onPanResponderRelease:   () => onDragEndRef.current(),
+      onPanResponderTerminate: () => onDragEndRef.current(),
+    })
+  ).current;
+
+  return (
+    <View style={rs.wrap}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={rs.label}>Radio de zona</Text>
+        <View style={[rs.valuePill, { backgroundColor: color + '18', borderColor: color + '40' }]}>
+          <Text style={[rs.valueText, { color }]}>{value}m</Text>
+        </View>
+      </View>
+
+      {/* Dot track + thumb */}
+      <View
+        style={rs.trackWrap}
+        onLayout={(e: any) => {
+          const w = e.nativeEvent.layout.width - 28;
+          trackWidthRef.current = w;
+          setTrackWidth(w);
+        }}
+      >
+        {/* Dot row */}
+        <View style={rs.dotRow}>
+          {STEPS.map((step, i) => {
+            const active = i <= activeIdx;
+            return (
+              <View
+                key={step}
+                style={[
+                  rs.dot,
+                  active
+                    ? { backgroundColor: color, width: 8, height: 8, borderRadius: 4 }
+                    : { backgroundColor: '#D1D5DB', width: 6, height: 6, borderRadius: 3 },
+                ]}
+              />
+            );
+          })}
+        </View>
+
+        {/* Thumb — draggable */}
+        <View
+          style={[rs.thumbHitbox, { left: thumbX }]}
+          {...pan.panHandlers}
+        >
+          <View style={[rs.thumb, { borderColor: color, shadowColor: color }]}>
+            <View style={[rs.thumbDot, { backgroundColor: color }]} />
+          </View>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <Text style={rs.rangeLabel}>50m</Text>
+        <Text style={rs.rangeLabel}>500m</Text>
+      </View>
+    </View>
+  );
+}
+
+const rs = StyleSheet.create({
+  wrap:  { gap: 8 },
+  label: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  valuePill: {
+    paddingHorizontal: 12, paddingVertical: 4,
+    borderRadius: 20, borderWidth: 1,
+  },
+  valueText: { fontSize: 14, fontWeight: '800' },
+
+  trackWrap: {
+    height: 52, justifyContent: 'center',
+    paddingHorizontal: 14, position: 'relative',
+  },
+  dotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    position: 'absolute', left: 14, right: 14,
+  },
+  dot: { borderRadius: 4 },
+
+  thumbHitbox: {
+    position: 'absolute',
+    width: 48, height: 52,
+    alignItems: 'center', justifyContent: 'center',
+    marginLeft: -10,
+  },
+  thumb: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: '#fff', borderWidth: 2.5,
+    alignItems: 'center', justifyContent: 'center',
+    shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6,
+  },
+  thumbDot: { width: 10, height: 10, borderRadius: 5 },
+  rangeLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
+});
 
 export default function SettingsScreen() {
   const { user, business, logout, setBusiness, primaryColor } = useAuth();
@@ -26,6 +167,46 @@ export default function SettingsScreen() {
   const [autoClockOut, setAutoClockOut]           = useState(business?.autoClockOut ?? false);
   const [autoClockOutMinutes, setAutoClockOutMinutes] = useState(business?.autoClockOutMinutes ?? 30);
   const [schedulingWeeks, setSchedulingWeeks]     = useState(business?.schedulingWeeks ?? 6);
+  const [geofenceEnabled, setGeofenceEnabled] = useState(business?.geofenceEnabled ?? false);
+  const [geofenceLat, setGeofenceLat]         = useState(business?.geofenceLat ?? null as number | null);
+  const [geofenceLng, setGeofenceLng]         = useState(business?.geofenceLng ?? null as number | null);
+  const [geofenceRadiusM, setGeofenceRadiusM] = useState(business?.geofenceRadiusM ?? 100);
+  const [geofencePin, setGeofencePin]         = useState(business?.geofencePin ?? '');
+  const [showPinRaw, setShowPinRaw]           = useState(false);
+  const [locating, setLocating]               = useState(false);
+  const [searchQuery, setSearchQuery]         = useState('');
+  const [searchResults, setSearchResults]     = useState<{ place_id: number; display_name: string; lat: string; lon: string }[]>([]);
+  const [searching, setSearching]             = useState(false);
+  const mapRef = useRef<MapView>(null);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragBaseRef        = useRef(geofenceRadiusM);
+  const radiusRef          = useRef(geofenceRadiusM);
+  const isProgrammaticZoom = useRef(false);
+  useEffect(() => { radiusRef.current = geofenceRadiusM; }, [geofenceRadiusM]);
+  const scrollRef  = useRef<ScrollView>(null);
+  const pinRef     = useRef<View>(null);
+  const pinFlash   = useRef(new Animated.Value(0)).current;
+  const setScrollEnabled = (v: boolean) =>
+    scrollRef.current?.setNativeProps({ scrollEnabled: v });
+
+  const scrollAndFlashPin = () => {
+    const screenH = Dimensions.get('window').height;
+    pinRef.current?.measureLayout(
+      scrollRef.current as any,
+      (_x, y, _w, h) => {
+        const target = y - screenH / 2 + h / 2;
+        scrollRef.current?.scrollTo({ y: Math.max(0, target), animated: true });
+      },
+      () => {}
+    );
+    setTimeout(() => {
+      Animated.sequence([
+        Animated.timing(pinFlash, { toValue: 1, duration: 200, useNativeDriver: false }),
+        Animated.timing(pinFlash, { toValue: 0, duration: 600, useNativeDriver: false }),
+      ]).start();
+    }, 350);
+  };
+
   const [saving, setSaving]   = useState(false);
   const [isNew, setIsNew]     = useState(!business);
   const isGoogleUser = user?.provider === 'google';
@@ -50,6 +231,11 @@ export default function SettingsScreen() {
       setAutoClockOut(business.autoClockOut ?? false);
       setAutoClockOutMinutes(business.autoClockOutMinutes ?? 30);
       setSchedulingWeeks(business.schedulingWeeks ?? 6);
+      setGeofenceEnabled(business.geofenceEnabled ?? false);
+      setGeofenceLat(business.geofenceLat ?? null);
+      setGeofenceLng(business.geofenceLng ?? null);
+      setGeofenceRadiusM(business.geofenceRadiusM ?? 100);
+      setGeofencePin(business.geofencePin ?? '');
       setIsNew(false);
     }
   }, [business]);
@@ -59,12 +245,25 @@ export default function SettingsScreen() {
     setSaving(true);
     try {
       let updated;
+      if (geofenceEnabled && (!geofenceLat || !geofenceLng)) {
+        Alert.alert('Zona de Ponche', 'Debes marcar la ubicación del negocio en el mapa antes de activar la zona.'); setSaving(false); return;
+      }
+      if (geofenceEnabled && geofencePin.length < 4) {
+        setSaving(false);
+        scrollAndFlashPin();
+        return;
+      }
       const payload = {
         name: name.trim(), color, payPeriodType, payPeriodStartDay,
         payPeriodAnchorDate: payPeriodAnchorDate || undefined,
         openDays, maxHoursPerDay,
         autoClockOut, autoClockOutMinutes: autoClockOut ? autoClockOutMinutes : 30,
         schedulingWeeks,
+        geofenceEnabled,
+        geofenceLat: geofenceEnabled ? geofenceLat : null,
+        geofenceLng: geofenceEnabled ? geofenceLng : null,
+        geofenceRadiusM,
+        geofencePin: geofenceEnabled && geofencePin.length >= 4 ? geofencePin : null,
       };
       if (isNew) {
         updated = await api.createBusiness(payload);
@@ -121,6 +320,103 @@ export default function SettingsScreen() {
     finally { setChangingPw(false); }
   };
 
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (!text.trim()) { setSearchResults([]); return; }
+    searchTimeout.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&limit=5&addressdetails=0`,
+          { headers: { 'Accept-Language': 'es', 'User-Agent': 'KonnectaApp/1.0' } }
+        );
+        const data = await res.json();
+        setSearchResults(data);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 500);
+  };
+
+  const radiusToDelta = (r: number) => r * MAP_H / (CIRCLE_PX * 111320);
+
+  const handleRadiusChange = (newRadius: number) => {
+    setGeofenceRadiusM(newRadius);
+    const lat = geofenceLat ?? 18.4655;
+    const lng = geofenceLng ?? -66.1057;
+    const delta = radiusToDelta(newRadius);
+    isProgrammaticZoom.current = true;
+    mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: delta, longitudeDelta: delta }, 400);
+    setTimeout(() => { isProgrammaticZoom.current = false; }, 600);
+  };
+
+  const handleRegionChangeComplete = (region: Region) => {
+    setGeofenceLat(region.latitude);
+    setGeofenceLng(region.longitude);
+    if (!isProgrammaticZoom.current) {
+      const raw = CIRCLE_PX * region.latitudeDelta * 111320 / MAP_H;
+      const snapped = Math.max(RADIUS_MIN, Math.min(RADIUS_MAX, Math.round(raw / 25) * 25));
+      setGeofenceRadiusM(snapped);
+    }
+  };
+
+  const handlePickResult = (result: { lat: string; lon: string; display_name: string }) => {
+    const lat = parseFloat(result.lat);
+    const lng = parseFloat(result.lon);
+    setGeofenceLat(lat);
+    setGeofenceLng(lng);
+    setSearchQuery(result.display_name.split(',').slice(0, 2).join(','));
+    setSearchResults([]);
+    const delta = radiusToDelta(geofenceRadiusM);
+    isProgrammaticZoom.current = true;
+    mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: delta, longitudeDelta: delta }, 600);
+    setTimeout(() => { isProgrammaticZoom.current = false; }, 800);
+  };
+
+  const handleUseMyLocation = async () => {
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Necesitas permitir el acceso a tu ubicación para usar esta función.');
+        return;
+      }
+
+      const flyTo = (lat: number, lng: number) => {
+        setGeofenceLat(lat);
+        setGeofenceLng(lng);
+        const delta = radiusToDelta(radiusRef.current);
+        isProgrammaticZoom.current = true;
+        mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: delta, longitudeDelta: delta }, 600);
+        setTimeout(() => { isProgrammaticZoom.current = false; }, 800);
+      };
+
+      // 1. Try cached location first — instant if OS has a recent fix
+      const last = await Location.getLastKnownPositionAsync({ maxAge: 30_000 });
+      if (last) {
+        flyTo(last.coords.latitude, last.coords.longitude);
+        setLocating(false);
+        // Silently refine in background with fresh GPS
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+          .then(fresh => flyTo(fresh.coords.latitude, fresh.coords.longitude))
+          .catch(() => {});
+        return;
+      }
+
+      // 2. No cached fix — request fresh but with Balanced (cell+WiFi+GPS)
+      //    Balanced: ~1-3s vs High: ~6-10s. Accuracy ±20-30m, fine for a 50-500m zone.
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      flyTo(loc.coords.latitude, loc.coords.longitude);
+    } catch {
+      Alert.alert('Error', 'No se pudo obtener tu ubicación.');
+    } finally {
+      setLocating(false);
+    }
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <StatusBar style="dark" />
@@ -128,6 +424,7 @@ export default function SettingsScreen() {
       <AnimatedBackground primaryColor={primaryColor} />
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: insets.bottom + 80, paddingTop: insets.top + 12 }}
         showsVerticalScrollIndicator={false}
       >
@@ -146,7 +443,182 @@ export default function SettingsScreen() {
           />
         </View>
 
-        {/* 2 — Pay Period */}
+        {/* 2 — Geo-fence */}
+        <View style={[s.card, geofenceEnabled && { borderColor: color + '40', borderWidth: 1.5 }]}>
+          {/* Header row */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={[s.geoIconWrap, { backgroundColor: geofenceEnabled ? color + '18' : '#F3F4F6' }]}>
+              <Ionicons name="map-outline" size={20} color={geofenceEnabled ? color : '#9CA3AF'} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={s.cardLabel}>Zona de Ponche</Text>
+              <Text style={s.geoSubtitle}>Limita el área donde pueden ponchar</Text>
+            </View>
+            <Switch
+              value={geofenceEnabled}
+              onValueChange={setGeofenceEnabled}
+              trackColor={{ false: '#E5E7EB', true: color }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          {/* Inactive preview — looks like a blurred map card */}
+          {!geofenceEnabled && (
+            <View style={s.mapPreview}>
+              {/* Grid lines simulating a map */}
+              {[0,1,2,3].map(i => (
+                <View key={`h${i}`} style={[s.gridLine, s.gridLineH, { top: `${20 + i * 20}%` as any }]} />
+              ))}
+              {[0,1,2,3].map(i => (
+                <View key={`v${i}`} style={[s.gridLine, s.gridLineV, { left: `${15 + i * 23}%` as any }]} />
+              ))}
+              {/* Center circle preview */}
+              <View style={s.previewCircle} />
+              <View style={s.previewPin}>
+                <Ionicons name="location" size={28} color="#9CA3AF" />
+              </View>
+              {/* Overlay label */}
+              <View style={s.previewOverlay}>
+                <Text style={s.previewText}>Activa para configurar la zona</Text>
+              </View>
+            </View>
+          )}
+
+          {geofenceEnabled && (
+            <>
+              <View style={s.thinDivider} />
+
+              {/* Search bar */}
+              <View style={s.searchContainer}>
+                <View style={[s.searchBar, { borderColor: color + '50', backgroundColor: color + '08' }]}>
+                  <Ionicons name="search-outline" size={17} color={color} />
+                  <TextInput
+                    style={s.searchInput}
+                    placeholder="Buscar dirección o lugar..."
+                    placeholderTextColor="#A0A0B0"
+                    value={searchQuery}
+                    onChangeText={handleSearchChange}
+                    returnKeyType="search"
+                    clearButtonMode="while-editing"
+                  />
+                  {searching
+                    ? <ActivityIndicator size="small" color={color} />
+                    : <Ionicons name="chevron-forward" size={14} color={color + '80'} />
+                  }
+                </View>
+                {searchResults.length > 0 && (
+                  <View style={s.searchDropdown}>
+                    {searchResults.map(r => (
+                      <TouchableOpacity
+                        key={r.place_id}
+                        style={s.searchResultRow}
+                        onPress={() => handlePickResult(r)}
+                      >
+                        <Ionicons name="location-outline" size={15} color={color} style={{ marginTop: 1 }} />
+                        <Text style={s.searchResultText} numberOfLines={2}>{r.display_name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Map */}
+              <View style={[s.mapContainer, { borderColor: color + '40' }]}>
+                <MapView
+                  ref={mapRef}
+                  style={s.map}
+                  initialRegion={{
+                    latitude:  geofenceLat ?? 18.4655,
+                    longitude: geofenceLng ?? -66.1057,
+                    latitudeDelta:  radiusToDelta(geofenceRadiusM),
+                    longitudeDelta: radiusToDelta(geofenceRadiusM),
+                  }}
+                  onRegionChangeComplete={handleRegionChangeComplete}
+                  showsUserLocation
+                  showsCompass={false}
+                  showsScale={false}
+                  toolbarEnabled={false}
+                />
+                {/* Fixed circle overlay — always centered, crosshair-style picker */}
+                <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, s.geoOverlayWrap]}>
+                  <View style={[s.geoOverlayCircle, { borderColor: color, backgroundColor: color + '18' }]}>
+                    <View style={[s.geoOverlayCenterDot, { backgroundColor: color }]} />
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[s.myLocBtn, { backgroundColor: color }]}
+                  onPress={handleUseMyLocation}
+                  disabled={locating}
+                >
+                  {locating
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Ionicons name="locate" size={18} color="#fff" />
+                  }
+                </TouchableOpacity>
+              </View>
+
+              <View style={s.hintRow}>
+                <Ionicons name="information-circle-outline" size={14} color={color} />
+                <Text style={[s.hintText, { color: color + 'CC' }]}>Mueve el mapa para centrar la zona. Haz zoom para ajustar el radio, o usa el control de abajo.</Text>
+              </View>
+
+              {/* Radius slider */}
+              <RadiusSlider
+                value={geofenceRadiusM}
+                onChange={handleRadiusChange}
+                color={color}
+                radiusRef={radiusRef}
+                dragBaseRef={dragBaseRef}
+                onDragStart={() => setScrollEnabled(false)}
+                onDragEnd={() => setScrollEnabled(true)}
+              />
+
+              <View style={s.thinDivider} />
+
+              {/* PIN */}
+              <Animated.View
+                ref={pinRef as any}
+                style={[
+                  s.pinSection,
+                  {
+                    backgroundColor: pinFlash.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['transparent', '#FEF3C780'],
+                    }),
+                    borderColor: pinFlash.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['transparent', '#F59E0B'],
+                    }),
+                  },
+                ]}
+              >
+                <Text style={s.sublabel}>PIN de acceso sin GPS</Text>
+                <Text style={s.geoSubtitle}>Empleados sin permiso de ubicación usarán este PIN</Text>
+                <View style={s.pinRow}>
+                  <TextInput
+                    style={[s.input, { flex: 1 }]}
+                    placeholder="4–6 dígitos"
+                    placeholderTextColor="#C4C4CE"
+                    value={geofencePin}
+                    onChangeText={t => setGeofencePin(t.replace(/[^0-9]/g, '').slice(0, 6))}
+                    keyboardType="number-pad"
+                    secureTextEntry={!showPinRaw}
+                    maxLength={6}
+                  />
+                  <TouchableOpacity
+                    style={s.pinToggle}
+                    onPress={() => setShowPinRaw(v => !v)}
+                  >
+                    <Ionicons name={showPinRaw ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            </>
+          )}
+        </View>
+
+        {/* 3 — Pay Period */}
+
         <View style={s.card}>
           <Text style={s.cardLabel}>Período de Pago</Text>
           <View style={s.segRow}>
@@ -279,7 +751,7 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        {/* 4 — Color */}
+        {/* 5 — Color */}
         <View style={s.card}>
           <Text style={s.cardLabel}>Color del Negocio</Text>
           <View style={s.colorRow}>
@@ -499,6 +971,84 @@ const s = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   switchLabel: { fontSize: 14, fontWeight: '600', color: '#111827' },
   switchSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+
+  geoIconWrap: {
+    width: 44, height: 44, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  geoSubtitle: { fontSize: 12, color: '#9CA3AF' },
+
+  mapPreview: {
+    height: 130, borderRadius: 14, overflow: 'hidden',
+    backgroundColor: '#E8EDF2', position: 'relative',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  gridLine: { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.55)' },
+  gridLineH: { left: 0, right: 0, height: 1 },
+  gridLineV: { top: 0, bottom: 0, width: 1 },
+  previewCircle: {
+    width: 72, height: 72, borderRadius: 36,
+    borderWidth: 2, borderColor: '#9CA3AF',
+    backgroundColor: 'rgba(156,163,175,0.15)',
+    position: 'absolute',
+  },
+  previewPin: { position: 'absolute' },
+  previewOverlay: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(0,0,0,0.28)', paddingVertical: 8, alignItems: 'center',
+  },
+  previewText: { fontSize: 12, color: '#fff', fontWeight: '600' },
+
+  searchContainer: { zIndex: 10 },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderWidth: 1.5,
+    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11,
+  },
+  searchInput: { flex: 1, fontSize: 14, color: '#111827' },
+  searchDropdown: {
+    position: 'absolute', top: '100%', left: 0, right: 0,
+    backgroundColor: '#fff', borderRadius: 12, marginTop: 4,
+    borderWidth: 1, borderColor: '#E5E7EB',
+    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 14, shadowOffset: { width: 0, height: 5 },
+    elevation: 10, overflow: 'hidden',
+  },
+  searchResultRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  searchResultText: { flex: 1, fontSize: 13, color: '#374151', lineHeight: 18 },
+
+  mapContainer: {
+    borderRadius: 16, overflow: 'hidden', height: MAP_H,
+    borderWidth: 1.5, position: 'relative',
+  },
+  map: { flex: 1 },
+  geoOverlayWrap: { alignItems: 'center', justifyContent: 'center' },
+  geoOverlayCircle: {
+    width: CIRCLE_PX * 2, height: CIRCLE_PX * 2, borderRadius: CIRCLE_PX,
+    borderWidth: 2, alignItems: 'center', justifyContent: 'center',
+  },
+  geoOverlayCenterDot: { width: 6, height: 6, borderRadius: 3 },
+  myLocBtn: {
+    position: 'absolute', bottom: 12, right: 12,
+    width: 42, height: 42, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+
+
+  pinSection: {
+    gap: 8, borderRadius: 14, borderWidth: 2,
+    padding: 10, marginHorizontal: -10,
+  },
+  pinRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pinToggle: {
+    width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#F9FAFB', borderWidth: 1.5, borderColor: '#F3F4F6',
+  },
 
   dangerCard: {
     borderColor: '#FECACA', borderWidth: 1.5,

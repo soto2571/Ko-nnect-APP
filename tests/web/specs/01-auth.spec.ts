@@ -16,7 +16,7 @@ test.describe('Login page', () => {
     const login = new LoginPage(page);
     await login.goto();
 
-    await expect(page.getByText('Ko-nnecta\'')).toBeVisible();
+    await expect(page.getByAltText("Ko-nnecta'")).toBeVisible();
     await expect(login.emailInput).toBeVisible();
     await expect(login.passwordInput).toBeVisible();
     await expect(login.submitBtn).toBeVisible();

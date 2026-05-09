@@ -5,14 +5,16 @@ import { useAuth } from '@/context/AuthContext';
 import OwnerOnboarding from '@/components/OwnerOnboarding';
 
 export default function OwnerLayout() {
-  const { business, primaryColor } = useAuth();
-  const [onboardingDone, setOnboardingDone] = useState(false);
+  const { user, business, primaryColor } = useAuth();
+  // If the user already has a businessId saved, they completed onboarding before.
+  // Never show onboarding again just because the business failed to load (e.g. network error on startup).
+  const [onboardingDone, setOnboardingDone] = useState(!!business || !!user?.businessId);
 
   useEffect(() => {
     if (business) setOnboardingDone(true);
   }, [business]);
 
-  if (!onboardingDone && !business) {
+  if (!onboardingDone && !business && !user?.businessId) {
     return <OwnerOnboarding onComplete={() => setOnboardingDone(true)} />;
   }
 

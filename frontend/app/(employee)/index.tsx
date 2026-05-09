@@ -3,9 +3,11 @@ import { useFocusEffect } from 'expo-router';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, Alert, RefreshControl, Animated, Pressable,
+  Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -519,6 +521,11 @@ export default function MyShiftsScreen() {
   const [clockLoading, setClockLoading] = useState(false);
   const [pastExpanded, setPastExpanded]   = useState(false);
 
+  // PIN modal state — shown when location permission is denied and geofence is on
+  const [pinModal, setPinModal] = useState<{ action: 'in' | 'out'; shiftId?: string; businessId?: string } | null>(null);
+  const [pinValue, setPinValue] = useState('');
+  const [pinError, setPinError] = useState('');
+
   const flatListRef = useRef<any>(null);
 
   const startDay = business?.payPeriodStartDay ?? 0;
@@ -557,7 +564,41 @@ useEffect(() => { load(); }, [load]);
   }, [shifts, loadTimeLog]);
 
 
+  const getLocationForGeofence = async (): Promise<{ lat: number; lng: number } | null> => {
+    if (!business?.geofenceEnabled) return null;
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return null;
+    try {
+      // Try cached fix first (instant), fall back to Balanced (~1-3s)
+      const last = await Location.getLastKnownPositionAsync({ maxAge: 30_000 });
+      if (last) return { lat: last.coords.latitude, lng: last.coords.longitude };
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      return { lat: loc.coords.latitude, lng: loc.coords.longitude };
+    } catch {
+      return null;
+    }
+  };
+
   const handleClockIn = async (shift: Shift) => {
+    if (business?.geofenceEnabled) {
+      const coords = await getLocationForGeofence();
+      if (!coords) {
+        setPinValue('');
+        setPinError('');
+        setPinModal({ action: 'in', shiftId: shift.shiftId, businessId: shift.businessId });
+        return;
+      }
+      setClockLoading(true);
+      try {
+        setTimeLog(await api.clockIn({
+          shiftId: shift.shiftId, businessId: shift.businessId,
+          scheduledBreakDuration: shift.breakDuration, breakTime: shift.breakTime,
+          lat: coords.lat, lng: coords.lng,
+        }));
+      } catch (err: any) { Alert.alert('Fuera de zona', err.message); }
+      finally { setClockLoading(false); }
+      return;
+    }
     setClockLoading(true);
     try {
       setTimeLog(await api.clockIn({
@@ -586,12 +627,53 @@ useEffect(() => { load(); }, [load]);
     Alert.alert('Marcar Salida', '¿Estás seguro de que quieres marcar salida?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Marcar Salida', style: 'destructive', onPress: async () => {
+        if (business?.geofenceEnabled) {
+          const coords = await getLocationForGeofence();
+          if (!coords) {
+            setPinValue('');
+            setPinError('');
+            setPinModal({ action: 'out' });
+            return;
+          }
+          setClockLoading(true);
+          try { setTimeLog(await api.clockOut(timeLog.logId, { lat: coords.lat, lng: coords.lng })); }
+          catch (err: any) { Alert.alert('Fuera de zona', err.message); }
+          finally { setClockLoading(false); }
+          return;
+        }
         setClockLoading(true);
         try { setTimeLog(await api.clockOut(timeLog.logId)); }
         catch (err: any) { Alert.alert('Error', err.message); }
         finally { setClockLoading(false); }
       }},
     ]);
+  };
+
+  const handlePinSubmit = async () => {
+    if (!pinModal) return;
+    if (pinValue.length < 4) { setPinError('El PIN debe tener al menos 4 dígitos.'); return; }
+    setPinError('');
+    setPinModal(null);
+    setClockLoading(true);
+    try {
+      if (pinModal.action === 'in' && pinModal.shiftId && pinModal.businessId) {
+        const shift = shifts.find(s => s.shiftId === pinModal.shiftId);
+        setTimeLog(await api.clockIn({
+          shiftId: pinModal.shiftId,
+          businessId: pinModal.businessId,
+          scheduledBreakDuration: shift?.breakDuration,
+          breakTime: shift?.breakTime,
+          overridePin: pinValue,
+        }));
+      } else if (pinModal.action === 'out' && timeLog) {
+        setTimeLog(await api.clockOut(timeLog.logId, { overridePin: pinValue }));
+      }
+    } catch (err: any) {
+      Alert.alert('PIN incorrecto', err.message);
+    } finally {
+      setClockLoading(false);
+      setPinValue('');
+    }
   };
 
   // ── List items ───────────────────────────────────────────────────────────
@@ -865,6 +947,48 @@ useEffect(() => { load(); }, [load]);
         />
       )}
 
+      {/* PIN override modal */}
+      <Modal visible={!!pinModal} transparent animationType="slide" onRequestClose={() => setPinModal(null)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={pm.overlay}>
+          <View style={pm.sheet}>
+            <View style={pm.handle} />
+            <View style={[pm.iconWrap, { backgroundColor: color + '18' }]}>
+              <Ionicons name="keypad-outline" size={28} color={color} />
+            </View>
+            <Text style={pm.title}>PIN de acceso</Text>
+            <Text style={pm.body}>
+              No podemos verificar tu ubicación. Pídele el PIN al encargado para {pinModal?.action === 'in' ? 'marcar entrada' : 'marcar salida'}.
+            </Text>
+            <View style={pm.pinInputRow}>
+              {[0,1,2,3].map(i => (
+                <View key={i} style={[pm.pinBox, pinValue.length > i && { borderColor: color, backgroundColor: color + '12' }]}>
+                  <Text style={[pm.pinChar, { color }]}>{pinValue[i] ? '●' : ''}</Text>
+                </View>
+              ))}
+            </View>
+            {/* Hidden real input driving the 4-dot display */}
+            <TextInput
+              style={pm.hiddenInput}
+              value={pinValue}
+              onChangeText={t => { setPinValue(t.replace(/[^0-9]/g, '').slice(0, 6)); setPinError(''); }}
+              keyboardType="number-pad"
+              autoFocus
+              maxLength={6}
+            />
+            {!!pinError && <Text style={pm.errorText}>{pinError}</Text>}
+            <TouchableOpacity
+              style={[pm.confirmBtn, { backgroundColor: color }, pinValue.length < 4 && { opacity: 0.4 }]}
+              onPress={handlePinSubmit}
+              disabled={pinValue.length < 4}
+            >
+              <Text style={pm.confirmBtnText}>Confirmar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={pm.cancelBtn} onPress={() => setPinModal(null)}>
+              <Text style={pm.cancelBtnText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -1065,4 +1189,50 @@ const cc = StyleSheet.create({
   outlineBtnText: { fontWeight: '700', fontSize: 14 },
   closedRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center', paddingVertical: 6 },
   closedText: { fontSize: 13, color: '#374151', fontWeight: '500' },
+});
+
+const pm = StyleSheet.create({
+  overlay: {
+    flex: 1, justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingHorizontal: 28, paddingTop: 16, paddingBottom: 40,
+    alignItems: 'center', gap: 14,
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, shadowOffset: { width: 0, height: -4 },
+  },
+  handle: {
+    width: 44, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB', marginBottom: 4,
+  },
+  iconWrap: {
+    width: 64, height: 64, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  title: { fontSize: 20, fontWeight: '800', color: '#111827', textAlign: 'center' },
+  body: {
+    fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20,
+  },
+  pinInputRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  pinBox: {
+    width: 52, height: 60, borderRadius: 16,
+    borderWidth: 2, borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pinChar: { fontSize: 22, fontWeight: '800' },
+  hiddenInput: {
+    position: 'absolute', opacity: 0, height: 0, width: 0,
+  },
+  errorText: { fontSize: 13, color: '#EF4444', fontWeight: '600' },
+  confirmBtn: {
+    width: '100%', paddingVertical: 15, borderRadius: 16,
+    alignItems: 'center', marginTop: 4,
+  },
+  confirmBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  cancelBtn: {
+    paddingVertical: 10,
+  },
+  cancelBtnText: { fontSize: 15, color: '#9CA3AF', fontWeight: '600' },
 });

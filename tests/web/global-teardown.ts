@@ -8,7 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-config({ path: path.resolve(__dirname, '../../web/.env.local') });
+config({ path: path.resolve(__dirname, '../../.env') });
 config({ path: path.resolve(__dirname, '.env.test'), override: false });
 
 const SUPABASE_URL = (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL)!;
@@ -45,13 +45,26 @@ export default async function globalTeardown() {
 
   const { userId, businessId } = profile;
 
-  // Delete business data (cascades through shifts, timelogs, employees)
+  // Delete business data — employees first (need to clean up their auth accounts)
   if (businessId) {
+    // Fetch employee userIds so we can delete their Supabase Auth accounts
+    const emps: any[] = await rest('GET', `/rest/v1/employees?businessId=eq.${businessId}&select=userId`) ?? [];
+    const empUserIds = emps.map((e: any) => e.userId).filter(Boolean);
+
     await rest('DELETE', `/rest/v1/timelogs?businessId=eq.${businessId}`);
     await rest('DELETE', `/rest/v1/shifts?businessId=eq.${businessId}`);
     await rest('DELETE', `/rest/v1/employees?businessId=eq.${businessId}`);
     await rest('DELETE', `/rest/v1/businesses?businessId=eq.${businessId}`);
-    console.log('  ✓ Business data deleted');
+
+    // Delete employee Supabase Auth users (not cleaned up by DB delete)
+    for (const empUid of empUserIds) {
+      await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${empUid}`, {
+        method: 'DELETE',
+        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` },
+      }).catch(() => {});
+    }
+
+    console.log(`  ✓ Business data deleted (${empUserIds.length} employee accounts removed)`);
   }
 
   // Delete user profile

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import * as api from '@/services/api';
 
@@ -17,10 +17,26 @@ function IcoKey()    { return <svg width="14" height="14" fill="none" viewBox="0
 function IcoEye()    { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>; }
 function IcoEyeOff() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>; }
 function IcoInfo()   { return <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>; }
+function IcoMap()    { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>; }
+function IcoLocate() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06z"/></svg>; }
+function IcoSearch() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>; }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const PRESET_COLORS = ['#4F46E5','#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6'];
 const DAYS = ['Do','Lu','Ma','Mi','Ju','Vi','Sa'];
+const RADIUS_MIN = 50; const RADIUS_MAX = 500;
+const CIRCLE_PX = 100; // pixel radius of the fixed crosshair circle
+
+// ── Geofence map helpers ───────────────────────────────────────────────────────
+function radiusToZoom(radius_m: number, lat: number): number {
+  const mpp = radius_m / CIRCLE_PX;
+  const zoom = Math.log2(40075016.686 * Math.cos(lat * Math.PI / 180) / mpp) - 8;
+  return Math.max(10, Math.min(20, zoom));
+}
+function zoomToRadius(zoom: number, lat: number): number {
+  const mpp = 40075016.686 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom + 8);
+  return Math.max(RADIUS_MIN, Math.min(RADIUS_MAX, Math.round(CIRCLE_PX * mpp / 25) * 25));
+}
 
 // ── Primitives ─────────────────────────────────────────────────────────────────
 
@@ -264,6 +280,159 @@ export default function SettingsPage() {
   const [autoClockOut,       setAutoClockOut]       = useState(false);
   const [autoClockOutMins,   setAutoClockOutMins]   = useState(30);
 
+  // ── Geofence state ────────────────────────────────────────────────────────────
+  const [geofenceEnabled, setGeofenceEnabled] = useState(false);
+  const [geofenceLat,     setGeofenceLat]     = useState<number | null>(null);
+  const [geofenceLng,     setGeofenceLng]     = useState<number | null>(null);
+  const [geofenceRadiusM, setGeofenceRadiusM] = useState(100);
+  const [geofencePin,     setGeofencePin]     = useState('');
+  const [showPin,         setShowPin]         = useState(false);
+  const [geoSearch,       setGeoSearch]       = useState('');
+  const [geoResults,      setGeoResults]      = useState<{ place_id: number; display_name: string; lat: string; lon: string }[]>([]);
+  const [geoSearching,    setGeoSearching]    = useState(false);
+  const [locating,        setLocating]        = useState(false);
+  const [pinFlash,        setPinFlash]        = useState(false);
+
+  const mapDivRef      = useRef<HTMLDivElement>(null);
+  const leafletMapRef  = useRef<any>(null);
+  const isProgrammatic = useRef(false);
+  const radiusRef      = useRef(100);
+  const pinSectionRef  = useRef<HTMLDivElement>(null);
+  const geoTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep radiusRef in sync so map event closures always see current value
+  useEffect(() => { radiusRef.current = geofenceRadiusM; }, [geofenceRadiusM]);
+
+  // Initialize / destroy Leaflet map when geofence is toggled
+  useEffect(() => {
+    if (!geofenceEnabled) {
+      leafletMapRef.current?.remove();
+      leafletMapRef.current = null;
+      return;
+    }
+
+    let destroyed = false;
+
+    // Inject Leaflet CSS once
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    // Small delay so the map div is rendered before we init
+    const t = setTimeout(() => {
+      if (destroyed || !mapDivRef.current) return;
+
+      import('leaflet').then(({ default: L }) => {
+        if (destroyed || !mapDivRef.current || leafletMapRef.current) return;
+
+        const lat = geofenceLat ?? 18.4655;
+        const lng = geofenceLng ?? -66.1057;
+
+        const zoom = radiusToZoom(radiusRef.current, lat);
+        const map = (L as any).map(mapDivRef.current, {
+          center: [lat, lng], zoom,
+          zoomControl: true,
+          attributionControl: false,
+        });
+
+        (L as any).tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        map.on('moveend', () => {
+          const c = map.getCenter();
+          setGeofenceLat(c.lat);
+          setGeofenceLng(c.lng);
+        });
+
+        map.on('zoomend', () => {
+          if (isProgrammatic.current) return;
+          const c = map.getCenter();
+          const snapped = zoomToRadius(map.getZoom(), c.lat);
+          setGeofenceRadiusM(snapped);
+          radiusRef.current = snapped;
+        });
+
+        leafletMapRef.current = map;
+      });
+    }, 50);
+
+    return () => {
+      destroyed = true;
+      clearTimeout(t);
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove();
+        leafletMapRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geofenceEnabled]);
+
+  // ── Geofence handlers ─────────────────────────────────────────────────────────
+  const flyTo = (lat: number, lng: number, zoom?: number) => {
+    const z = zoom ?? radiusToZoom(radiusRef.current, lat);
+    isProgrammatic.current = true;
+    leafletMapRef.current?.setView([lat, lng], z, { animate: true });
+    setTimeout(() => { isProgrammatic.current = false; }, 800);
+  };
+
+  const handleRadiusChange = (newRadius: number) => {
+    setGeofenceRadiusM(newRadius);
+    radiusRef.current = newRadius;
+    const lat = geofenceLat ?? 18.4655;
+    const lng = geofenceLng ?? -66.1057;
+    flyTo(lat, lng, radiusToZoom(newRadius, lat));
+  };
+
+  const handleGeoSearch = (text: string) => {
+    setGeoSearch(text);
+    if (geoTimer.current) clearTimeout(geoTimer.current);
+    if (!text.trim()) { setGeoResults([]); return; }
+    geoTimer.current = setTimeout(async () => {
+      setGeoSearching(true);
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&limit=5`,
+          { headers: { 'Accept-Language': 'es', 'User-Agent': 'KonnectaApp/1.0' } }
+        );
+        setGeoResults(await res.json());
+      } catch { setGeoResults([]); }
+      finally { setGeoSearching(false); }
+    }, 500);
+  };
+
+  const handlePickResult = (r: { lat: string; lon: string; display_name: string }) => {
+    const lat = parseFloat(r.lat); const lng = parseFloat(r.lon);
+    setGeofenceLat(lat); setGeofenceLng(lng);
+    setGeoSearch(r.display_name.split(',').slice(0, 2).join(','));
+    setGeoResults([]);
+    flyTo(lat, lng);
+  };
+
+  const handleMyLocation = () => {
+    if (!navigator.geolocation) { alert('Tu navegador no soporta geolocalización.'); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setGeofenceLat(lat); setGeofenceLng(lng);
+        flyTo(lat, lng);
+        setLocating(false);
+      },
+      () => { alert('No se pudo obtener tu ubicación.'); setLocating(false); },
+      { enableHighAccuracy: false, timeout: 10000 }
+    );
+  };
+
+  const scrollAndFlashPin = () => {
+    pinSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setPinFlash(true);
+    setTimeout(() => setPinFlash(false), 800);
+  };
+
+  // ── Password ──────────────────────────────────────────────────────────────────
   const [currentPw,  setCurrentPw]  = useState('');
   const [newPw,      setNewPw]      = useState('');
   const [confirmPw,  setConfirmPw]  = useState('');
@@ -291,6 +460,11 @@ export default function SettingsPage() {
     setSchedulingWeeks(business.schedulingWeeks ?? 6);
     setAutoClockOut(business.autoClockOut ?? false);
     setAutoClockOutMins(business.autoClockOutMinutes ?? 30);
+    setGeofenceEnabled(business.geofenceEnabled ?? false);
+    setGeofenceLat(business.geofenceLat ?? null);
+    setGeofenceLng(business.geofenceLng ?? null);
+    setGeofenceRadiusM(business.geofenceRadiusM ?? 100);
+    setGeofencePin(business.geofencePin ?? '');
   }, [business]);
 
   const anchorOptions = (() => {
@@ -305,6 +479,11 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     if (!name.trim()) { setSaveMsg({ type:'err', text:'El nombre del negocio es requerido.' }); return; }
+    if (geofenceEnabled && geofencePin.length < 4) {
+      setSaveMsg({ type:'err', text:'La zona de ponche requiere un PIN de al menos 4 dígitos.' });
+      scrollAndFlashPin();
+      return;
+    }
     setSaving(true); setSaveMsg(null);
     try {
       const payload = {
@@ -313,6 +492,11 @@ export default function SettingsPage() {
         maxHoursPerDay, autoClockOut,
         autoClockOutMinutes: autoClockOut ? autoClockOutMins : 30,
         schedulingWeeks,
+        geofenceEnabled,
+        geofenceLat:    geofenceEnabled ? geofenceLat    : null,
+        geofenceLng:    geofenceEnabled ? geofenceLng    : null,
+        geofenceRadiusM,
+        geofencePin:    geofenceEnabled && geofencePin.length >= 4 ? geofencePin : null,
       };
       if (isNew) await api.createBusiness(payload);
       else       await api.updateBusiness(business!.businessId, payload);
@@ -406,6 +590,134 @@ export default function SettingsPage() {
               </div>
             </FieldGroup>
           </CardBody>
+        </Card>
+
+        {/* ─── Zona de Ponche (full width) ─── */}
+        <Card full>
+          {/* Header */}
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${geofenceEnabled ? color + '30' : '#F1F5F9'}`, backgroundColor: geofenceEnabled ? color + '06' : '#FAFBFC', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: geofenceEnabled ? color + '18' : '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: geofenceEnabled ? color : '#9CA3AF', flexShrink: 0 }}>
+              <IcoMap />
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', margin: 0 }}>Zona de Ponche</p>
+              <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>Limita el área donde los empleados pueden ponchar</p>
+            </div>
+            <Toggle value={geofenceEnabled} onChange={setGeofenceEnabled} color={color} />
+          </div>
+
+          {/* Inactive preview */}
+          {!geofenceEnabled && (
+            <div style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '100%', height: 120, borderRadius: 12, backgroundColor: '#EEF2F7', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {[20, 40, 60, 80].map(pct => (
+                  <div key={`h${pct}`} style={{ position: 'absolute', left: 0, right: 0, top: `${pct}%`, height: 1, backgroundColor: 'rgba(255,255,255,0.6)' }} />
+                ))}
+                {[15, 35, 55, 75].map(pct => (
+                  <div key={`v${pct}`} style={{ position: 'absolute', top: 0, bottom: 0, left: `${pct}%`, width: 1, backgroundColor: 'rgba(255,255,255,0.6)' }} />
+                ))}
+                <div style={{ width: 64, height: 64, borderRadius: 32, border: '2px solid #9CA3AF', backgroundColor: 'rgba(156,163,175,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: 24, color: '#9CA3AF' }}>📍</span>
+                </div>
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.25)', padding: '6px 0', textAlign: 'center' }}>
+                  <span style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>Activa para configurar la zona</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Active map section */}
+          {geofenceEnabled && (
+            <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Search bar */}
+              <div style={{ position: 'relative', zIndex: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', height: 40, borderRadius: 10, border: `1.5px solid ${color}50`, backgroundColor: color + '06' }}>
+                  <span style={{ color, flexShrink: 0 }}><IcoSearch /></span>
+                  <input
+                    type="text"
+                    value={geoSearch}
+                    onChange={e => handleGeoSearch(e.target.value)}
+                    placeholder="Buscar dirección o lugar..."
+                    style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: '#111827', fontFamily: 'inherit' }}
+                  />
+                  {geoSearching && <span style={{ fontSize: 12, color: '#9CA3AF' }}>…</span>}
+                </div>
+                {geoResults.length > 0 && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: '#fff', borderRadius: 10, border: '1px solid #E2E8F0', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+                    {geoResults.map(r => (
+                      <button key={r.place_id} onClick={() => handlePickResult(r)} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%', padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #F1F5F9', fontSize: 13, color: '#374151' }}>
+                        <span style={{ color, marginTop: 1, flexShrink: 0 }}><IcoMap /></span>
+                        <span style={{ lineHeight: 1.4 }}>{r.display_name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Map container with crosshair overlay */}
+              <div style={{ position: 'relative', height: 340, borderRadius: 14, overflow: 'hidden', border: `1.5px solid ${color}40` }}>
+                <div ref={mapDivRef} style={{ width: '100%', height: '100%' }} />
+                {/* Fixed circle + center dot — always centered above Leaflet tiles */}
+                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                  <div style={{ width: CIRCLE_PX * 2, height: CIRCLE_PX * 2, borderRadius: '50%', border: `2.5px solid ${color}`, backgroundColor: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: color, boxShadow: '0 0 0 2px #fff' }} />
+                  </div>
+                </div>
+                {/* Locate button */}
+                <button onClick={handleMyLocation} disabled={locating} style={{ position: 'absolute', bottom: 12, right: 12, zIndex: 1001, width: 40, height: 40, borderRadius: 10, border: 'none', backgroundColor: color, color: '#fff', cursor: locating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 10px rgba(0,0,0,0.25)', opacity: locating ? 0.7 : 1 }}>
+                  {locating ? <span style={{ fontSize: 12 }}>…</span> : <IcoLocate />}
+                </button>
+              </div>
+
+              {/* Hint */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#9CA3AF' }}>
+                <IcoInfo />
+                <span style={{ fontSize: 12 }}>Mueve el mapa para centrar la zona. Haz zoom para ajustar el radio, o usa el control de abajo.</span>
+              </div>
+
+              {/* Radius slider */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4 }}>Radio de zona</label>
+                  <div style={{ padding: '3px 12px', borderRadius: 20, backgroundColor: color + '18', border: `1px solid ${color}40`, fontSize: 13, fontWeight: 800, color }}>
+                    {geofenceRadiusM}m
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min={RADIUS_MIN} max={RADIUS_MAX} step={25}
+                  value={geofenceRadiusM}
+                  onChange={e => handleRadiusChange(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: color, cursor: 'pointer', height: 6 }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>50m</span>
+                  <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>500m</span>
+                </div>
+              </div>
+
+              <div style={{ height: 1, backgroundColor: '#F1F5F9' }} />
+
+              {/* PIN section */}
+              <div ref={pinSectionRef} style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 12, border: `2px solid ${pinFlash ? '#F59E0B' : 'transparent'}`, backgroundColor: pinFlash ? '#FEF3C7' : 'transparent', padding: pinFlash ? 12 : 2, marginLeft: -2, marginRight: -2, transition: 'background-color 300ms, border-color 300ms' }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4 }}>PIN de acceso sin GPS</label>
+                <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Empleados sin permiso de ubicación usarán este PIN</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <StyledInput
+                    value={geofencePin}
+                    onChange={v => setGeofencePin(v.replace(/[^0-9]/g, '').slice(0, 6))}
+                    placeholder="4–6 dígitos"
+                    type={showPin ? 'text' : 'password'}
+                  />
+                  <button type="button" onClick={() => setShowPin(v => !v)} style={{ width: 40, height: 38, borderRadius: 9, border: '1.5px solid #E2E8F0', backgroundColor: '#F8FAFC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', flexShrink: 0 }}>
+                    {showPin ? <IcoEyeOff /> : <IcoEye />}
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          )}
         </Card>
 
         {/* ─── Período de Pago (full width) ─── */}

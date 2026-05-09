@@ -23,7 +23,12 @@ export interface Business {
   maxHoursPerDay?: number;       // 0 = no limit
   autoClockOut?: boolean;
   autoClockOutMinutes?: number;
-  schedulingWeeks?: number;      // how many weeks ahead (and back) to show/allow scheduling, default 6
+  schedulingWeeks?: number;
+  geofenceEnabled?: boolean;
+  geofenceLat?: number | null;
+  geofenceLng?: number | null;
+  geofenceRadiusM?: number;
+  geofencePin?: string | null;
   createdAt: string;
   updatedAt: string;
 }

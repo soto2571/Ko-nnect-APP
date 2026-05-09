@@ -32,8 +32,8 @@ test.describe('Employees — List', () => {
     await emp.goto();
 
     await expect(page.getByText('Ana García')).toBeVisible();
-    // Email for Ana should be visible (format: ana.garcia@...)
-    await expect(page.locator('text=/ana\\.garcia.*\\.app/i').first()).toBeVisible();
+    // Email for Ana should be visible (format: ana.garc@... — accent may be stripped)
+    await expect(page.locator('text=/ana\\.garc.*\\.app/i').first()).toBeVisible();
   });
 });
 
@@ -43,7 +43,7 @@ test.describe('Employees — Add', () => {
     await emp.goto();
     await emp.openAddModal();
 
-    await expect(page.getByText('Agregar Empleado')).toBeVisible();
+    await expect(page.getByText('Agregar Empleado').first()).toBeVisible();
     await expect(emp.firstNameInput).toBeVisible();
     await expect(emp.lastNameInput).toBeVisible();
     await expect(emp.createBtn).toBeVisible();
@@ -100,7 +100,7 @@ test.describe('Employees — Add', () => {
     await emp.fillAndCreate('Sofía', 'Torres');
 
     // After creation, should show credentials (detail view)
-    await expect(page.getByText('Sofía Torres')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText('Sofía Torres').first()).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText('Credenciales de Acceso')).toBeVisible();
     await expect(page.locator('text=/sofía|sofia/i').first()).toBeVisible();
 
@@ -141,9 +141,9 @@ test.describe('Employees — Add', () => {
     await emp.openAddModal();
     await emp.fillAndCreate('Raúl', 'Mendoza');
 
-    // Find copy buttons
-    const copyBtns = page.locator('button').filter({ has: page.locator('svg') })
-      .filter({ hasText: '' });
+    // Find copy buttons scoped to credentials section (avoids matching logout/nav SVG buttons)
+    const credSection = page.locator('div').filter({ hasText: 'Credenciales de Acceso' }).last();
+    const copyBtns = credSection.locator('button').filter({ has: page.locator('svg') });
     const firstCopy = copyBtns.first();
     if (await firstCopy.isVisible().catch(() => false)) {
       await firstCopy.click();
@@ -162,7 +162,7 @@ test.describe('Employees — Edit', () => {
     await emp.openEmployeeByName('Ana García');
 
     await expect(page.getByText('Perfil del Empleado')).toBeVisible();
-    await expect(page.getByText('Ana García')).toBeVisible();
+    await expect(page.getByText('Ana García').first()).toBeVisible();
   });
 
   test('edit mode shows name input fields', async ({ page }) => {
@@ -190,8 +190,8 @@ test.describe('Employees — Edit', () => {
     await emp.cancelEditBtn.click();
     await page.waitForTimeout(300);
 
-    // Original name should still be visible
-    await expect(page.getByText('Pedro Martínez')).toBeVisible();
+    // Original name should still be visible (first() avoids strict mode with card + modal both showing name)
+    await expect(page.getByText('Pedro Martínez').first()).toBeVisible();
   });
 
   test('saves edited name successfully', async ({ page }) => {
@@ -208,7 +208,7 @@ test.describe('Employees — Edit', () => {
     await emp.saveEditBtn.click();
     await page.waitForTimeout(800);
 
-    await expect(page.getByText('Luis Rodríguez')).toBeVisible();
+    await expect(page.getByText('Luis Rodríguez').first()).toBeVisible();
   });
 });
 
@@ -240,20 +240,9 @@ test.describe('Employees — Delete', () => {
     await emp.fillAndCreate('Temp', 'Delete');
     await page.waitForTimeout(400);
 
-    // In detail view, click the delete icon (first button in header actions)
-    const headerRow = page.locator('div').filter({ hasText: 'Perfil del Empleado' }).first();
-    const deleteBtns = page.locator('button').filter({ has: page.locator('svg') })
-      .filter({ hasText: '' });
-    // Find red-styled button
-    const allBtns = await deleteBtns.all();
-    for (const btn of allBtns) {
-      const style = await btn.getAttribute('style') ?? '';
-      if (style.includes('EF4444') || style.includes('FEE2E2') || style.includes('red')) {
-        await btn.click();
-        await page.waitForTimeout(300);
-        break;
-      }
-    }
+    // In detail view, click the delete icon button (has title="Eliminar empleado")
+    await page.getByRole('button', { name: /eliminar empleado/i }).click();
+    await page.waitForTimeout(300);
 
     await expect(page.getByText('Eliminar Empleado')).toBeVisible({ timeout: 5_000 });
   });
@@ -267,17 +256,12 @@ test.describe('Employees — Delete', () => {
     await emp.openEmployeeByName('Pedro Martínez');
     await page.waitForTimeout(300);
 
-    // Try to find and click trash icon
-    const allBtns = await page.locator('button').all();
-    let clicked = false;
-    for (const btn of allBtns) {
-      const style = await btn.getAttribute('style') ?? '';
-      if ((style.includes('EF4444') || style.includes('fee')) && await btn.isVisible()) {
-        await btn.click();
-        clicked = true;
-        await page.waitForTimeout(300);
-        break;
-      }
+    // Click delete icon button
+    const deleteIconBtn = page.getByRole('button', { name: /eliminar empleado/i });
+    const clicked = await deleteIconBtn.isVisible().catch(() => false);
+    if (clicked) {
+      await deleteIconBtn.click();
+      await page.waitForTimeout(300);
     }
 
     if (clicked && await page.getByText('Eliminar Empleado').isVisible().catch(() => false)) {

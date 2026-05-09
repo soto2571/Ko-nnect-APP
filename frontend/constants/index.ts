@@ -1,4 +1,7 @@
-export const SUPABASE_FUNCTIONS_URL = 'https://izfcsiqucpkroylkgjei.supabase.co/functions/v1';
+import Constants from 'expo-constants';
+
+export const SUPABASE_FUNCTIONS_URL =
+  (Constants.expoConfig?.extra?.supabaseFunctionsUrl as string) ?? '';
 
 export const DEFAULT_PRIMARY_COLOR = '#E11D48';
 

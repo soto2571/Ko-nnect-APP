@@ -26,16 +26,12 @@ export class LoginPage {
   }
 
   async getErrorText(): Promise<string> {
-    // Error messages appear inline in the form
-    const selectors = [
-      '[style*="B91C1C"]',
-      '[style*="DC2626"]',
-      '[style*="FEF2F2"]',
-    ];
-    for (const sel of selectors) {
-      const el = this.page.locator(sel).first();
-      if (await el.isVisible().catch(() => false)) return el.innerText();
-    }
+    // Browsers normalize hex → rgb so match by text content instead of inline color.
+    await this.page.waitForTimeout(400);
+    const el = this.page.locator('div').filter({
+      hasText: /ingresa|credencial|incorrect|contraseña|requerido|obligatorio|inválid/i,
+    }).last();
+    if (await el.isVisible({ timeout: 2_000 }).catch(() => false)) return el.innerText();
     return '';
   }
 }

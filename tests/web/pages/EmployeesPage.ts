@@ -24,7 +24,9 @@ export class EmployeesPage {
 
   // ── Employee cards grid ────────────────────────────────────────────────────
   async getEmployeeCards() {
-    return this.page.locator('[style*="borderRadius: 20px"], [style*="border-radius: 20px"]')
+    // Cards are divs containing an employee email (contains @).
+    // Use cursor:pointer to distinguish interactive cards from other divs.
+    return this.page.locator('div[style*="cursor: pointer"]')
       .filter({ hasText: /@/ }).all();
   }
 
@@ -41,7 +43,7 @@ export class EmployeesPage {
   get firstNameInput() { return this.page.locator('input[placeholder="Nombre"]'); }
   get lastNameInput()  { return this.page.locator('input[placeholder="Apellido"]'); }
   get createBtn()      { return this.page.getByRole('button', { name: /crear empleado/i }); }
-  get addError()       { return this.page.locator('[style*="B91C1C"], [style*="FEF2F2"]').first(); }
+  get addError()       { return this.page.locator('div').filter({ hasText: /ingresa|requerido|nombre|apellido/i }).last(); }
 
   async openAddModal() {
     await this.addBtn.click();
@@ -66,11 +68,9 @@ export class EmployeesPage {
   get cancelDeleteBtn() { return this.page.getByRole('button', { name: /cancelar/i }).last(); }
 
   async getCredentials(): Promise<{ email: string; password: string }> {
-    const rows = await this.page.locator('p').filter({ hasText: /@/ }).all();
-    const email = rows.length > 0 ? await rows[0].innerText() : '';
-    // password row
-    const pwRows = await this.page.locator('p').filter({ hasText: /[a-z]+\d{4}/i }).all();
-    const password = pwRows.length > 0 ? await pwRows[0].innerText() : '';
+    // CredRow renders values as <span> (not <p>); employee cards and sidebar use <p>
+    const email = await this.page.locator('span').filter({ hasText: /@/ }).first().innerText().catch(() => '');
+    const password = await this.page.locator('span').filter({ hasText: /[a-zA-Z]+\d{4}/ }).first().innerText().catch(() => '');
     return { email, password };
   }
 

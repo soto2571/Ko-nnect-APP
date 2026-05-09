@@ -12,6 +12,7 @@
     "test:payroll": "tsx run.ts payroll"
   },
   "devDependencies": {
+    "dotenv": "^17.4.2",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0"
   }

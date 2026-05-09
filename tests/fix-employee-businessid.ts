@@ -5,7 +5,13 @@
  * Run: SUPABASE_SERVICE_ROLE_KEY="..." npx tsx fix-employee-businessid.ts
  */
 
-const SUPABASE_URL = 'https://izfcsiqucpkroylkgjei.supabase.co';
+import { config } from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.resolve(__dirname, '../.env') });
+
+const SUPABASE_URL     = process.env.SUPABASE_URL ?? '';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const BUSINESS_ID = '825c2d81-c8a3-481b-b165-7ebca1bc6fb2';
 

@@ -72,15 +72,18 @@ export class SettingsPage {
 
   // ── Save bar ──────────────────────────────────────────────────────────────
   get saveBtn()    { return this.page.getByRole('button', { name: /guardar cambios|guardando|creando/i }).last(); }
-  get saveMsg()    { return this.page.locator('[style*="059669"], [style*="DC2626"]').filter({ hasText: /.+/ }).last(); }
-
   async saveChanges() {
     await this.saveBtn.click();
     await this.page.waitForTimeout(1_500);
   }
 
   async getSaveMessage(): Promise<string> {
-    return this.saveMsg.innerText().catch(() => '');
+    // Browsers normalize hex → rgb; match by text content instead of inline color.
+    await this.page.waitForTimeout(400);
+    const msg = this.page.locator('div, span').filter({
+      hasText: /guardad|requerid|creado|exitosamente|error/i,
+    }).last();
+    return msg.innerText({ timeout: 3_000 }).catch(() => '');
   }
 
   // ── Change password ───────────────────────────────────────────────────────
@@ -94,8 +97,11 @@ export class SettingsPage {
   }
 
   async getPasswordMessage(): Promise<string> {
-    const msg = this.page.locator('[style*="059669"], [style*="DC2626"]').last();
-    return msg.innerText().catch(() => '');
+    await this.page.waitForTimeout(400);
+    const msg = this.page.locator('div').filter({
+      hasText: /coincid|caracter|incorrecta|contraseña|mín|actualiz|campo/i,
+    }).last();
+    return msg.innerText({ timeout: 3_000 }).catch(() => '');
   }
 
   // ── Logout ────────────────────────────────────────────────────────────────

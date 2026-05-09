@@ -24,6 +24,11 @@ export interface Business {
   autoClockOut?: boolean;
   autoClockOutMinutes?: number;
   schedulingWeeks?: number;      // how many weeks ahead (and back) to show/allow scheduling, default 6
+  geofenceEnabled?: boolean;
+  geofenceLat?: number | null;
+  geofenceLng?: number | null;
+  geofenceRadiusM?: number;
+  geofencePin?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -79,6 +84,7 @@ export interface TimeLog {
   status: TimeLogStatus;
   overtimeDay?: boolean;
   missedBreakPunch?: boolean;
+  viaPin?: boolean;
   createdAt: string;
   updatedAt: string;
 }

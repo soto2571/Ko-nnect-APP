@@ -17,7 +17,7 @@ import { fileURLToPath } from 'url';
 import { AUTH_STATE } from './playwright.config.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-config({ path: path.resolve(__dirname, '../../web/.env.local') });
+config({ path: path.resolve(__dirname, '../../.env') });
 config({ path: path.resolve(__dirname, '.env.test'), override: false });
 
 const SUPABASE_URL   = (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL)!;
@@ -117,10 +117,13 @@ export default async function globalSetup(_config: FullConfig) {
   console.log('  → Creating business…');
   try {
     const profile = await callFn('auth-profile', {}, token);
+    let existingBiz = null;
     if (profile?.businessId) {
+      existingBiz = await callFn('business-get', { businessId: profile.businessId }, token).catch(() => null);
+    }
+    if (existingBiz) {
       businessId = profile.businessId;
-      const biz = await callFn('business-get', { businessId }, token);
-      businessName = biz?.name ?? businessName;
+      businessName = existingBiz?.name ?? businessName;
       console.log('  ✓ Business already exists:', businessName);
     } else {
       const biz = await callFn('business-create', {
@@ -188,23 +191,34 @@ export default async function globalSetup(_config: FullConfig) {
     { offset: 3,  emp: 1, start: 9,  end: 13, brk: 0  },  // Pedro +3
   ];
 
+  let shiftCount = 0;
   for (const sd of shiftDefs) {
     if (employees[sd.emp]) {
       const day = addDays(today, sd.offset);
+      const dateStr = isoDate(day);
+      const startISO = `${dateStr}T${String(sd.start).padStart(2,'0')}:00:00`;
+      const endISO   = `${dateStr}T${String(sd.end).padStart(2,'0')}:00:00`;
       try {
         const shift = await callFn('shifts-create', {
           businessId,
-          date:      isoDate(day),
-          startTime: `${String(sd.start).padStart(2,'0')}:00`,
-          endTime:   `${String(sd.end).padStart(2,'0')}:00`,
-          breakMinutes: sd.brk,
+          title:         `Turno ${employees[sd.emp].name}`,
+          startTime:     startISO,
+          endTime:       endISO,
+          breakDuration: sd.brk,
         }, token);
         const shiftId = shift.shiftId ?? shift.id;
-        await callFn('shifts-assign', { shiftId, employeeId: employees[sd.emp].id }, token);
-      } catch { /* shift may already exist */ }
+        if (shiftId) {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+          await fetch(`${FUNCTIONS_URL}/shifts-assign/${shiftId}`, {
+            method: 'PUT', headers,
+            body: JSON.stringify({ employeeId: employees[sd.emp].id }),
+          });
+          shiftCount++;
+        }
+      } catch (e: any) { console.log(`  ⚠ Shift (may exist): ${e.message?.slice(0,60)}`); }
     }
   }
-  console.log('  ✓ Shifts seeded');
+  console.log(`  ✓ Shifts seeded (${shiftCount} created)`);
 
   // ── 5. Create timelogs (various states for timeclock tests) ───────────────
   console.log('  → Creating timelogs…');

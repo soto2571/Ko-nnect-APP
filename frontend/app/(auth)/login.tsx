@@ -116,7 +116,7 @@ export default function LoginScreen() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={insets.top}>
       <StatusBar style="dark" />
       <AnimatedBackground primaryColor={BRAND} />
 
@@ -126,7 +126,7 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-      <View style={[s.outer, { paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}>
+      <View style={[s.outer, { paddingTop: insets.top, paddingBottom: insets.bottom + 40 }]}>
 
         {/* Logo + tagline */}
         <Animated.View style={[s.logoBlock, {

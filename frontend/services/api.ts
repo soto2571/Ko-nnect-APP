@@ -82,7 +82,8 @@ async function getValidToken(): Promise<string | null> {
 
 async function request<T>(
   functionName: string,
-  options: RequestInit & { query?: Record<string, string> } = {}
+  options: RequestInit & { query?: Record<string, string> } = {},
+  _canRetry = true,
 ): Promise<T> {
   const token = await getValidToken();
   const headers: Record<string, string> = {
@@ -101,6 +102,19 @@ async function request<T>(
 
   const { query: _q, ...fetchOptions } = options;
   const res = await fetch(url, { ...fetchOptions, headers });
+
+  // On 401, try refreshing the session and retry the request once.
+  // This covers the case where the access token expired between calls.
+  if (res.status === 401 && _canRetry) {
+    try {
+      const { data } = await supabase.auth.refreshSession();
+      if (data.session?.access_token) {
+        await saveToken(data.session.access_token);
+        if (data.session.refresh_token) await saveRefreshToken(data.session.refresh_token);
+        return request(functionName, options, false);
+      }
+    } catch {}
+  }
 
   // Parse body — if the server returned HTML (gateway error), surface a friendly message
   const text = await res.text();
@@ -306,6 +320,9 @@ export async function clockIn(payload: {
   businessId: string;
   scheduledBreakDuration?: number;
   breakTime?: string;
+  lat?: number;
+  lng?: number;
+  overridePin?: string;
 }): Promise<TimeLog> {
   const d = new Date();
   const localDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -329,10 +346,10 @@ export async function breakEnd(logId: string): Promise<TimeLog> {
   });
 }
 
-export async function clockOut(logId: string): Promise<TimeLog> {
+export async function clockOut(logId: string, opts?: { lat?: number; lng?: number; overridePin?: string }): Promise<TimeLog> {
   return request<TimeLog>('timelog-clock-out', {
     method: 'POST',
-    body: JSON.stringify({ logId }),
+    body: JSON.stringify({ logId, ...opts }),
   });
 }
 

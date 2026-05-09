@@ -4,8 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// Load web/.env.local first (shared Supabase keys), then optional .env.test for overrides
-config({ path: path.resolve(__dirname, '../../web/.env.local') });
+// Load root .env (single source of truth), then optional .env.test for overrides
+config({ path: path.resolve(__dirname, '../../.env') });
 config({ path: path.resolve(__dirname, '.env.test'), override: false });
 
 export const AUTH_STATE = path.resolve(__dirname, 'playwright/.auth/owner.json');
