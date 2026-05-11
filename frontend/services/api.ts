@@ -1,11 +1,24 @@
 import * as SecureStore from 'expo-secure-store';
 import { SUPABASE_FUNCTIONS_URL } from '@/constants';
 import { supabase } from '@/lib/supabase';
-import type { AuthResponse, Availability, Business, Employee, PTO, Shift, TimeLog, User } from '@/types';
+import type { AuthResponse, Availability, Business, BusinessRole, Employee, PTO, Shift, TimeLog, User } from '@/types';
 
 const TOKEN_KEY   = 'konnect_token';
 const REFRESH_KEY = 'konnect_refresh';
 const USER_KEY    = 'konnect_user';
+
+// ─── Auth failure handler ─────────────────────────────────────────────────────
+// AuthContext registers this so any screen gets automatically logged out
+// when the session is unrecoverable (both access and refresh tokens expired).
+
+export class AuthSessionExpired extends Error {
+  constructor() { super('Sesión expirada. Por favor inicia sesión de nuevo.'); }
+}
+
+let _onAuthFailure: (() => void) | null = null;
+export function registerAuthFailureHandler(cb: () => void) {
+  _onAuthFailure = cb;
+}
 
 // ─── Token + Session helpers ──────────────────────────────────────────────────
 
@@ -103,17 +116,21 @@ async function request<T>(
   const { query: _q, ...fetchOptions } = options;
   const res = await fetch(url, { ...fetchOptions, headers });
 
-  // On 401, try refreshing the session and retry the request once.
-  // This covers the case where the access token expired between calls.
-  if (res.status === 401 && _canRetry) {
-    try {
-      const { data } = await supabase.auth.refreshSession();
-      if (data.session?.access_token) {
-        await saveToken(data.session.access_token);
-        if (data.session.refresh_token) await saveRefreshToken(data.session.refresh_token);
-        return request(functionName, options, false);
-      }
-    } catch {}
+  // On 401, try refreshing the session and retry once.
+  if (res.status === 401) {
+    if (_canRetry) {
+      try {
+        const { data } = await supabase.auth.refreshSession();
+        if (data.session?.access_token) {
+          await saveToken(data.session.access_token);
+          if (data.session.refresh_token) await saveRefreshToken(data.session.refresh_token);
+          return request(functionName, options, false);
+        }
+      } catch {}
+    }
+    // Refresh failed (or already retried) — session is unrecoverable.
+    _onAuthFailure?.();
+    throw new AuthSessionExpired();
   }
 
   // Parse body — if the server returned HTML (gateway error), surface a friendly message
@@ -172,7 +189,7 @@ export async function login(payload: {
 }
 
 export async function changePassword(payload: {
-  currentPassword: string;
+  currentPassword?: string;
   newPassword: string;
 }): Promise<void> {
   return request<void>('auth-change-password', {
@@ -449,4 +466,26 @@ export async function addPTO(payload: {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+// ─── Roles ────────────────────────────────────────────────────────────────────
+
+export async function getRoles(businessId: string): Promise<BusinessRole[]> {
+  return request<BusinessRole[]>('roles-list', { query: { businessId } });
+}
+
+export async function createRole(payload: { businessId: string; name: string; isAdmin: boolean }): Promise<BusinessRole> {
+  return request<BusinessRole>('roles-create', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function updateRole(roleId: string, payload: { name?: string; isAdmin?: boolean }): Promise<BusinessRole> {
+  return request<BusinessRole>(`roles-update/${roleId}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export async function deleteRole(roleId: string): Promise<void> {
+  return request<void>(`roles-delete/${roleId}`, { method: 'DELETE' });
+}
+
+export async function assignEmployeeRole(employeeId: string, roleId: string | null): Promise<void> {
+  return request<void>(`employees-update/${employeeId}`, { method: 'PUT', body: JSON.stringify({ roleId }) });
 }

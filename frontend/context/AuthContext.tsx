@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as api from '@/services/api';
 import { supabase } from '@/lib/supabase';
@@ -27,6 +28,7 @@ interface AuthContextType extends AuthState {
   logout: () => Promise<void>;
   refreshBusiness: () => Promise<void>;
   setBusiness: (b: Business) => void;
+  clearMustChangePassword: () => void;
   primaryColor: string;
 }
 
@@ -39,6 +41,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     business: null,
     isLoading: true,
   });
+
+  // Register global auth failure handler so any 401 that can't be refreshed auto-logs out
+  useEffect(() => {
+    api.registerAuthFailureHandler(async () => {
+      await api.removeToken();
+      await api.removeRefreshToken();
+      await api.removeUser();
+      try { await supabase.auth.signOut(); } catch {}
+      setState({ user: null, token: null, business: null, isLoading: false });
+      Alert.alert('Sesión expirada', 'Tu sesión expiró. Por favor inicia sesión de nuevo.');
+    });
+  }, []);
 
   // On mount: restore session from secure storage
   useEffect(() => {
@@ -59,7 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (user.businessId) {
           try {
             business = await api.getBusiness(user.businessId);
-          } catch {}
+          } catch (e) {
+            if (e instanceof api.AuthSessionExpired) throw e;
+          }
         }
         setState({ user, token, business, isLoading: false });
       } catch {
@@ -196,11 +212,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const clearMustChangePassword = () => {
+    setState(s => {
+      if (!s.user) return s;
+      const updatedUser = { ...s.user, mustChangePassword: false };
+      api.saveUser(updatedUser);
+      return { ...s, user: updatedUser };
+    });
+  };
+
   const primaryColor = state.business?.color ?? '#4F46E5';
 
   return (
     <AuthContext.Provider
-      value={{ ...state, login, signup, signInWithGoogle, logout, refreshBusiness, setBusiness, primaryColor }}
+      value={{ ...state, login, signup, signInWithGoogle, logout, refreshBusiness, setBusiness, clearMustChangePassword, primaryColor }}
     >
       {children}
     </AuthContext.Provider>

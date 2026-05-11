@@ -92,14 +92,20 @@ function RootNavigator() {
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup     = segments[0] === '(auth)';
-    const inOwnerGroup    = segments[0] === '(owner)';
-    const inEmployeeGroup = segments[0] === '(employee)';
+    const inAuthGroup      = segments[0] === '(auth)';
+    const inOwnerGroup     = segments[0] === '(owner)';
+    const inEmployeeGroup  = segments[0] === '(employee)';
+    const inAdminGroup     = segments[0] === '(admin)';
+    const inOnboardGroup   = segments[0] === '(onboarding)';
 
     if (!user) {
       if (!inAuthGroup) router.replace('/(auth)/role-select');
+    } else if (user.mustChangePassword) {
+      if (!inOnboardGroup) router.replace('/(onboarding)');
     } else if (user.role === 'owner') {
       if (!inOwnerGroup) router.replace('/(owner)');
+    } else if (user.role === 'employee' && user.isAdmin) {
+      if (!inAdminGroup) router.replace('/(admin)');
     } else if (user.role === 'employee') {
       if (!inEmployeeGroup) router.replace('/(employee)');
     }
@@ -107,13 +113,17 @@ function RootNavigator() {
 
   if (isLoading) return <SplashSkeleton />;
 
-  const inAuthGroup     = segments[0] === '(auth)';
-  const inOwnerGroup    = segments[0] === '(owner)';
-  const inEmployeeGroup = segments[0] === '(employee)';
+  const inAuthGroup      = segments[0] === '(auth)';
+  const inOwnerGroup     = segments[0] === '(owner)';
+  const inEmployeeGroup  = segments[0] === '(employee)';
+  const inAdminGroup     = segments[0] === '(admin)';
+  const inOnboardGroup   = segments[0] === '(onboarding)';
   const redirectPending =
     (!user && !inAuthGroup) ||
-    (user?.role === 'owner'    && !inOwnerGroup) ||
-    (user?.role === 'employee' && !inEmployeeGroup);
+    (user?.mustChangePassword                                  && !inOnboardGroup) ||
+    (!user?.mustChangePassword && user?.role === 'owner'       && !inOwnerGroup) ||
+    (!user?.mustChangePassword && user?.role === 'employee' && user?.isAdmin  && !inAdminGroup) ||
+    (!user?.mustChangePassword && user?.role === 'employee' && !user?.isAdmin && !inEmployeeGroup);
 
   if (redirectPending) return null;
 

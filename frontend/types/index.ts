@@ -8,6 +8,17 @@ export interface User {
   role: Role;
   businessId?: string;
   provider?: 'email' | 'google';
+  isAdmin?: boolean;
+  mustChangePassword?: boolean;
+}
+
+export interface BusinessRole {
+  roleId: string;
+  businessId: string;
+  name: string;
+  isAdmin: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Business {
@@ -41,6 +52,9 @@ export interface Employee {
   lastName: string;
   email: string;
   tempPassword?: string;
+  roleId?: string | null;
+  roleName?: string | null;
+  roleIsAdmin?: boolean;
   createdAt: string;
   deletedAt?: string | null;
 }

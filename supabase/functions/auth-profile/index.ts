@@ -17,6 +17,29 @@ Deno.serve(async (req) => {
 
     if (profileErr || !profile) return err('Profile not found', 404);
 
+    // For employees, check if their role has isAdmin = true
+    let isAdmin = false;
+    if (profile.role === 'employee' && profile.businessId) {
+      const { data: emp } = await sb
+        .from('employees')
+        .select('roleId')
+        .eq('userId', user.id)
+        .eq('businessId', profile.businessId)
+        .is('deletedAt', null)
+        .single();
+
+      if (emp?.roleId) {
+        const { data: bizRole } = await sb
+          .from('business_roles')
+          .select('isAdmin')
+          .eq('roleId', emp.roleId)
+          .single();
+        isAdmin = bizRole?.isAdmin === true;
+      }
+    }
+
+    const provider = user.app_metadata?.provider === 'google' ? 'google' : 'email';
+
     return cors({
       success: true,
       data: {
@@ -26,9 +49,11 @@ Deno.serve(async (req) => {
         lastName: profile.lastName,
         role: profile.role,
         businessId: profile.businessId ?? null,
+        provider,
+        isAdmin,
       },
     });
-  } catch (e) {
+  } catch {
     return err('Internal server error', 500);
   }
 });

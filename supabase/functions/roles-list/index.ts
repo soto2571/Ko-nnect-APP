@@ -13,21 +13,21 @@ Deno.serve(async (req) => {
     if (userErr || !user) return err('Unauthorized', 401);
 
     const url = new URL(req.url);
-    const shiftId = url.pathname.split('/').pop();
-    if (!shiftId) return err('Missing shiftId');
+    const businessId = url.searchParams.get('businessId');
+    if (!businessId) return err('Missing businessId');
 
-    const sb = getServiceClient();
-
-    const { data: shift } = await sb.from('shifts').select('businessId').eq('shiftId', shiftId).single();
-    if (!shift) return err('Turno no encontrado', 404);
-
-    if (!await isAdminOrOwner(user.id, shift.businessId))
+    if (!await isAdminOrOwner(user.id, businessId))
       return err('No autorizado', 403);
 
-    const { error } = await sb.from('shifts').delete().eq('shiftId', shiftId);
+    const sb = getServiceClient();
+    const { data, error } = await sb
+      .from('business_roles')
+      .select('*')
+      .eq('businessId', businessId)
+      .order('name');
     if (error) return err(error.message, 500);
 
-    return cors({ success: true, message: 'Shift deleted' });
+    return cors({ success: true, data: data ?? [] });
   } catch {
     return err('Internal server error', 500);
   }

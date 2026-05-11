@@ -171,6 +171,13 @@ function ShiftCard({ shift, employees, activeLogs, color, onClick }: {
         </span>
       </div>
 
+      {/* Role pill */}
+      {emp?.roleName && (
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', backgroundColor: '#F3F4F6', borderRadius: 6, padding: '1px 6px', alignSelf: 'flex-start' }}>
+          {emp.roleName}
+        </span>
+      )}
+
       {/* Time row */}
       <span style={{ fontSize: 11, fontWeight: 600, color: '#4B5563' }}>
         {fmt12(shift.startTime)} – {fmt12(shift.endTime)}
@@ -207,8 +214,13 @@ function ShiftCardMini({ shift, employees, activeLogs, color, onClick }: {
         textAlign: 'left',
       }}
     >
-      {/* Name */}
-      <span style={{ fontSize: 10, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{name}</span>
+      {/* Name + role */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', minWidth: 0 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{name}</span>
+        {emp?.roleName && (
+          <span style={{ fontSize: 8.5, fontWeight: 700, color: '#6B7280', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>{emp.roleName}</span>
+        )}
+      </div>
 
       {/* Times */}
       <span style={{ fontSize: 9.5, fontWeight: 600, color: '#4B5563', whiteSpace: 'nowrap' }}>
@@ -237,7 +249,12 @@ function EmpRow({ emp, selected, onClick, color }: { emp: Employee | null; selec
         <div style={{ width:36, height:36, borderRadius:12, flexShrink:0, backgroundColor:'#F3F4F6', display:'flex', alignItems:'center', justifyContent:'center', border:'1.5px dashed #D1D5DB', color:'#9CA3AF' }}><IconUser size={14} /></div>
       )}
       <div style={{ flex:1, minWidth:0 }}>
-        <p style={{ fontSize:14, fontWeight:600, color:selected?color:'#374151', margin:0, lineHeight:1.3 }}>{emp?`${emp.firstName} ${emp.lastName}`:'Sin asignar'}</p>
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          <p style={{ fontSize:14, fontWeight:600, color:selected?color:'#374151', margin:0, lineHeight:1.3 }}>{emp?`${emp.firstName} ${emp.lastName}`:'Sin asignar'}</p>
+          {emp?.roleName && (
+            <span style={{ fontSize:10, fontWeight:700, color:'#6B7280', backgroundColor:'#F3F4F6', borderRadius:6, padding:'1px 6px', flexShrink:0 }}>{emp.roleName}</span>
+          )}
+        </div>
         {emp && <p style={{ fontSize:11, color:'#9CA3AF', margin:'2px 0 0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{emp.email}</p>}
       </div>
       {selected && <div style={{ width:22, height:22, borderRadius:11, flexShrink:0, backgroundColor:color, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff' }}><IconCheck size={12} /></div>}
@@ -259,8 +276,8 @@ const BREAK_OPTIONS = [
 const HOURS_LIST   = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
 const MINUTES_LIST = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] as const;
 const CAL_DAYS     = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'] as const;
-type WizStep = 'calendar' | 'time' | 'employee';
-const STEPS: WizStep[] = ['calendar', 'time', 'employee'];
+type WizStep = 'calendar' | 'employee' | 'time';
+const STEPS: WizStep[] = ['calendar', 'employee', 'time'];
 
 // ── CalendarPicker ─────────────────────────────────────────────────────────────
 
@@ -618,9 +635,18 @@ function ShiftModal({ state, employees, shifts: allShifts, color, businessId, on
     catch (e: any) { setError(e.message ?? 'Error al eliminar.'); setSaving(false); setDelConf(false); }
   };
 
+  const nonAdminEmployees = employees.filter(e => !e.roleIsAdmin);
+
+  const liveConflictDates: string[] = (!isEdit && empId)
+    ? Array.from(selectedDates).filter(dateStr => {
+        const { startISO, endISO } = buildISOs(dateStr);
+        return checkConflict(empId, startISO, endISO, allShifts) !== null;
+      })
+    : [];
+
   const stepIdx = STEPS.indexOf(step);
-  const canNext = step === 'calendar' ? selectedDates.size > 0 : true;
-  const isLast  = isEdit || step === 'employee';
+  const canNext = step === 'calendar' ? selectedDates.size > 0 : step === 'employee' ? empId !== '' : true;
+  const isLast  = isEdit || step === 'time';
 
   // ── Time + break panel (shared between step 2 and edit view) ─────────────────
   const TimePanel = (
@@ -662,16 +688,25 @@ function ShiftModal({ state, employees, shifts: allShifts, color, businessId, on
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#6366F1' }}>Turno nocturno — termina el día siguiente</span>
               </div>
             )}
-            {totalH > 8 && totalH <= 16 && (
+            {netH > 8 && totalH <= 16 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, backgroundColor: '#FFFBEB', borderRadius: 20, padding: '4px 12px' }}>
                 <span style={{ fontSize: 11 }}>⚠️</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#92400E' }}>Turno largo — supera las 8 horas estándar</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#92400E' }}>Turno largo — {fmtDur(netH)} netos superan las 8h</span>
               </div>
             )}
             {totalH > 16 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, backgroundColor: '#FEF2F2', borderRadius: 20, padding: '4px 12px' }}>
                 <span style={{ fontSize: 11 }}>🚨</span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#DC2626' }}>Turno de {fmtDur(totalH)} — excede una jornada completa</span>
+              </div>
+            )}
+            {!isEdit && empId && liveConflictDates.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 20, padding: '4px 12px' }}>
+                <span style={{ fontSize: 11 }}>⛔</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#DC2626' }}>
+                  {employees.find(e => e.userId === empId || e.employeeId === empId)?.firstName} ya tiene turno el:{' '}
+                  {liveConflictDates.map(d => new Date(d + 'T12:00:00').toLocaleDateString('es', { weekday: 'short', month: 'short', day: 'numeric' })).join(', ')}
+                </span>
               </div>
             )}
           </div>
@@ -693,18 +728,25 @@ function ShiftModal({ state, employees, shifts: allShifts, color, businessId, on
         </div>
       </div>
 
-      {/* Employee inline (edit mode only) */}
-      {isEdit && (
-        <div>
-          <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Empleado</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
-            <EmpRow emp={null} selected={empId === ''} onClick={() => setEmpId('')} color={color} />
-            {employees.map(emp => (
-              <EmpRow key={emp.employeeId} emp={emp} selected={empId === (emp.userId || emp.employeeId)} onClick={() => setEmpId(emp.userId || emp.employeeId)} color={color} />
-            ))}
+      {/* Employee display (edit mode — read-only, cannot reassign) */}
+      {isEdit && empId && (() => {
+        const emp = employees.find(e => e.userId === empId || e.employeeId === empId);
+        if (!emp) return null;
+        const initials = `${emp.firstName[0] ?? ''}${emp.lastName[0] ?? ''}`.toUpperCase();
+        return (
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Empleado</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, backgroundColor: '#F9FAFB', border: '1.5px solid #E5E7EB' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>{initials}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#374151', margin: 0 }}>{emp.firstName} {emp.lastName}</p>
+                {emp.roleName && <p style={{ fontSize: 11, color: '#9CA3AF', margin: '1px 0 0' }}>{emp.roleName}</p>}
+              </div>
+              <IconLock size={13} />
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 
@@ -722,7 +764,7 @@ function ShiftModal({ state, employees, shifts: allShifts, color, businessId, on
             </h2>
             {!isEdit && (
               <p style={{ fontSize: 12, color: '#9CA3AF', margin: '3px 0 0' }}>
-                Paso {stepIdx + 1} de 3 · {step === 'calendar' ? 'Elige fechas' : step === 'time' ? 'Horario' : 'Empleado'}
+                Paso {stepIdx + 1} de 3 · {step === 'calendar' ? 'Elige fechas' : step === 'employee' ? 'Empleado' : 'Horario'}
               </p>
             )}
           </div>
@@ -750,8 +792,7 @@ function ShiftModal({ state, employees, shifts: allShifts, color, businessId, on
           {step === 'employee' && !isEdit && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>Asignar empleado</p>
-              <EmpRow emp={null} selected={empId === ''} onClick={() => setEmpId('')} color={color} />
-              {employees.map(emp => (
+              {nonAdminEmployees.map(emp => (
                 <EmpRow key={emp.employeeId} emp={emp} selected={empId === (emp.userId || emp.employeeId)} onClick={() => setEmpId(emp.userId || emp.employeeId)} color={color} />
               ))}
             </div>

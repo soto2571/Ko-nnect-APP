@@ -1,5 +1,5 @@
 import { getToken } from '@/lib/token-store';
-import type { AuthResponse, Business, Employee, Shift, TimeLog } from '@/types';
+import type { AuthResponse, Business, BusinessRole, Employee, Shift, TimeLog } from '@/types';
 
 const FUNCTIONS_URL = process.env.NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL!;
 
@@ -155,4 +155,26 @@ export async function deleteTimeLog(logId: string): Promise<void> {
 
 export async function getActiveEmployees(businessId: string): Promise<TimeLog[]> {
   return request<TimeLog[]>('timelog-active', { query: { businessId } });
+}
+
+// ─── Roles ────────────────────────────────────────────────────────────────────
+
+export async function getRoles(businessId: string): Promise<BusinessRole[]> {
+  return request<BusinessRole[]>('roles-list', { query: { businessId } });
+}
+
+export async function createRole(payload: { businessId: string; name: string; isAdmin: boolean }): Promise<BusinessRole> {
+  return request<BusinessRole>('roles-create', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function updateRole(roleId: string, payload: { name?: string; isAdmin?: boolean }): Promise<BusinessRole> {
+  return request<BusinessRole>(`roles-update/${roleId}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export async function deleteRole(roleId: string): Promise<void> {
+  return request<void>(`roles-delete/${roleId}`, { method: 'DELETE' });
+}
+
+export async function assignEmployeeRole(employeeId: string, roleId: string | null): Promise<Employee> {
+  return request<Employee>(`employees-update/${employeeId}`, { method: 'PUT', body: JSON.stringify({ roleId }) });
 }

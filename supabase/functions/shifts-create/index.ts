@@ -1,5 +1,6 @@
 import { corsHeaders, cors, err } from '../_shared/cors.ts';
 import { getServiceClient, getUserClient } from '../_shared/supabase.ts';
+import { isAdminOrOwner } from '../_shared/auth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -15,6 +16,9 @@ Deno.serve(async (req) => {
     if (!body.businessId || !body.title || !body.startTime || !body.endTime)
       return err('Missing required fields');
 
+    if (!await isAdminOrOwner(user.id, body.businessId))
+      return err('No autorizado', 403);
+
     const sb = getServiceClient();
     const { data, error } = await sb.from('shifts').insert({
       businessId: body.businessId,
@@ -29,7 +33,7 @@ Deno.serve(async (req) => {
     if (error) return err(error.message, 500);
 
     return cors({ success: true, data }, 201);
-  } catch (e) {
+  } catch {
     return err('Internal server error', 500);
   }
 });

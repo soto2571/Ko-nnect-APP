@@ -18,6 +18,29 @@ Deno.serve(async (req) => {
       .from('users').select('*').eq('userId', userId).single();
     if (profileErr) return err('Perfil de usuario no encontrado.', 404);
 
+    // For employees, check admin role and whether they still have a temp password
+    let isAdmin = false;
+    let mustChangePassword = false;
+    if (profile.role === 'employee' && profile.businessId) {
+      const { data: emp } = await sb
+        .from('employees')
+        .select('roleId, tempPassword')
+        .eq('userId', userId)
+        .eq('businessId', profile.businessId)
+        .is('deletedAt', null)
+        .single();
+      if (emp?.roleId) {
+        const { data: bizRole } = await sb
+          .from('business_roles')
+          .select('isAdmin')
+          .eq('roleId', emp.roleId)
+          .single();
+        if (bizRole?.isAdmin === true) isAdmin = true;
+      }
+      // tempPassword set = they haven't changed it yet (first login or after a reset)
+      if (emp?.tempPassword) mustChangePassword = true;
+    }
+
     return cors({
       success: true,
       data: {
@@ -28,6 +51,8 @@ Deno.serve(async (req) => {
           lastName: profile.lastName,
           role: profile.role,
           businessId: profile.businessId,
+          ...(isAdmin && { isAdmin: true }),
+          ...(mustChangePassword && { mustChangePassword: true }),
         },
         token: data.session?.access_token,
         refreshToken: data.session?.refresh_token,

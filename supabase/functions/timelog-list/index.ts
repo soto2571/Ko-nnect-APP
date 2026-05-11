@@ -1,5 +1,6 @@
 import { corsHeaders, cors, err } from '../_shared/cors.ts';
 import { getServiceClient, getUserClient } from '../_shared/supabase.ts';
+import { isAdminOrOwner } from '../_shared/auth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -20,8 +21,10 @@ Deno.serve(async (req) => {
     if (!businessId) return err('Missing businessId');
     if (!startDate || !endDate) return err('Missing startDate or endDate');
 
-    const sb = getServiceClient();
+    if (!await isAdminOrOwner(user.id, businessId))
+      return err('No autorizado', 403);
 
+    const sb = getServiceClient();
     let query = sb.from('timelogs').select('*')
       .eq('businessId', businessId)
       .gte('date', startDate)
@@ -29,15 +32,13 @@ Deno.serve(async (req) => {
       .order('date', { ascending: true })
       .order('clockIn', { ascending: true });
 
-    if (employeeId) {
-      query = query.eq('employeeId', employeeId);
-    }
+    if (employeeId) query = query.eq('employeeId', employeeId);
 
     const { data, error } = await query;
     if (error) return err(error.message, 500);
 
     return cors({ success: true, data: data ?? [] });
-  } catch (e) {
+  } catch {
     return err('Internal server error', 500);
   }
 });

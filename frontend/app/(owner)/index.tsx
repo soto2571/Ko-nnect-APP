@@ -101,13 +101,22 @@ function ShiftListSkeleton() {
           {[0, 1].map(i => (
             <View key={i} style={[s.card, { gap: 0 }]}>
               <View style={{ width: 5, alignSelf: 'stretch', backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 3 }} />
-              <View style={{ flex: 1, paddingLeft: 12, gap: 10 }}>
-                <Skel w="55%" h={16} r={6} />
-                <Skel w="35%" h={12} r={6} />
+              <View style={{ flex: 1, paddingLeft: 14, gap: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Skel w="52%" h={18} r={6} />
+                  <Skel w={32} h={22} r={10} />
+                </View>
+                <View style={{ backgroundColor: '#F9FAFB', borderRadius: 12, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Skel w={34} h={34} r={17} />
+                  <View style={{ gap: 6 }}>
+                    <Skel w={80} h={14} r={6} />
+                    <Skel w={50} h={11} r={6} />
+                  </View>
+                </View>
               </View>
               <View style={{ gap: 8, paddingRight: 8 }}>
-                <Skel w={28} h={28} r={8} />
-                <Skel w={28} h={28} r={8} />
+                <Skel w={32} h={32} r={8} />
+                <Skel w={32} h={32} r={8} />
               </View>
             </View>
           ))}
@@ -426,11 +435,13 @@ export default function ShiftsScreen() {
 
   // Item heights for getItemLayout
   const HEADER_H  = 58;
-  const CARD_H    = 94;
+  const CARD_H    = 124;
   const DIVIDER_H = 44;
 
+  const nonAdminEmployees = employees.filter(e => !e.roleIsAdmin);
+
   const openCreate = () => {
-    if (employees.length===0) { Alert.alert('Sin Empleados','Agrega empleados primero.'); return; }
+    if (nonAdminEmployees.length===0) { Alert.alert('Sin Empleados','Agrega empleados primero.'); return; }
     setModalMode('create');
     setSelectedDates(new Set()); setStartH(9); setStartM(0); setStartAp('AM');
     setEndH(5); setEndM(0); setEndAp('PM');
@@ -463,15 +474,21 @@ export default function ShiftsScreen() {
     return endDate.toISOString();
   };
 
+  // Inline warnings shown live in the time step
+  const liveConflictDates: string[] = (selEmp && startPicked && endPicked)
+    ? (() => {
+        const s24 = to24(startH, startAp);
+        const empId = selEmp.userId || selEmp.employeeId;
+        return Array.from(selectedDates).filter(dateStr => {
+          const startISO = new Date(`${dateStr}T${String(s24).padStart(2,'0')}:${String(startM).padStart(2,'0')}:00`).toISOString();
+          const endISO   = buildEndISO(dateStr, s24, to24(endH, endAp));
+          return checkConflict(empId, startISO, endISO) !== null;
+        });
+      })()
+    : [];
+
   const handleCreate = async () => {
     if (!selEmp) return;
-    if (shiftTotalH > 16) {
-      Alert.alert('Turno muy largo', `Este turno dura ${shiftTotalH} horas. ¿Estás seguro?`, [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Crear de todas formas', onPress: () => doCreate() },
-      ]);
-      return;
-    }
     doCreate();
   };
 
@@ -480,7 +497,6 @@ export default function ShiftsScreen() {
     const s24 = to24(startH, startAp), e24 = to24(endH, endAp);
     const empId = selEmp.userId || selEmp.employeeId;
 
-    // Check for conflicts across all selected dates
     const conflictingDates: string[] = [];
     for (const dateStr of Array.from(selectedDates)) {
       const startISO = new Date(`${dateStr}T${String(s24).padStart(2,'0')}:${String(startM).padStart(2,'0')}:00`).toISOString();
@@ -543,7 +559,6 @@ export default function ShiftsScreen() {
     const newEnd   = buildEndISO(dateStr, s24, e24);
     const empId    = selEmp ? (selEmp.userId || selEmp.employeeId) : (editShift.employeeId ?? '');
 
-    // Check for schedule conflict (exclude the shift being edited)
     const conflict = checkConflict(empId, newStart, newEnd, editShift.shiftId);
     if (conflict) {
       const empName = selEmp ? `${selEmp.firstName} ${selEmp.lastName}` : 'Este empleado';
@@ -885,33 +900,21 @@ export default function ShiftsScreen() {
                 liveLog && { borderColor: liveColor, borderWidth: 1.5 },
               ]}>
                 <View style={[s.colorBar, { backgroundColor: liveLog ? liveColor : color }]} />
-                <View style={{ flex:1, paddingLeft: 12, gap: 4 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ flex: 1, paddingLeft: 14, paddingRight: 4, gap: 10 }}>
+
+                  {/* ── Time + duration row ── */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <Text style={s.cardTime}>{fmt12(shift.startTime)} – {fmt12(shift.endTime)}</Text>
-                    <View style={[s.durPill, { backgroundColor: color + '15' }]}>
+                    <View style={[s.durPill, { backgroundColor: color + '18' }]}>
                       <Text style={[s.durPillText, { color }]}>{durH}h</Text>
                     </View>
-                  </View>
-                  <View style={s.cardMeta}>
-                    {emp && (
-                      <TouchableOpacity
-                        style={[s.empBadge, { backgroundColor: color + '15' }]}
-                        onPress={() => router.push({ pathname: '/(owner)/timeclock', params: { expandEmp: emp.userId || emp.employeeId } })}
-                      >
-                        <View style={[s.empBadgeAvatar, { backgroundColor: color }]}>
-                          <Text style={s.empBadgeInitials}>{emp.firstName[0]}{emp.lastName[0]}</Text>
-                        </View>
-                        <Text style={[s.empBadgeName, { color }]}>{emp.firstName} {emp.lastName}</Text>
-                        <Ionicons name="bar-chart-outline" size={11} color={color} />
-                      </TouchableOpacity>
-                    )}
                     {(shift.breakDuration ?? 0) > 0 && (
                       <View style={s.breakPill}>
                         <Ionicons name="cafe-outline" size={11} color="#9CA3AF"/>
                         <Text style={s.breakPillText}>
                           {(shift.breakDuration ?? 0) >= 60
-                            ? `${(shift.breakDuration ?? 0) / 60}h`
-                            : `${shift.breakDuration}m`}
+                            ? `${(shift.breakDuration ?? 0) / 60}h descanso`
+                            : `${shift.breakDuration}m descanso`}
                         </Text>
                       </View>
                     )}
@@ -924,7 +927,28 @@ export default function ShiftsScreen() {
                       </View>
                     )}
                   </View>
+
+                  {/* ── Employee row ── */}
+                  {emp && (
+                    <TouchableOpacity
+                      style={s.empCardRow}
+                      onPress={() => router.push({ pathname: '/(owner)/timeclock', params: { expandEmp: emp.userId || emp.employeeId } })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[s.empCardAvatar, { backgroundColor: color }]}>
+                        <Text style={s.empCardInitials}>{emp.firstName[0]}{emp.lastName[0]}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.empCardName}>{emp.firstName} {emp.lastName}</Text>
+                        {emp.roleName && (
+                          <Text style={s.empCardRole}>{emp.roleName}</Text>
+                        )}
+                      </View>
+                      <Ionicons name="bar-chart-outline" size={14} color={color} style={{ opacity: 0.7 }} />
+                    </TouchableOpacity>
+                  )}
                 </View>
+
                 <View style={s.cardActions}>
                   <TouchableOpacity onPress={() => openEdit(shift)} style={s.iconBtn}>
                     <Ionicons name="pencil-outline" size={17} color={color}/>
@@ -1043,8 +1067,8 @@ export default function ShiftsScreen() {
 
             {modalMode === 'create' && (
               <View style={s.stepRow}>
-                {(['calendar','time','employee'] as const).map((st, i) => {
-                  const done   = (step==='time' && i===0) || (step==='employee' && i<=1);
+                {(['calendar','employee','time'] as const).map((st, i) => {
+                  const done   = (step==='employee' && i===0) || (step==='time' && i<=1);
                   const active = step === st;
                   return (
                     <View key={st} style={{ flexDirection:'row', alignItems:'center' }}>
@@ -1115,6 +1139,21 @@ export default function ShiftsScreen() {
                       <Text style={s.overnightText}>Turno nocturno — termina el día siguiente</Text>
                     </View>
                   )}
+                  {!isOvernight && (startPicked || modalMode==='edit') && endPicked && shiftTotalH > 8 && (
+                    <View style={s.longShiftWarn}>
+                      <Ionicons name="warning-outline" size={15} color="#92400E"/>
+                      <Text style={s.longShiftText}>Turno largo — {shiftTotalH}h. Confirma que es correcto.</Text>
+                    </View>
+                  )}
+                  {liveConflictDates.length > 0 && (
+                    <View style={s.conflictWarn}>
+                      <Ionicons name="alert-circle" size={15} color="#DC2626"/>
+                      <Text style={s.conflictWarnText}>
+                        {selEmp?.firstName} ya tiene un turno en:{' '}
+                        {liveConflictDates.map(d => new Date(d + 'T12:00:00').toLocaleDateString('es', { weekday: 'short', month: 'short', day: 'numeric' })).join(', ')}
+                      </Text>
+                    </View>
+                  )}
                   <View style={{ gap: 8 }}>
                     <Text style={s.stepTitle}>Descanso / Almuerzo</Text>
                     <View style={{ flexDirection:'row', gap:6 }}>
@@ -1149,7 +1188,7 @@ export default function ShiftsScreen() {
               {step==='employee' && (
                 <View style={{ gap: 8 }}>
                   <Text style={s.stepTitle}>Asignar a empleado</Text>
-                  {employees.map(emp => (
+                  {nonAdminEmployees.map(emp => (
                     <TouchableOpacity key={emp.employeeId}
                       style={[s.empRow, selEmp?.employeeId===emp.employeeId && { borderColor: color, backgroundColor: color+'08' }]}
                       onPress={() => setSelEmp(emp)}>
@@ -1157,7 +1196,14 @@ export default function ShiftsScreen() {
                         <Text style={s.avatarText}>{emp.firstName[0]}{emp.lastName[0]}</Text>
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={s.empName}>{emp.firstName} {emp.lastName}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={s.empName}>{emp.firstName} {emp.lastName}</Text>
+                          {emp.roleName && (
+                            <View style={{ backgroundColor: '#F3F4F6', borderRadius: 20, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: '#E5E7EB' }}>
+                              <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280' }}>{emp.roleName}</Text>
+                            </View>
+                          )}
+                        </View>
                         <Text style={s.empEmail}>{emp.email}</Text>
                       </View>
                       {selEmp?.employeeId===emp.employeeId && <Ionicons name="checkmark-circle" size={22} color={color}/>}
@@ -1169,7 +1215,7 @@ export default function ShiftsScreen() {
 
             <View style={s.footer}>
               {modalMode==='create' && step!=='calendar' && (
-                <TouchableOpacity style={s.backBtn} onPress={() => setStep(step==='employee'?'time':'calendar')}>
+                <TouchableOpacity style={s.backBtn} onPress={() => setStep(step==='time'?'employee':'calendar')}>
                   <Text style={{ color:'#6B7280', fontWeight:'600' }}>Atrás</Text>
                 </TouchableOpacity>
               )}
@@ -1181,20 +1227,20 @@ export default function ShiftsScreen() {
                     : <><Ionicons name="checkmark" size={15} color="#fff"/><Text style={{ color:'#fff', fontWeight:'700' }}>Guardar Cambios</Text></>
                   }
                 </TouchableOpacity>
-              ) : step!=='employee' ? (
+              ) : step!=='time' ? (
                 <TouchableOpacity
                   style={[s.nextBtn, { backgroundColor: color },
                     (selectedDates.size===0 && step==='calendar') && { opacity:0.4 },
-                    (step==='time' && modalMode==='create' && (!startPicked || !endPicked)) && { opacity:0.4 },
+                    (step==='employee' && !selEmp) && { opacity:0.4 },
                   ]}
-                  onPress={() => setStep(step==='calendar'?'time':'employee')}
-                  disabled={(selectedDates.size===0 && step==='calendar') || (step==='time' && modalMode==='create' && (!startPicked || !endPicked))}>
+                  onPress={() => setStep(step==='calendar'?'employee':'time')}
+                  disabled={(selectedDates.size===0 && step==='calendar') || (step==='employee' && !selEmp)}>
                   <Text style={{ color:'#fff', fontWeight:'700' }}>Siguiente</Text>
                   <Ionicons name="arrow-forward" size={15} color="#fff"/>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity style={[s.nextBtn, { backgroundColor: color }, (!selEmp||saving) && { opacity:0.4 }]}
-                  onPress={handleCreate} disabled={!selEmp||saving}>
+                <TouchableOpacity style={[s.nextBtn, { backgroundColor: color }, saving && { opacity:0.4 }]}
+                  onPress={handleCreate} disabled={saving}>
                   {saving
                     ? <ActivityIndicator color="#fff"/>
                     : <><Ionicons name="checkmark" size={15} color="#fff"/>
@@ -1263,21 +1309,27 @@ const s = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
     flexDirection:'row', alignItems:'center',
-    marginHorizontal:16, marginBottom:8, borderRadius:16, overflow:'hidden',
-    paddingVertical:14, paddingRight:8,
-    borderWidth:1, borderColor:'rgba(0,0,0,0.06)',
-    shadowColor:'#000', shadowOpacity:0.06, shadowRadius:12, shadowOffset:{ width:0, height:4 }, elevation:3,
+    marginHorizontal:16, marginBottom:10, borderRadius:18, overflow:'hidden',
+    paddingVertical:16, paddingRight:8,
+    borderWidth:1, borderColor:'rgba(0,0,0,0.07)',
+    shadowColor:'#000', shadowOpacity:0.07, shadowRadius:16, shadowOffset:{ width:0, height:5 }, elevation:3,
   },
-  colorBar: { width:5, alignSelf:'stretch' },
-  cardTime: { fontSize:16, fontWeight:'800', color:'#111827', letterSpacing:-0.3 },
+  colorBar: { width:5, alignSelf:'stretch', borderRadius:3 },
+  cardTime: { fontSize:17, fontWeight:'800', color:'#111827', letterSpacing:-0.4 },
   cardMeta: { flexDirection:'row', alignItems:'center', flexWrap:'wrap', gap:6 },
-  empBadge: { flexDirection:'row', alignItems:'center', gap:5, alignSelf:'flex-start', borderRadius:20, paddingRight:8, paddingVertical:2, marginTop:4 },
-  empBadgeAvatar: { width:18, height:18, borderRadius:9, alignItems:'center', justifyContent:'center' },
-  empBadgeInitials: { color:'#fff', fontSize:9, fontWeight:'800' },
-  empBadgeName: { fontSize:12, fontWeight:'600' },
-  cardActions: { flexDirection:'column', gap:4, paddingRight:4 },
-  iconBtn: { padding:7 },
-  durPill: { borderRadius:10, paddingHorizontal:7, paddingVertical:2 },
+  // New spacious employee row inside shift card
+  empCardRow: {
+    flexDirection:'row', alignItems:'center', gap:10,
+    backgroundColor:'#F9FAFB', borderRadius:12, padding:10,
+    borderWidth:1, borderColor:'#F3F4F6',
+  },
+  empCardAvatar: { width:34, height:34, borderRadius:17, alignItems:'center', justifyContent:'center' },
+  empCardInitials: { color:'#fff', fontSize:12, fontWeight:'800' },
+  empCardName: { fontSize:14, fontWeight:'700', color:'#111827' },
+  empCardRole: { fontSize:12, color:'#6B7280', fontWeight:'500', marginTop:1 },
+  cardActions: { flexDirection:'column', gap:6, paddingRight:4 },
+  iconBtn: { padding:8 },
+  durPill: { borderRadius:10, paddingHorizontal:8, paddingVertical:3 },
   durPillText: { fontSize:12, fontWeight:'700' },
   breakPill: { flexDirection:'row', alignItems:'center', gap:3, backgroundColor:'#F9FAFB', borderRadius:20, paddingHorizontal:8, paddingVertical:3, borderWidth:1, borderColor:'#F3F4F6' },
   breakPillText: { fontSize:11, fontWeight:'600', color:'#6B7280' },
@@ -1349,6 +1401,10 @@ const s = StyleSheet.create({
   breakHintText: { fontSize:12, color:'#9CA3AF' },
   overnightBadge: { flexDirection:'row', alignItems:'center', gap:6, backgroundColor:'#EEF2FF', borderRadius:10, padding:10, borderWidth:1, borderColor:'#C7D2FE' },
   overnightText: { fontSize:12, fontWeight:'600', color:'#4338CA', flex:1 },
+  longShiftWarn: { flexDirection:'row', alignItems:'center', gap:8, backgroundColor:'#FFFBEB', borderRadius:10, padding:10, borderWidth:1, borderColor:'#FDE68A' },
+  longShiftText: { fontSize:12, fontWeight:'600', color:'#92400E', flex:1 },
+  conflictWarn: { flexDirection:'row', alignItems:'center', gap:8, backgroundColor:'#FEF2F2', borderRadius:10, padding:10, borderWidth:1, borderColor:'#FECACA' },
+  conflictWarnText: { fontSize:12, fontWeight:'600', color:'#DC2626', flex:1 },
   filterRow: { flexDirection:'row', gap:8, paddingHorizontal:16, paddingTop:10, paddingBottom:6, justifyContent:'center' },
   filterChip: {
     flexDirection:'row', alignItems:'center', gap:5,

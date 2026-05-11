@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
+import { PasswordField, passwordValid } from '@/components/PasswordField';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
@@ -66,13 +67,19 @@ function getPayPeriodDates(
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function EmployeeProfileScreen() {
-  const { user, business, logout, primaryColor } = useAuth();
+  const { user, business, logout, primaryColor, login } = useAuth();
   const insets = useSafeAreaInsets();
   const color  = primaryColor;
+  const isGoogleUser = user?.provider === 'google';
 
   const [periodOffset, setPeriodOffset] = useState(0);
   const [periodLogs, setPeriodLogs]     = useState<TimeLog[]>([]);
   const [logsLoading, setLogsLoading]   = useState(false);
+
+  const [showPw, setShowPw]       = useState(false);
+  const [newPw, setNewPw]         = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [savingPw, setSavingPw]   = useState(false);
 
   const loadPeriodLogs = useCallback(async (offset: number) => {
     if (!business) return;
@@ -88,6 +95,19 @@ export default function EmployeeProfileScreen() {
   useEffect(() => {
     loadPeriodLogs(periodOffset);
   }, [periodOffset, loadPeriodLogs]);
+
+  const handleChangePassword = async () => {
+    if (!passwordValid(newPw)) { Alert.alert('Contraseña débil', 'Asegúrate de cumplir todos los requisitos.'); return; }
+    if (newPw !== confirmPw) { Alert.alert('No coinciden', 'Las contraseñas no son iguales.'); return; }
+    setSavingPw(true);
+    try {
+      await api.changePassword({ newPassword: newPw });
+      await login(user!.email, newPw);
+      Alert.alert('¡Listo!', 'Contraseña actualizada.');
+      setNewPw(''); setConfirmPw(''); setShowPw(false);
+    } catch (e: any) { Alert.alert('Error', e.message); }
+    finally { setSavingPw(false); }
+  };
 
   const period    = business ? getPayPeriodDates(business, periodOffset) : null;
   const totalMin  = periodLogs.reduce((s, l) => s + (l.totalMinutes ?? 0), 0);
@@ -132,10 +152,15 @@ export default function EmployeeProfileScreen() {
               <TouchableOpacity onPress={() => setPeriodOffset(o => o - 1)} style={s.navBtn}>
                 <Ionicons name="chevron-back" size={18} color="#374151" />
               </TouchableOpacity>
-              <View style={{ alignItems: 'center' }}>
+              <View style={{ alignItems: 'center', gap: 4 }}>
                 <Text style={s.periodLabel}>{period.label}</Text>
-                {periodOffset === 0 && (
+                {periodOffset === 0 ? (
                   <Text style={[s.currentTag, { color }]}>Período actual</Text>
+                ) : (
+                  <TouchableOpacity onPress={() => setPeriodOffset(0)} style={[s.backCurrentBtn, { borderColor: color, backgroundColor: color + '10' }]}>
+                    <Ionicons name="return-up-forward-outline" size={11} color={color} />
+                    <Text style={[s.backCurrentText, { color }]}>Ir al actual</Text>
+                  </TouchableOpacity>
                 )}
               </View>
               <TouchableOpacity
@@ -194,22 +219,29 @@ export default function EmployeeProfileScreen() {
           </View>
         )}
 
-        {/* Info */}
-        <View style={s.infoCard}>
+        {/* Change password — hidden for Google users */}
+        {!isGoogleUser && <TouchableOpacity style={s.infoCard} onPress={() => setShowPw(v => !v)} activeOpacity={0.8}>
           <View style={s.infoRow}>
             <View style={s.infoIcon}>
-              <Ionicons name="shield-outline" size={17} color="#9CA3AF" />
+              <Ionicons name="lock-closed-outline" size={17} color={color} />
             </View>
-            <Text style={s.infoText}>Rol: Empleado</Text>
+            <Text style={[s.infoText, { color, fontWeight: '600' }]}>Cambiar contraseña</Text>
+            <Ionicons name={showPw ? 'chevron-up' : 'chevron-down'} size={16} color="#9CA3AF" />
           </View>
-          <View style={s.divider} />
-          <View style={s.infoRow}>
-            <View style={s.infoIcon}>
-              <Ionicons name="information-circle-outline" size={17} color="#9CA3AF" />
-            </View>
-            <Text style={s.infoText}>Contacta a tu patrono para resetear tu contraseña.</Text>
-          </View>
-        </View>
+          {showPw && (
+            <>
+              <View style={s.divider} />
+              <PasswordField value={newPw} onChange={setNewPw} placeholder="Nueva contraseña" />
+              <PasswordField value={confirmPw} onChange={setConfirmPw} placeholder="Confirmar contraseña" showRequirements={false} />
+              <TouchableOpacity
+                style={[s.pwBtn, { backgroundColor: color, opacity: (!passwordValid(newPw) || !confirmPw) ? 0.5 : 1 }]}
+                onPress={handleChangePassword} disabled={savingPw || !passwordValid(newPw) || !confirmPw}
+              >
+                {savingPw ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.pwBtnText}>Guardar contraseña</Text>}
+              </TouchableOpacity>
+            </>
+          )}
+        </TouchableOpacity>}
 
         {/* Logout */}
         <TouchableOpacity style={s.logoutBtn} onPress={logout}>
@@ -260,6 +292,8 @@ const s = StyleSheet.create({
   },
   periodLabel: { fontSize: 15, fontWeight: '700', color: '#111827' },
   currentTag:  { fontSize: 11, fontWeight: '700', marginTop: 2 },
+  backCurrentBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, borderWidth: 1 },
+  backCurrentText: { fontSize: 11, fontWeight: '700' },
 
   totalRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -300,6 +334,8 @@ const s = StyleSheet.create({
   infoText: { fontSize: 14, color: '#374151', flex: 1 },
   divider:  { height: 1, backgroundColor: '#F3F4F6' },
 
+  pwBtn: { borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  pwBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 14, borderRadius: 16,

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import * as api from '@/services/api';
-import type { Employee } from '@/types';
+import type { BusinessRole, Employee } from '@/types';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -66,6 +66,37 @@ function IconUsers({ size = 44 }: { size?: number }) {
   );
 }
 
+// ── Admin Info Box ────────────────────────────────────────────────────────────
+function AdminInfoBox() {
+  const CAN    = ['Crear y editar turnos', 'Ver todos los empleados', 'Ver los reportes de tiempo'];
+  const CANNOT = ['Ajustes del negocio', 'Información de pago', 'Eliminar el negocio'];
+  return (
+    <div style={{ borderRadius: 12, border: `1px solid ${ADMIN_COLOR}30`, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 14px', backgroundColor: `${ADMIN_COLOR}10` }}>
+        <svg width={15} height={15} fill="none" viewBox="0 0 24 24" stroke={ADMIN_COLOR} strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        <span style={{ fontSize: 12, fontWeight: 800, color: ADMIN_COLOR }}>¿Qué puede hacer un Administrador?</span>
+      </div>
+      <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 10, fontWeight: 800, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Puede:</span>
+        {CAN.map(t => (
+          <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width={13} height={13} fill="none" viewBox="0 0 24 24" stroke="#10B981" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+            <span style={{ fontSize: 13, color: '#374151' }}>{t}</span>
+          </div>
+        ))}
+        <span style={{ fontSize: 10, fontWeight: 800, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.4px', marginTop: 6, marginBottom: 2 }}>No tiene acceso a:</span>
+        {CANNOT.map(t => (
+          <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width={13} height={13} fill="none" viewBox="0 0 24 24" stroke="#EF4444" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            <span style={{ fontSize: 13, color: '#374151' }}>{t}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+const ADMIN_COLOR = '#7C3AED';
+
 // ── Cred Row with copy ────────────────────────────────────────────────────────
 
 function CredRow({ label, value, color }: { label: string; value: string; color: string }) {
@@ -92,6 +123,31 @@ function CredRow({ label, value, color }: { label: string; value: string; color:
         </button>
       </div>
     </div>
+  );
+}
+
+// ── Role Name Input (larger, for the create-role form) ────────────────────────
+
+function RoleNameInput({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      placeholder="Nombre del rol (ej. Mesero, Cajero…)"
+      disabled={disabled}
+      style={{
+        width: '100%', height: 56, borderRadius: 14,
+        border: `1.5px solid ${focused ? '#6366F1' : '#E5E7EB'}`,
+        backgroundColor: focused ? '#fff' : '#F9FAFB',
+        padding: '0 16px', fontSize: 16, color: '#111827', outline: 'none',
+        transition: 'border-color 0.2s, background-color 0.2s',
+        opacity: disabled ? 0.5 : 1, boxSizing: 'border-box',
+      }}
+    />
   );
 }
 
@@ -143,6 +199,7 @@ function Modal({ open, onClose, children }: { open: boolean; onClose: () => void
           backgroundColor: '#fff', borderRadius: 24,
           padding: 28, boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
           display: 'flex', flexDirection: 'column', gap: 20,
+          maxHeight: '90vh', overflowY: 'auto',
         }}
       >
         {children}
@@ -162,7 +219,7 @@ function Confirm({
 }) {
   if (!open) return null;
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
       <div style={{
         position: 'relative', zIndex: 1, backgroundColor: '#fff', borderRadius: 20,
@@ -222,11 +279,37 @@ export default function EmployeesPage() {
   const color = business?.color ?? '#E11D48';
 
   const [employees, setEmployees]   = useState<Employee[]>([]);
+  const [roles, setRoles]           = useState<BusinessRole[]>([]);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
+  const [roleChanging, setRoleChanging] = useState(false);
+
+  // Roles management
+  const [newRoleName,    setNewRoleName]    = useState('');
+  const [newRoleIsAdmin, setNewRoleIsAdmin] = useState(false);
+  const [roleAdding,     setRoleAdding]     = useState(false);
+  const [roleError,      setRoleError]      = useState('');
+  const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
+  const [adminWarnRole,  setAdminWarnRole]  = useState<{ roleId: string; roleName: string } | null>(null);
+  const [editingRoleId,      setEditingRoleId]      = useState<string | null>(null);
+  const [editingRoleName,    setEditingRoleName]    = useState('');
+  const [editingRoleIsAdmin, setEditingRoleIsAdmin] = useState(false);
+  const [savingRoleId,       setSavingRoleId]       = useState<string | null>(null);
+  const [createAdminConfirm, setCreateAdminConfirm] = useState(false);
+  const [editAdminConfirm,   setEditAdminConfirm]   = useState(false);
+  const [deleteRoleTarget,   setDeleteRoleTarget]   = useState<BusinessRole | null>(null);
+  // Role assignment modal
+  const [assigningRole,    setAssigningRole]    = useState<BusinessRole | null>(null);
+  const [assignSelected,   setAssignSelected]   = useState<Set<string>>(new Set());
+  const [assignSaving,     setAssignSaving]     = useState(false);
+
+  const [rolesModal, setRolesModal] = useState(false);
 
   const [panel, setPanel]           = useState<Panel>(null);
   const [detailEmp, setDetailEmp]   = useState<DetailEmp | null>(null);
+  const [roleExpanded, setRoleExpanded] = useState(false);
+  // '__none__' = Sin rol pending; any other string = roleId pending; null = nothing pending
+  const [pendingRoleId, setPendingRoleId] = useState<string | null>(null);
   const [editMode, setEditMode]     = useState(false);
 
   // Add form
@@ -250,8 +333,12 @@ export default function EmployeesPage() {
     if (!business?.businessId) return;
     setLoading(true);
     try {
-      const emps = await api.getEmployees(business.businessId);
+      const [emps, bizRoles] = await Promise.all([
+        api.getEmployees(business.businessId),
+        api.getRoles(business.businessId).catch(() => [] as BusinessRole[]),
+      ]);
       setEmployees(emps);
+      setRoles(bizRoles);
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
   }, [business?.businessId]);
@@ -262,6 +349,8 @@ export default function EmployeesPage() {
     setDetailEmp(emp);
     setEditMode(false);
     setEditError('');
+    setRoleExpanded(false);
+    setPendingRoleId(null);
     setPanel('detail');
   };
 
@@ -324,6 +413,20 @@ export default function EmployeesPage() {
     finally { setEditSaving(false); }
   };
 
+  // ── Assign Role ──────────────────────────────────────────────────────────────
+
+  const handleAssignRole = async (emp: Employee, roleId: string | null) => {
+    setRoleChanging(true);
+    try {
+      await api.assignEmployeeRole(emp.employeeId, roleId);
+      const role = roles.find(r => r.roleId === roleId) ?? null;
+      const updated = { ...emp, roleId, roleName: role?.name ?? null, roleIsAdmin: role?.isAdmin ?? false };
+      setDetailEmp(updated);
+      setEmployees(prev => prev.map(e => e.employeeId === emp.employeeId ? updated : e));
+    } catch (e: any) { setEditError(e.message); }
+    finally { setRoleChanging(false); }
+  };
+
   // ── Reset PIN ────────────────────────────────────────────────────────────────
 
   const handleReset = async () => {
@@ -348,6 +451,100 @@ export default function EmployeesPage() {
       closePanel();
     } catch (e: any) { setEditError(e.message); }
     finally { setDeleting(false); }
+  };
+
+  // ── Role management ─────────────────────────────────────────────────────────
+
+  const doCreateRole = async () => {
+    if (!newRoleName.trim() || !business) return;
+    setRoleAdding(true); setRoleError('');
+    try {
+      const r = await api.createRole({ businessId: business.businessId, name: newRoleName.trim(), isAdmin: newRoleIsAdmin });
+      setRoles(prev => [...prev, r]);
+      setNewRoleName(''); setNewRoleIsAdmin(false); setCreateAdminConfirm(false);
+      openAssignModal(r);
+    } catch (e: any) { setRoleError(e.message); }
+    finally { setRoleAdding(false); }
+  };
+
+  const handleCreateRole = () => {
+    if (!newRoleName.trim()) return;
+    if (newRoleIsAdmin && !createAdminConfirm) { setCreateAdminConfirm(true); return; }
+    doCreateRole();
+  };
+
+  const startEditRole = (r: BusinessRole) => {
+    setEditingRoleId(r.roleId);
+    setEditingRoleName(r.name);
+    setEditingRoleIsAdmin(r.isAdmin);
+    setRoleError('');
+  };
+
+  const doUpdateRole = async () => {
+    if (!editingRoleId || !editingRoleName.trim()) return;
+    setSavingRoleId(editingRoleId); setRoleError('');
+    try {
+      const updated = await api.updateRole(editingRoleId, { name: editingRoleName.trim(), isAdmin: editingRoleIsAdmin });
+      setRoles(prev => prev.map(r => r.roleId === editingRoleId ? updated : r));
+      setEmployees(prev => prev.map(e => e.roleId === editingRoleId ? { ...e, roleName: updated.name, roleIsAdmin: updated.isAdmin } : e));
+      setEditingRoleId(null); setEditAdminConfirm(false);
+    } catch (e: any) { setRoleError(e.message); }
+    finally { setSavingRoleId(null); }
+  };
+
+  const handleUpdateRole = () => {
+    if (!editingRoleId || !editingRoleName.trim()) return;
+    const prev = roles.find(r => r.roleId === editingRoleId);
+    if (editingRoleIsAdmin && !prev?.isAdmin && !editAdminConfirm) { setEditAdminConfirm(true); return; }
+    doUpdateRole();
+  };
+
+  const doDeleteRole = async (roleId: string) => {
+    setDeletingRoleId(roleId);
+    try {
+      await api.deleteRole(roleId);
+      setRoles(prev => prev.filter(r => r.roleId !== roleId));
+      setEmployees(prev => prev.map(e => e.roleId === roleId ? { ...e, roleId: null, roleName: null, roleIsAdmin: false } : e));
+      setDeleteRoleTarget(null);
+    } catch (e: any) { setRoleError(e.message); }
+    finally { setDeletingRoleId(null); }
+  };
+
+  const confirmAssignAdminRole = (emp: Employee, roleId: string, roleName: string) => {
+    setAdminWarnRole({ roleId, roleName });
+  };
+
+  const openAssignModal = (role: BusinessRole) => {
+    const preSelected = new Set(
+      employees.filter(e => !e.deletedAt && e.roleId === role.roleId).map(e => e.employeeId)
+    );
+    setAssignSelected(preSelected);
+    setAssigningRole(role);
+  };
+
+  const handleSaveRoleAssignment = async () => {
+    if (!assigningRole) return;
+    setAssignSaving(true);
+    try {
+      const activeEmps = employees.filter(e => !e.deletedAt);
+      await Promise.all(activeEmps.map(emp => {
+        const had  = emp.roleId === assigningRole.roleId;
+        const want = assignSelected.has(emp.employeeId);
+        if (want && !had)  return api.assignEmployeeRole(emp.employeeId, assigningRole.roleId);
+        if (!want && had)  return api.assignEmployeeRole(emp.employeeId, null);
+        return Promise.resolve();
+      }));
+      setEmployees(prev => prev.map(e => {
+        if (e.deletedAt) return e;
+        if (assignSelected.has(e.employeeId))
+          return { ...e, roleId: assigningRole.roleId, roleName: assigningRole.name, roleIsAdmin: assigningRole.isAdmin };
+        if (e.roleId === assigningRole.roleId)
+          return { ...e, roleId: null, roleName: null, roleIsAdmin: false };
+        return e;
+      }));
+      setAssigningRole(null);
+    } catch (e: any) { setRoleError(e.message); }
+    finally { setAssignSaving(false); }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -445,61 +642,123 @@ export default function EmployeesPage() {
           </div>
         )}
 
+        {/* ── Roles del Negocio Card ── */}
+        <div style={{ marginBottom: 32, borderRadius: 20, border: `1.5px solid ${color}30`, backgroundColor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width={20} height={20} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
+              </svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 16, fontWeight: 800, color: '#111827', margin: 0 }}>Roles del Negocio</p>
+              <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>
+                {roles.length === 0 ? 'Sin roles creados' : `${roles.length} rol${roles.length !== 1 ? 'es' : ''} definido${roles.length !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+            <button
+              onClick={() => setRolesModal(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, height: 38, paddingLeft: 14, paddingRight: 14, borderRadius: 12, border: 'none', backgroundColor: color, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0, boxShadow: `0 3px 10px ${color}35` }}
+            >
+              <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              Gestionar
+            </button>
+          </div>
+
+          {/* Role pills */}
+          {roles.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+              {roles.map(r => (
+                <div key={r.roleId} style={{ display: 'flex', alignItems: 'center', gap: 5, paddingLeft: 10, paddingRight: 10, height: 28, borderRadius: 14, backgroundColor: r.isAdmin ? `${ADMIN_COLOR}12` : '#F3F4F6', border: `1px solid ${r.isAdmin ? `${ADMIN_COLOR}40` : '#E5E7EB'}` }}>
+                  {r.isAdmin && <svg width={11} height={11} fill="none" viewBox="0 0 24 24" stroke={ADMIN_COLOR} strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>}
+                  <span style={{ fontSize: 12, fontWeight: 700, color: r.isAdmin ? ADMIN_COLOR : '#374151' }}>{r.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Employees ── */}
         {/* Employee grid */}
-        {!loading && employees.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-            {employees.map(emp => {
-              const initials = `${emp.firstName[0] ?? ''}${emp.lastName[0] ?? ''}`.toUpperCase();
-              return (
-                <div
-                  key={emp.employeeId}
-                  onClick={() => openDetail(emp)}
-                  style={{
-                    backgroundColor: 'rgba(255,255,255,0.88)',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    borderRadius: 20,
-                    border: '1px solid rgba(255,255,255,0.7)',
-                    boxShadow: '0 4px 24px rgba(0,0,0,0.07)',
-                    padding: 20,
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    cursor: 'pointer',
-                    transition: 'box-shadow 0.2s, transform 0.15s',
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 32px rgba(0,0,0,0.13)';
-                    (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 24px rgba(0,0,0,0.07)';
-                    (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
-                  }}
-                >
-                  <div style={{
-                    width: 48, height: 48, borderRadius: 16,
-                    backgroundColor: color, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontWeight: 800, fontSize: 17, flexShrink: 0,
-                  }}>
-                    {initials}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: '0 0 3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {emp.firstName} {emp.lastName}
-                    </p>
-                    <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {emp.email}
-                    </p>
-                  </div>
-                  <div style={{ color: '#D1D5DB', flexShrink: 0 }}>
-                    <svg width={16} height={16} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
+        {!loading && employees.length > 0 && (() => {
+          const sort = (arr: Employee[]) => [...arr].sort((a, b) =>
+            `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')
+          );
+          const admins  = sort(employees.filter(e => e.roleIsAdmin  && !e.deletedAt));
+          const regulars = sort(employees.filter(e => !e.roleIsAdmin && !e.deletedAt));
+
+          const EmpCard = (emp: Employee) => {
+            const isAdmin = !!emp.roleIsAdmin;
+            const avatarBg = isAdmin ? ADMIN_COLOR : color;
+            const initials = `${emp.firstName[0] ?? ''}${emp.lastName[0] ?? ''}`.toUpperCase();
+            return (
+              <div
+                key={emp.employeeId}
+                onClick={() => openDetail(emp)}
+                style={{
+                  backgroundColor: isAdmin ? `${ADMIN_COLOR}08` : 'rgba(255,255,255,0.88)',
+                  backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                  borderRadius: 20,
+                  border: isAdmin ? `1.5px solid ${ADMIN_COLOR}30` : '1px solid rgba(255,255,255,0.7)',
+                  boxShadow: isAdmin ? `0 4px 24px ${ADMIN_COLOR}18` : '0 4px 24px rgba(0,0,0,0.07)',
+                  padding: 20, display: 'flex', alignItems: 'center', gap: 14,
+                  cursor: 'pointer', transition: 'box-shadow 0.2s, transform 0.15s',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 32px rgba(0,0,0,0.13)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = isAdmin ? `0 4px 24px ${ADMIN_COLOR}18` : '0 4px 24px rgba(0,0,0,0.07)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
+              >
+                <div style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 17, flexShrink: 0 }}>
+                  {initials}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: '0 0 3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {emp.firstName} {emp.lastName}
+                  </p>
+                  {emp.roleName ? (
+                    <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '2px 8px', backgroundColor: isAdmin ? `${ADMIN_COLOR}18` : '#F3F4F6', color: isAdmin ? ADMIN_COLOR : '#6B7280', border: `1px solid ${isAdmin ? `${ADMIN_COLOR}40` : '#E5E7EB'}` }}>
+                      {emp.roleName}
+                    </span>
+                  ) : (
+                    <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.email}</p>
+                  )}
+                </div>
+                <div style={{ color: '#D1D5DB', flexShrink: 0 }}>
+                  <svg width={16} height={16} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                </div>
+              </div>
+            );
+          };
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              {admins.length > 0 && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 800, color: ADMIN_COLOR, textTransform: 'uppercase', letterSpacing: '0.7px', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width={13} height={13} fill="none" viewBox="0 0 24 24" stroke={ADMIN_COLOR} strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    Administradores
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+                    {admins.map(EmpCard)}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              )}
+              {regulars.length > 0 && (
+                <div>
+                  {admins.length > 0 && (
+                    <p style={{ fontSize: 11, fontWeight: 800, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.7px', margin: '0 0 10px' }}>Empleados</p>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+                    {regulars.map(EmpCard)}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── Add Modal ── */}
@@ -611,7 +870,8 @@ export default function EmployeesPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{
                   width: 60, height: 60, borderRadius: 20, flexShrink: 0,
-                  backgroundColor: color, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: detailEmp.roleIsAdmin ? ADMIN_COLOR : color,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: '#fff', fontWeight: 900, fontSize: 22,
                 }}>
                   {`${detailEmp.firstName[0] ?? ''}${detailEmp.lastName[0] ?? ''}`.toUpperCase()}
@@ -620,7 +880,13 @@ export default function EmployeesPage() {
                   <p style={{ fontSize: 20, fontWeight: 800, color: '#111827', margin: '0 0 2px' }}>
                     {detailEmp.firstName} {detailEmp.lastName}
                   </p>
-                  <p style={{ fontSize: 13, color: '#9CA3AF', margin: 0 }}>Empleado</p>
+                  {detailEmp.roleName ? (
+                    <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '2px 10px', backgroundColor: detailEmp.roleIsAdmin ? `${ADMIN_COLOR}18` : '#F3F4F6', color: detailEmp.roleIsAdmin ? ADMIN_COLOR : '#6B7280', border: `1px solid ${detailEmp.roleIsAdmin ? `${ADMIN_COLOR}40` : '#E5E7EB'}` }}>
+                      {detailEmp.roleName}
+                    </span>
+                  ) : (
+                    <p style={{ fontSize: 13, color: '#9CA3AF', margin: 0 }}>Sin rol asignado</p>
+                  )}
                 </div>
                 <button
                   onClick={startEdit}
@@ -634,34 +900,170 @@ export default function EmployeesPage() {
 
             {/* Credentials */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div>
-                <p style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: '0 0 4px' }}>Credenciales de Acceso</p>
-                <p style={{ fontSize: 13, color: '#9CA3AF', margin: 0 }}>Comparte estas credenciales con el empleado para que pueda entrar al app.</p>
-              </div>
+              <p style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: 0 }}>Credenciales de Acceso</p>
               <CredRow label="Email" value={detailEmp.email} color={color} />
-              <CredRow label="Contraseña" value={detailEmp.tempPassword ?? '—'} color={color} />
+
+              {detailEmp.tempPassword ? (
+                <CredRow label="Contraseña" value={detailEmp.tempPassword} color={color} />
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, backgroundColor: '#F9FAFB', border: '1.5px solid #E5E7EB' }}>
+                  <svg width={15} height={15} fill="none" viewBox="0 0 24 24" stroke="#9CA3AF" strokeWidth={2} style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: 0 }}>Contraseña propia</p>
+                    <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>El empleado cambió su contraseña. Puedes generar una nueva abajo si la olvidó.</p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Reset PIN */}
+            {/* Reset password */}
             <button
               onClick={handleReset}
               disabled={resetting}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                height: 48, borderRadius: 14, border: `1.5px solid ${color}`,
+                height: 44, borderRadius: 12, border: `1.5px solid ${color}`,
                 backgroundColor: `${color}0D`, color: color,
-                fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 opacity: resetting ? 0.6 : 1,
                 transition: 'opacity 0.2s',
               }}
             >
               {resetting ? <Spinner color={color} /> : (
                 <>
-                  <IconRefresh size={16} />
-                  Resetear Contraseña
+                  <IconRefresh size={14} />
+                  {detailEmp.tempPassword ? 'Generar nueva contraseña' : 'Restablecer contraseña'}
                 </>
               )}
             </button>
+
+            {/* Role — collapsible */}
+            {roles.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #F3F4F6', paddingTop: 16 }}>
+                {/* Toggle header */}
+                <button
+                  onClick={() => { setRoleExpanded(v => !v); setPendingRoleId(null); }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Rol actual</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: detailEmp.roleIsAdmin ? ADMIN_COLOR : (detailEmp.roleName ? color : '#9CA3AF') }}>
+                      {detailEmp.roleName ?? 'Sin rol asignado'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 34, paddingInline: 12, borderRadius: 10, border: '1.5px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>Cambiar rol</span>
+                    <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="#6B7280" strokeWidth={2.5} style={{ transition: 'transform 0.2s', transform: roleExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
+
+                {/* Expandable list */}
+                {roleExpanded && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+
+                    {/* Sin rol row */}
+                    {(() => {
+                      const isCurrent = !detailEmp.roleId;
+                      const isPending = pendingRoleId === '__none__';
+                      const isActive  = isCurrent || isPending;
+                      return (
+                        <>
+                          <button
+                            onClick={() => setPendingRoleId(isPending ? null : '__none__')}
+                            disabled={roleChanging || isCurrent}
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: `1.5px solid ${isActive ? color : '#E5E7EB'}`, backgroundColor: isActive ? color + '0C' : '#F9FAFB', cursor: isCurrent ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
+                          >
+                            <div style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: isActive ? color + '20' : '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke={isActive ? color : '#9CA3AF'} strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ fontSize: 13, fontWeight: 700, color: isActive ? color : '#374151', margin: 0 }}>Sin rol</p>
+                              <p style={{ fontSize: 11, color: '#9CA3AF', margin: '1px 0 0' }}>Acceso básico de empleado</p>
+                            </div>
+                            {isCurrent && <svg width={16} height={16} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+                          </button>
+                          {isPending && (
+                            <div style={{ display: 'flex', gap: 8, padding: '10px 14px', backgroundColor: '#F9FAFB', borderRadius: 12, border: '1.5px solid #E5E7EB' }}>
+                              <button onClick={() => setPendingRoleId(null)}
+                                style={{ flex: 1, height: 36, borderRadius: 10, border: '1.5px solid #E5E7EB', backgroundColor: '#fff', fontSize: 13, fontWeight: 700, color: '#374151', cursor: 'pointer' }}>
+                                Cancelar
+                              </button>
+                              <button
+                                onClick={() => { handleAssignRole(detailEmp, null); setPendingRoleId(null); setRoleExpanded(false); }}
+                                disabled={roleChanging}
+                                style={{ flex: 2, height: 36, borderRadius: 10, border: 'none', backgroundColor: color, fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer', opacity: roleChanging ? 0.6 : 1 }}>
+                                {roleChanging ? '…' : 'Confirmar'}
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
+                    {/* Role rows */}
+                    {roles.map(r => {
+                      const isCurrent = detailEmp.roleId === r.roleId;
+                      const isPending = pendingRoleId === r.roleId;
+                      const isActive  = isCurrent || isPending;
+                      const rowColor  = r.isAdmin ? ADMIN_COLOR : color;
+                      return (
+                        <div key={r.roleId} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <button
+                            onClick={() => setPendingRoleId(isPending ? null : r.roleId)}
+                            disabled={roleChanging || isCurrent}
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: `1.5px solid ${isActive ? rowColor : '#E5E7EB'}`, backgroundColor: isActive ? rowColor + '0C' : r.isAdmin ? `${ADMIN_COLOR}04` : '#F9FAFB', cursor: isCurrent ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
+                          >
+                            <div style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: isActive ? rowColor + '20' : r.isAdmin ? `${ADMIN_COLOR}12` : '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              {r.isAdmin
+                                ? <svg width={16} height={16} fill="none" viewBox="0 0 24 24" stroke={isActive ? ADMIN_COLOR : `${ADMIN_COLOR}80`} strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                : <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke={isActive ? color : '#9CA3AF'} strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                              }
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ fontSize: 13, fontWeight: 700, color: isActive ? rowColor : '#374151', margin: 0 }}>{r.name}</p>
+                              <p style={{ fontSize: 11, color: r.isAdmin ? (isActive ? ADMIN_COLOR : `${ADMIN_COLOR}90`) : '#9CA3AF', margin: '1px 0 0', fontWeight: r.isAdmin ? 600 : 400 }}>
+                                {r.isAdmin ? 'Puede gestionar turnos, empleados y reportes' : 'Acceso estándar de empleado'}
+                              </p>
+                            </div>
+                            {isCurrent && <svg width={16} height={16} fill="none" viewBox="0 0 24 24" stroke={rowColor} strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+                          </button>
+
+                          {/* Inline confirmation — appears directly below the selected row */}
+                          {isPending && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 14px', backgroundColor: r.isAdmin ? `${ADMIN_COLOR}06` : '#F9FAFB', borderRadius: 12, border: `1.5px solid ${r.isAdmin ? `${ADMIN_COLOR}30` : '#E5E7EB'}` }}>
+                              {r.isAdmin && (
+                                <>
+                                  <p style={{ fontSize: 12, fontWeight: 700, color: ADMIN_COLOR, margin: 0 }}>
+                                    Este rol tiene permisos de administrador
+                                  </p>
+                                  <AdminInfoBox />
+                                </>
+                              )}
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button onClick={() => setPendingRoleId(null)}
+                                  style={{ flex: 1, height: 36, borderRadius: 10, border: `1.5px solid ${r.isAdmin ? `${ADMIN_COLOR}40` : '#E5E7EB'}`, backgroundColor: '#fff', fontSize: 13, fontWeight: 700, color: r.isAdmin ? ADMIN_COLOR : '#374151', cursor: 'pointer' }}>
+                                  Cancelar
+                                </button>
+                                <button
+                                  onClick={() => { handleAssignRole(detailEmp, r.roleId); setPendingRoleId(null); setRoleExpanded(false); }}
+                                  disabled={roleChanging}
+                                  style={{ flex: 2, height: 36, borderRadius: 10, border: 'none', backgroundColor: rowColor, fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer', opacity: roleChanging ? 0.6 : 1 }}>
+                                  {roleChanging ? '…' : r.isAdmin ? 'Sí, asignar' : 'Confirmar'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {roleChanging && <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Guardando...</p>}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </Modal>
@@ -677,6 +1079,282 @@ export default function EmployeesPage() {
         onCancel={() => setDeleteConfirm(false)}
         loading={deleting}
       />
+
+      {/* ── Assign Role Modal ── */}
+      {assigningRole && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={e => { if (e.target === e.currentTarget) setAssigningRole(null); }}>
+          <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} />
+          <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 460, backgroundColor: '#fff', borderRadius: 28, boxShadow: '0 32px 80px rgba(0,0,0,0.22)', display: 'flex', flexDirection: 'column', maxHeight: '88vh', overflow: 'hidden' }}>
+
+            {/* Header */}
+            <div style={{ padding: '20px 24px 14px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: 0 }}>Asignar "{assigningRole.name}"</h2>
+                <p style={{ fontSize: 12, color: '#9CA3AF', margin: '3px 0 0' }}>
+                  Elige los empleados que tendrán este rol · {assignSelected.size} seleccionado{assignSelected.size !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <button onClick={() => setAssigningRole(null)}
+                style={{ width: 34, height: 34, borderRadius: 10, border: '1px solid #F0F0F0', backgroundColor: '#F9FAFB', color: '#6B7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+                ×
+              </button>
+            </div>
+
+            {/* Employee list */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {employees.filter(e => !e.deletedAt).sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map(emp => {
+                const isSel     = assignSelected.has(emp.employeeId);
+                const hasOther  = emp.roleId && emp.roleId !== assigningRole!.roleId;
+                const otherRole = hasOther ? roles.find(r => r.roleId === emp.roleId) : null;
+                const initials  = `${emp.firstName[0] ?? ''}${emp.lastName[0] ?? ''}`.toUpperCase();
+                const toggle    = () => setAssignSelected(prev => {
+                  const next = new Set(prev);
+                  next.has(emp.employeeId) ? next.delete(emp.employeeId) : next.add(emp.employeeId);
+                  return next;
+                });
+                return (
+                  <button key={emp.employeeId} onClick={toggle} type="button"
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, border: `1.5px solid ${isSel ? color : 'transparent'}`, backgroundColor: isSel ? `${color}0E` : '#F9FAFB', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 12, flexShrink: 0, backgroundColor: isSel ? color : '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isSel ? '#fff' : '#9CA3AF', fontWeight: 800, fontSize: 13, transition: 'all 0.15s' }}>{initials}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 14, fontWeight: 600, color: isSel ? color : '#374151', margin: 0, lineHeight: 1.3 }}>{emp.firstName} {emp.lastName}</p>
+                      {otherRole
+                        ? <p style={{ fontSize: 11, color: '#F59E0B', margin: '1px 0 0', fontWeight: 600 }}>Tiene rol: {otherRole.name} → se reemplazará</p>
+                        : <p style={{ fontSize: 11, color: '#9CA3AF', margin: '1px 0 0' }}>{emp.email}</p>
+                      }
+                    </div>
+                    <div style={{ width: 22, height: 22, borderRadius: 11, flexShrink: 0, border: `2px solid ${isSel ? color : '#D1D5DB'}`, backgroundColor: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                      {isSel && <svg width={11} height={11} fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '14px 24px 20px', borderTop: '1px solid #F3F4F6', display: 'flex', gap: 10 }}>
+              <button onClick={() => setAssigningRole(null)}
+                style={{ flex: 1, height: 48, borderRadius: 14, border: '1.5px solid #E5E7EB', backgroundColor: '#F9FAFB', fontSize: 14, fontWeight: 700, color: '#374151', cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={handleSaveRoleAssignment} disabled={assignSaving}
+                style={{ flex: 2, height: 48, borderRadius: 14, border: 'none', backgroundColor: color, color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', opacity: assignSaving ? 0.6 : 1, boxShadow: `0 4px 14px ${color}40` }}>
+                {assignSaving ? '…' : `Guardar asignación`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Role Confirm ── */}
+      <Confirm
+        open={!!deleteRoleTarget}
+        title="Eliminar rol"
+        message={deleteRoleTarget ? `¿Eliminar el rol "${deleteRoleTarget.name}"?\n\nLos empleados con este rol quedarán sin rol asignado.` : ''}
+        confirmLabel="Eliminar rol"
+        danger
+        onConfirm={() => deleteRoleTarget && doDeleteRole(deleteRoleTarget.roleId)}
+        onCancel={() => setDeleteRoleTarget(null)}
+        loading={!!deletingRoleId}
+      />
+
+      {/* ── Gestionar Roles Modal ── */}
+      {rolesModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={e => { if (e.target === e.currentTarget) { setRolesModal(false); setEditingRoleId(null); setEditAdminConfirm(false); setCreateAdminConfirm(false); } }}>
+          <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} />
+          <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 720, backgroundColor: '#fff', borderRadius: 28, boxShadow: '0 32px 80px rgba(0,0,0,0.22)', display: 'flex', flexDirection: 'column', maxHeight: '90vh', overflow: 'hidden' }}>
+
+            {/* Header */}
+            <div style={{ padding: '22px 28px 16px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#111827', margin: 0 }}>Roles del Negocio</h2>
+                <p style={{ fontSize: 13, color: '#9CA3AF', margin: '3px 0 0' }}>Crea, edita y asigna los roles de tu equipo</p>
+              </div>
+              <button
+                onClick={() => { setRolesModal(false); setEditingRoleId(null); setEditAdminConfirm(false); setCreateAdminConfirm(false); }}
+                style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid #F0F0F0', backgroundColor: '#F9FAFB', color: '#6B7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <IconClose size={18} />
+              </button>
+            </div>
+
+            {/* Scrollable body */}
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 28px' }}>
+
+              {roleError && (
+                <div style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '10px 14px', marginBottom: 16, color: '#DC2626', fontSize: 13 }}>
+                  {roleError}
+                </div>
+              )}
+
+              {/* Role cards grid */}
+              {roles.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14, marginBottom: 24 }}>
+                  {roles.map(r => {
+                    const isEditing  = editingRoleId  === r.roleId;
+                    const isSaving   = savingRoleId   === r.roleId;
+                    const isDeleting = deletingRoleId === r.roleId;
+                    const isAdminRole = isEditing ? editingRoleIsAdmin : r.isAdmin;
+                    const empCount = employees.filter(e => !e.deletedAt && e.roleId === r.roleId).length;
+                    const cardColor = isAdminRole ? ADMIN_COLOR : color;
+                    return (
+                      <div key={r.roleId} style={{
+                        backgroundColor: 'rgba(255,255,255,0.88)',
+                        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                        borderRadius: 18,
+                        border: `1.5px solid ${isAdminRole ? `${ADMIN_COLOR}35` : `${color}30`}`,
+                        boxShadow: `0 4px 20px ${cardColor}10`,
+                        padding: 16,
+                        display: 'flex', flexDirection: 'column', gap: 10,
+                      }}>
+                        {isEditing ? (
+                          <>
+                            <input
+                              value={editingRoleName}
+                              onChange={e => { setEditingRoleName(e.target.value); setEditAdminConfirm(false); }}
+                              onKeyDown={e => { if (e.key === 'Enter') handleUpdateRole(); if (e.key === 'Escape') { setEditingRoleId(null); setEditAdminConfirm(false); } }}
+                              autoFocus
+                              style={{ height: 36, borderRadius: 10, border: '1.5px solid #6366F1', padding: '0 10px', fontSize: 14, fontWeight: 600, color: '#111827', outline: 'none', backgroundColor: '#fff' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => { setEditingRoleIsAdmin(v => !v); setEditAdminConfirm(false); }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, textAlign: 'left', width: '100%', border: `1.5px solid ${editingRoleIsAdmin ? ADMIN_COLOR : '#E5E7EB'}`, backgroundColor: editingRoleIsAdmin ? `${ADMIN_COLOR}08` : 'transparent', cursor: 'pointer', transition: 'all 0.15s' }}
+                            >
+                              <svg width={15} height={15} fill="none" viewBox="0 0 24 24" stroke={editingRoleIsAdmin ? ADMIN_COLOR : '#9CA3AF'} strokeWidth={2.5} style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                              <div style={{ flex: 1 }}>
+                                <p style={{ fontSize: 12, fontWeight: 700, color: editingRoleIsAdmin ? ADMIN_COLOR : '#374151', margin: 0 }}>Administrador</p>
+                              </div>
+                              <div style={{ width: 34, height: 18, borderRadius: 9, flexShrink: 0, backgroundColor: editingRoleIsAdmin ? ADMIN_COLOR : '#E5E7EB', position: 'relative', transition: 'background-color 0.2s' }}>
+                                <div style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#fff', position: 'absolute', top: 3, left: editingRoleIsAdmin ? 19 : 3, transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                              </div>
+                            </button>
+                            {editAdminConfirm ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 10, backgroundColor: `${ADMIN_COLOR}06`, borderRadius: 10, border: `1px solid ${ADMIN_COLOR}25` }}>
+                                <p style={{ fontSize: 12, fontWeight: 700, color: ADMIN_COLOR, margin: 0 }}>Confirmar administrador para "{editingRoleName}"</p>
+                                <AdminInfoBox />
+                                <button onClick={doUpdateRole} disabled={isSaving}
+                                  style={{ height: 34, borderRadius: 9, border: 'none', backgroundColor: ADMIN_COLOR, fontSize: 12, fontWeight: 700, color: '#fff', cursor: 'pointer', opacity: isSaving ? 0.6 : 1 }}>
+                                  {isSaving ? '…' : 'Confirmar y guardar'}
+                                </button>
+                                <button onClick={() => setEditAdminConfirm(false)}
+                                  style={{ height: 34, borderRadius: 9, border: 'none', backgroundColor: '#F3F4F6', fontSize: 12, fontWeight: 700, color: '#374151', cursor: 'pointer' }}>
+                                  Atrás
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button onClick={() => { setEditingRoleId(null); setEditAdminConfirm(false); }}
+                                  style={{ flex: 1, height: 34, borderRadius: 9, border: '1.5px solid #E5E7EB', backgroundColor: '#F9FAFB', fontSize: 12, fontWeight: 700, color: '#374151', cursor: 'pointer' }}>
+                                  Cancelar
+                                </button>
+                                <button onClick={handleUpdateRole} disabled={isSaving || !editingRoleName.trim()}
+                                  style={{ flex: 2, height: 34, borderRadius: 9, border: 'none', backgroundColor: color, fontSize: 12, fontWeight: 700, color: '#fff', cursor: 'pointer', opacity: isSaving || !editingRoleName.trim() ? 0.5 : 1 }}>
+                                  {isSaving ? '…' : 'Guardar'}
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div style={{ width: 40, height: 40, borderRadius: 13, flexShrink: 0, backgroundColor: `${cardColor}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {isAdminRole
+                                  ? <svg width={18} height={18} fill="none" viewBox="0 0 24 24" stroke={cardColor} strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                  : <svg width={18} height={18} fill="none" viewBox="0 0 24 24" stroke={cardColor} strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                }
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</p>
+                                <p style={{ fontSize: 11, margin: 0, color: '#9CA3AF' }}>
+                                  {empCount === 0 ? 'Sin asignar' : `${empCount} empleado${empCount !== 1 ? 's' : ''}`}
+                                </p>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button onClick={() => openAssignModal(r)}
+                                style={{ flex: 1, height: 32, borderRadius: 9, border: `1.5px solid ${cardColor}40`, backgroundColor: `${cardColor}0C`, color: cardColor, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                <IconUsers size={12} />
+                                Asignar
+                              </button>
+                              <button onClick={() => startEditRole(r)}
+                                style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB', color: '#6B7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = color; (e.currentTarget as HTMLElement).style.color = color; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#E5E7EB'; (e.currentTarget as HTMLElement).style.color = '#6B7280'; }}>
+                                <IconEdit size={13} />
+                              </button>
+                              <button onClick={() => setDeleteRoleTarget(r)} disabled={isDeleting}
+                                style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #FECACA', backgroundColor: '#FEF2F2', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isDeleting ? 0.5 : 1 }}>
+                                <IconTrash size={13} />
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Create new role */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: roles.length > 0 ? '1px solid #F3F4F6' : 'none', paddingTop: roles.length > 0 ? 20 : 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 800, color: '#374151', margin: 0 }}>Nuevo rol</p>
+
+                <RoleNameInput
+                  value={newRoleName}
+                  onChange={v => { setNewRoleName(v); setRoleError(''); setCreateAdminConfirm(false); }}
+                  disabled={roleAdding}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => { setNewRoleIsAdmin(v => !v); setCreateAdminConfirm(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, textAlign: 'left', width: '100%', border: `1.5px solid ${newRoleIsAdmin ? ADMIN_COLOR : '#E5E7EB'}`, backgroundColor: newRoleIsAdmin ? `${ADMIN_COLOR}08` : 'transparent', cursor: 'pointer', transition: 'all 0.15s' }}
+                >
+                  <svg width={18} height={18} fill="none" viewBox="0 0 24 24" stroke={newRoleIsAdmin ? ADMIN_COLOR : '#9CA3AF'} strokeWidth={2.5} style={{ flexShrink: 0, transition: 'stroke 0.15s' }}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: newRoleIsAdmin ? ADMIN_COLOR : '#374151', margin: 0, transition: 'color 0.15s' }}>Acceso de Administrador</p>
+                    <p style={{ fontSize: 12, color: '#9CA3AF', margin: '1px 0 0' }}>Puede gestionar turnos, empleados y reportes</p>
+                  </div>
+                  <div style={{ width: 42, height: 24, borderRadius: 12, flexShrink: 0, backgroundColor: newRoleIsAdmin ? ADMIN_COLOR : '#E5E7EB', position: 'relative', transition: 'background-color 0.2s' }}>
+                    <div style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', position: 'absolute', top: 3, left: newRoleIsAdmin ? 21 : 3, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                  </div>
+                </button>
+
+                {createAdminConfirm ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, backgroundColor: `${ADMIN_COLOR}06`, borderRadius: 12, border: `1px solid ${ADMIN_COLOR}25` }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: ADMIN_COLOR, margin: 0 }}>
+                      Confirmar acceso de administrador para "{newRoleName}"
+                    </p>
+                    <AdminInfoBox />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <button onClick={doCreateRole} disabled={roleAdding || !newRoleName.trim()}
+                        style={{ height: 44, borderRadius: 12, border: 'none', backgroundColor: ADMIN_COLOR, fontSize: 14, fontWeight: 700, color: '#fff', cursor: 'pointer', opacity: roleAdding || !newRoleName.trim() ? 0.5 : 1 }}>
+                        {roleAdding ? '…' : 'Confirmar y crear rol'}
+                      </button>
+                      <button onClick={() => setCreateAdminConfirm(false)}
+                        style={{ height: 44, borderRadius: 12, border: 'none', backgroundColor: '#F3F4F6', fontSize: 14, fontWeight: 700, color: '#374151', cursor: 'pointer' }}>
+                        Atrás
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleCreateRole}
+                    disabled={roleAdding || !newRoleName.trim()}
+                    style={{ height: 48, borderRadius: 12, border: 'none', backgroundColor: color, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: roleAdding || !newRoleName.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: `0 4px 14px ${color}40` }}
+                  >
+                    <IconPlus size={14} />
+                    Crear Rol
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

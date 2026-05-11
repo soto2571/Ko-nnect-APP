@@ -1,5 +1,6 @@
 import { corsHeaders, cors, err } from '../_shared/cors.ts';
 import { getServiceClient, getUserClient } from '../_shared/supabase.ts';
+import { isAdminOrOwner } from '../_shared/auth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -18,22 +19,29 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const sb = getServiceClient();
 
+    // Look up the shift's businessId to verify authorization
+    const { data: shift } = await sb.from('shifts').select('businessId').eq('shiftId', shiftId).single();
+    if (!shift) return err('Turno no encontrado', 404);
+
+    if (!await isAdminOrOwner(user.id, shift.businessId))
+      return err('No autorizado', 403);
+
     const updates: Record<string, unknown> = {
       updatedAt: new Date().toISOString(),
       status: body.employeeId ? 'assigned' : 'open',
       employeeId: body.employeeId ?? null,
     };
-    if (body.startTime)      updates.startTime = body.startTime;
-    if (body.endTime)        updates.endTime = body.endTime;
-    if (body.breakDuration !== undefined) updates.breakDuration = body.breakDuration;
-    if (body.breakTime !== undefined)     updates.breakTime = body.breakTime;
+    if (body.startTime)                      updates.startTime = body.startTime;
+    if (body.endTime)                        updates.endTime = body.endTime;
+    if (body.breakDuration !== undefined)    updates.breakDuration = body.breakDuration;
+    if (body.breakTime !== undefined)        updates.breakTime = body.breakTime;
 
     const { data, error } = await sb.from('shifts').update(updates)
       .eq('shiftId', shiftId).select().single();
     if (error) return err(error.message, 500);
 
     return cors({ success: true, data });
-  } catch (e) {
+  } catch {
     return err('Internal server error', 500);
   }
 });
