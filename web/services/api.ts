@@ -41,16 +41,31 @@ async function request<T>(
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
+export async function checkEmailProvider(email: string): Promise<string | null> {
+  const res = await fetch(`${FUNCTIONS_URL}/auth-check-provider`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const json = await res.json();
+  return json?.data?.provider ?? null;
+}
+
 export async function login(payload: { email: string; password: string }): Promise<AuthResponse> {
   return request<AuthResponse>('auth-login', { method: 'POST', body: JSON.stringify(payload) });
 }
 
-export async function signup(payload: {
-  email: string; password: string;
-  firstName: string; lastName: string;
-  role: 'owner' | 'employee';
-}): Promise<AuthResponse> {
-  return request<AuthResponse>('auth-signup', { method: 'POST', body: JSON.stringify(payload) });
+export async function createProfile(payload: {
+  firstName: string; lastName: string; role: 'owner' | 'employee';
+}, token: string): Promise<{ user: { userId: string; email: string; firstName: string; lastName: string; role: string } }> {
+  const res = await fetch(`${FUNCTIONS_URL}/auth-signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) throw new Error(json.message || 'Error al crear perfil.');
+  return json.data;
 }
 
 // ─── Business ─────────────────────────────────────────────────────────────────

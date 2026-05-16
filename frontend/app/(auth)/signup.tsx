@@ -11,8 +11,33 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GoogleLogo } from '@/components/GoogleLogo';
+import { supabase } from '@/lib/supabase';
+import { setPendingSignup } from '@/lib/pending-signup';
+import * as api from '@/services/api';
 
 const BRAND = '#E11D48';
+
+function PasswordRequirements({ password }: { password: string }) {
+  if (!password) return null;
+  const reqs = [
+    { label: 'Mín. 8 caracteres', met: password.length >= 8 },
+    { label: 'Una mayúscula (A-Z)', met: /[A-Z]/.test(password) },
+    { label: 'Una minúscula (a-z)', met: /[a-z]/.test(password) },
+    { label: 'Un número (0-9)', met: /\d/.test(password) },
+  ];
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: -6 }}>
+      {reqs.map(({ label, met }) => (
+        <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, width: '47%' }}>
+          <View style={{ width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: met ? '#DCFCE7' : '#F3F4F6', borderWidth: 1, borderColor: met ? '#86EFAC' : '#E5E7EB' }}>
+            <Ionicons name={met ? 'checkmark' : 'close'} size={10} color={met ? '#16A34A' : '#D1D5DB'} />
+          </View>
+          <Text style={{ fontSize: 11, color: met ? '#16A34A' : '#9CA3AF', fontWeight: '500' }}>{label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 function Field({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, autoCapitalize, rightElement, style }: any) {
   const [focused, setFocused] = useState(false);
@@ -51,7 +76,7 @@ const f = StyleSheet.create({
 });
 
 export default function SignupScreen() {
-  const { signup, signInWithGoogle } = useAuth();
+  const { signInWithGoogle } = useAuth();
   const insets = useSafeAreaInsets();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName]   = useState('');
@@ -89,18 +114,35 @@ export default function SignupScreen() {
       setError('Por favor completa todos los campos.');
       return;
     }
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+    const pwOk = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password);
+    if (!pwOk) {
+      setError('La contraseña no cumple con todos los requisitos.');
       return;
     }
     setLoading(true);
     try {
-      await signup({
+      const provider = await api.checkEmailProvider(email.trim().toLowerCase());
+      if (provider === 'google') {
+        setError('Este correo ya tiene una cuenta con Google. Usa el botón de Google para entrar.');
+        return;
+      }
+      if (provider === 'email') {
+        setError('Ya existe una cuenta con este correo. Ve a iniciar sesión.');
+        return;
+      }
+
+      const { error: otpErr } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
-        password,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        role: 'owner',
+        options: { shouldCreateUser: true },
+      });
+      if (otpErr) {
+        setError(otpErr.message);
+        return;
+      }
+      setPendingSignup({ password, firstName: firstName.trim(), lastName: lastName.trim() });
+      router.push({
+        pathname: '/(auth)/verify-email',
+        params: { email: email.trim().toLowerCase() },
       });
     } catch (err: any) {
       setError(err.message || 'Algo salió mal. Inténtalo de nuevo.');
@@ -169,7 +211,7 @@ export default function SignupScreen() {
               value={email} onChangeText={(t: string) => { setEmail(t); setError(''); }}
               keyboardType="email-address" autoCapitalize="none" />
 
-            <Field icon="lock-closed-outline" placeholder="Contraseña (mín. 6 caracteres)"
+            <Field icon="lock-closed-outline" placeholder="Contraseña (mín. 8 caracteres)"
               value={password} onChangeText={(t: string) => { setPassword(t); setError(''); }}
               secureTextEntry={!showPw} autoCapitalize="none"
               rightElement={
@@ -178,6 +220,7 @@ export default function SignupScreen() {
                 </TouchableOpacity>
               }
             />
+            <PasswordRequirements password={password} />
 
             <Pressable
               onPressIn={() => Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start()}

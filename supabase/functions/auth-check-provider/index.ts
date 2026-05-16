@@ -8,26 +8,26 @@ Deno.serve(async (req) => {
     if (!body.email) return err('Missing email');
 
     const sb = getServiceClient();
-
-    // Check Supabase Auth's auth.users table for the provider
-    const { data, error } = await sb.auth.admin.listUsers();
-    if (error) return err(error.message, 500);
-
     const email = body.email.toLowerCase().trim();
-    const authUser = data.users.find(
-      (u: any) => u.email?.toLowerCase() === email
-    );
 
-    if (!authUser) {
-      return cors({ success: true, data: { provider: null } });
-    }
+    // Look up the user in our users table
+    const { data: profile } = await sb
+      .from('users')
+      .select('userId')
+      .eq('email', email)
+      .single();
 
-    // Check if user signed up via Google OAuth
-    const isGoogle = authUser.app_metadata?.providers?.includes('google')
-      || authUser.app_metadata?.provider === 'google';
+    if (!profile) return cors({ success: true, data: { provider: null } });
+
+    // Get auth details to determine the provider
+    const { data: authData } = await sb.auth.admin.getUserById(profile.userId);
+    if (!authData?.user) return cors({ success: true, data: { provider: null } });
+
+    const isGoogle = authData.user.app_metadata?.providers?.includes('google')
+      || authData.user.app_metadata?.provider === 'google';
 
     return cors({ success: true, data: { provider: isGoogle ? 'google' : 'email' } });
-  } catch (e) {
+  } catch {
     return err('Internal server error', 500);
   }
 });

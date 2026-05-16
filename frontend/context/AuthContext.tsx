@@ -17,13 +17,10 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  signup: (payload: {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-    role: 'owner' | 'employee';
-  }) => Promise<void>;
+  completeSignup: (
+    session: { access_token: string; refresh_token: string },
+    profile: { firstName: string; lastName: string }
+  ) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   refreshBusiness: () => Promise<void>;
@@ -115,21 +112,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState({ user, token, business, isLoading: false });
   };
 
-  const signup = async (payload: {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-    role: 'owner' | 'employee';
-  }) => {
-    const { user, token, refreshToken } = await api.signup(payload);
-    await api.saveToken(token);
-    if (refreshToken) await api.saveRefreshToken(refreshToken);
+  const completeSignup = async (
+    session: { access_token: string; refresh_token: string },
+    profile: { firstName: string; lastName: string },
+  ) => {
+    const { access_token, refresh_token } = session;
+    await api.createProfile({ firstName: profile.firstName, lastName: profile.lastName, role: 'owner' }, access_token);
+    const profileRes = await fetch(`${SUPABASE_FUNCTIONS_URL}/auth-profile`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    const profileJson = await profileRes.json();
+    if (!profileJson.success) throw new Error('No se pudo cargar el perfil.');
+    const user: User = profileJson.data;
+    await api.saveToken(access_token);
+    await api.saveRefreshToken(refresh_token);
     await api.saveUser(user);
-    if (token && refreshToken) {
-      await supabase.auth.setSession({ access_token: token, refresh_token: refreshToken });
-    }
-    setState({ user, token, business: null, isLoading: false });
+    await supabase.auth.setSession({ access_token, refresh_token });
+    setState({ user, token: access_token, business: null, isLoading: false });
   };
 
   const signInWithGoogle = async () => {
@@ -225,7 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ ...state, login, signup, signInWithGoogle, logout, refreshBusiness, setBusiness, clearMustChangePassword, primaryColor }}
+      value={{ ...state, login, completeSignup, signInWithGoogle, logout, refreshBusiness, setBusiness, clearMustChangePassword, primaryColor }}
     >
       {children}
     </AuthContext.Provider>

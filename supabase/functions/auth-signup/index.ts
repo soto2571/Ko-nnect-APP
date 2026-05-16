@@ -1,47 +1,44 @@
 import { corsHeaders, cors, err } from '../_shared/cors.ts';
-import { getServiceClient } from '../_shared/supabase.ts';
+import { getServiceClient, getUserClient } from '../_shared/supabase.ts';
 
+// Called after client-side supabase.auth.signUp() + OTP verification.
+// The user already exists in auth.users — this just creates the profile row.
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
-    const { email, password, firstName, lastName, role } = await req.json();
-    if (!email || !password || !firstName || !lastName || !role)
-      return err('Faltan campos requeridos.');
+    const auth = req.headers.get('Authorization') ?? '';
+    if (!auth) return err('Unauthorized', 401);
+
+    const { firstName, lastName, role } = await req.json();
+    if (!firstName || !lastName || !role) return err('Faltan campos requeridos.');
+
+    const userSb = getUserClient(auth);
+    const { data: { user }, error: userErr } = await userSb.auth.getUser();
+    if (userErr || !user) return err('Unauthorized', 401);
 
     const sb = getServiceClient();
 
-    // Create auth user
-    const { data: authData, error: authErr } = await sb.auth.admin.createUser({
-      email, password, email_confirm: true,
-    });
-    if (authErr) {
-      const msg = authErr.message ?? String(authErr);
-      if (msg.includes('already') || msg.includes('duplicate') || msg.includes('exists'))
-        return err('Ya existe una cuenta con este correo electrónico.', 409);
-      return err(msg, 400);
-    }
+    // Idempotent: return existing profile if already created
+    const { data: existing } = await sb
+      .from('users').select('*').eq('userId', user.id).single();
+    if (existing) return cors({ success: true, data: { user: existing } });
 
-    const userId = authData.user.id;
-
-    // Insert public user profile
     const { error: profileErr } = await sb.from('users').insert({
-      userId, email, firstName, lastName, role,
+      userId: user.id,
+      email: user.email,
+      firstName,
+      lastName,
+      role,
     });
     if (profileErr) return err(profileErr.message, 500);
-
-    // Sign in to get token
-    const { data: signIn, error: signInErr } = await sb.auth.signInWithPassword({ email, password });
-    if (signInErr) return err(signInErr.message, 500);
 
     return cors({
       success: true,
       data: {
-        user: { userId, email, firstName, lastName, role },
-        token: signIn.session?.access_token,
-        refreshToken: signIn.session?.refresh_token,
+        user: { userId: user.id, email: user.email, firstName, lastName, role },
       },
     }, 201);
-  } catch (e) {
+  } catch {
     return err('Error interno del servidor.', 500);
   }
 });
