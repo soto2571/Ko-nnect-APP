@@ -15,7 +15,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.konnect.app"
+      "bundleIdentifier": "com.konnect.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Ko-nnecta' usa tu ubicación para verificar que estás en el lugar de trabajo al marcar entrada o salida.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Ko-nnecta' usa tu ubicación para verificar que estás en el lugar de trabajo al marcar entrada o salida."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +27,11 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,7 +39,20 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Ko-nnecta' usa tu ubicación para verificar que estás en el lugar de trabajo al marcar entrada o salida."
+        }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "konnecta",
+          "project": "konnecta-mobile"
+        }
+      ]
     ]
   }
 }

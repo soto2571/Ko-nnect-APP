@@ -5,6 +5,14 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { DEFAULT_PRIMARY_COLOR } from '@/constants';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://43ccf95b1ca222b740102496eb427653@o4511401485991936.ingest.us.sentry.io/4511401496412160',
+  debug: false,
+  environment: __DEV__ ? 'development' : 'production',
+  tracesSampleRate: 1.0,
+});
 
 // ── Skeleton pulse block ──────────────────────────────────────────────────────
 
@@ -130,7 +138,7 @@ function RootNavigator() {
   return <Slot />;
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
@@ -139,6 +147,8 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);
 
 const sk = StyleSheet.create({
   greet: {

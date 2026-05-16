@@ -1,9 +1,9 @@
 import type { NextConfig } from 'next';
 import { config } from 'dotenv';
 import path from 'path';
+import { withSentryConfig } from '@sentry/nextjs';
 
 // Load root .env so all credentials live in one place across the monorepo.
-// web/.env.local is no longer needed.
 config({ path: path.resolve(process.cwd(), '../.env') });
 
 const nextConfig: NextConfig = {
@@ -14,4 +14,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: 'konnecta',
+  project: 'konnecta-web',
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+});
