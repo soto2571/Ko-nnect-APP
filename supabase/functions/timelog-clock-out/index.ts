@@ -1,5 +1,6 @@
 import { corsHeaders, cors, err } from '../_shared/cors.ts';
 import { getServiceClient, getUserClient } from '../_shared/supabase.ts';
+import { sendPushToOwners, fmtTime, fmtMinutes } from '../_shared/push.ts';
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -36,8 +37,10 @@ Deno.serve(async (req) => {
     if (!log) return err('Time log not found', 404);
     if (log.status === 'clocked_out') return err('Already clocked out', 400);
 
-    // Geofence validation (same zone required for clock-out)
-    const { data: biz } = await sb.from('businesses').select('"geofenceEnabled","geofenceLat","geofenceLng","geofenceRadiusM","geofencePin"').eq('businessId', log.businessId).single();
+    const { data: biz } = await sb.from('businesses')
+      .select('"geofenceEnabled","geofenceLat","geofenceLng","geofenceRadiusM","geofencePin","notifyClockOut"')
+      .eq('businessId', log.businessId).single();
+
     let viaPin = log.viaPin ?? false;
     if (biz?.geofenceEnabled) {
       if (overridePin) {
@@ -75,8 +78,17 @@ Deno.serve(async (req) => {
     }).eq('logId', logId).select().single();
     if (error) return err(error.message, 500);
 
+    if (biz?.notifyClockOut) {
+      const { data: emp } = await sb.from('users').select('"firstName","lastName"').eq('userId', user.id).single();
+      const name = emp ? `${emp.firstName} ${emp.lastName}` : 'Un empleado';
+      await sendPushToOwners(
+        sb, log.businessId, name,
+        `Marco salida a las ${fmtTime(now)} — ${fmtMinutes(totalMinutes)} trabajados`,
+      );
+    }
+
     return cors({ success: true, data });
-  } catch (e) {
+  } catch {
     return err('Internal server error', 500);
   }
 });

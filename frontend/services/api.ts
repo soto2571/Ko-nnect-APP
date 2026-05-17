@@ -489,3 +489,10 @@ export async function deleteRole(roleId: string): Promise<void> {
 export async function assignEmployeeRole(employeeId: string, roleId: string | null): Promise<void> {
   return request<void>(`employees-update/${employeeId}`, { method: 'PUT', body: JSON.stringify({ roleId }) });
 }
+
+export async function updateMyNotifications(prefs: {
+  notifyShiftReminder?: boolean;
+  notifyClockOutReminder?: boolean;
+}): Promise<void> {
+  return request<void>('auth-update-prefs', { method: 'POST', body: JSON.stringify(prefs) });
+}

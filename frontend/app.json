@@ -47,6 +47,14 @@
         }
       ],
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#E11D48",
+          "sounds": []
+        }
+      ],
+      [
         "@sentry/react-native/expo",
         {
           "organization": "konnecta",

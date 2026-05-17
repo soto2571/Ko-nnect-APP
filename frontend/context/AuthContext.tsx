@@ -1,10 +1,43 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import * as Notifications from 'expo-notifications';
 import * as api from '@/services/api';
 import { supabase } from '@/lib/supabase';
 import { SUPABASE_FUNCTIONS_URL } from '@/constants';
 import type { Business, User } from '@/types';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+async function registerPushToken(authToken: string): Promise<void> {
+  try {
+    if (Platform.OS === 'web') return;
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    let finalStatus = existing;
+    if (existing !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') return;
+    const { data: expoPushToken } = await Notifications.getExpoPushTokenAsync();
+    if (!expoPushToken) return;
+    await fetch(`${SUPABASE_FUNCTIONS_URL}/push-token-save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ token: expoPushToken }),
+    });
+  } catch {
+    // Never block login if push registration fails
+  }
+}
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -75,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
         setState({ user, token, business, isLoading: false });
+        registerPushToken(token);
       } catch {
         await api.removeToken();
         await api.removeRefreshToken();
@@ -110,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {}
     }
     setState({ user, token, business, isLoading: false });
+    registerPushToken(token);
   };
 
   const completeSignup = async (
@@ -129,6 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await api.saveUser(user);
     await supabase.auth.setSession({ access_token, refresh_token });
     setState({ user, token: access_token, business: null, isLoading: false });
+    registerPushToken(access_token);
   };
 
   const signInWithGoogle = async () => {
@@ -187,6 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setState({ user, token, business, isLoading: false });
+    registerPushToken(token);
   };
 
   const logout = async () => {

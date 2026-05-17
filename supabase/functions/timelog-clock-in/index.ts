@@ -1,5 +1,6 @@
 import { corsHeaders, cors, err } from '../_shared/cors.ts';
 import { getServiceClient, getUserClient } from '../_shared/supabase.ts';
+import { sendPushToOwners, fmtTime } from '../_shared/push.ts';
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -27,14 +28,15 @@ Deno.serve(async (req) => {
 
     const sb = getServiceClient();
 
-    // Check if already clocked in for this shift
     const { data: existing } = await sb.from('timelogs').select('*')
       .eq('shiftId', shiftId).maybeSingle();
     if (existing && existing.status !== 'clocked_out' && existing.status !== 'missed_punch')
       return err('Already clocked in for this shift', 400);
 
-    // Geofence validation
-    const { data: biz } = await sb.from('businesses').select('"geofenceEnabled","geofenceLat","geofenceLng","geofenceRadiusM","geofencePin"').eq('businessId', businessId).single();
+    const { data: biz } = await sb.from('businesses')
+      .select('"geofenceEnabled","geofenceLat","geofenceLng","geofenceRadiusM","geofencePin","notifyClockIn","notifyLate"')
+      .eq('businessId', businessId).single();
+
     let viaPin = false;
     if (biz?.geofenceEnabled) {
       if (overridePin) {
@@ -68,8 +70,29 @@ Deno.serve(async (req) => {
     }).select().single();
     if (error) return err(error.message, 500);
 
+    // Get employee name for notification
+    const { data: emp } = await sb.from('users').select('"firstName","lastName"').eq('userId', user.id).single();
+    const name = emp ? `${emp.firstName} ${emp.lastName}` : 'Un empleado';
+    const timeStr = fmtTime(now);
+
+    // Check if late (shift start + 5 min grace period)
+    const { data: shift } = await sb.from('shifts').select('"startTime"').eq('shiftId', shiftId).single();
+    const isLate = shift && (new Date(now).getTime() - new Date(shift.startTime).getTime()) > 5 * 60 * 1000;
+    const lateMin = isLate
+      ? Math.floor((new Date(now).getTime() - new Date(shift.startTime).getTime()) / 60000)
+      : 0;
+
+    if (biz?.notifyClockIn) {
+      const body = isLate
+        ? `Llego ${lateMin} min tarde — ${timeStr}`
+        : `Marque entrada a las ${timeStr}`;
+      await sendPushToOwners(sb, businessId, name, body);
+    } else if (isLate && biz?.notifyLate) {
+      await sendPushToOwners(sb, businessId, `${name} llego tarde`, `Llego ${lateMin} min tarde — ${timeStr}`);
+    }
+
     return cors({ success: true, data }, 201);
-  } catch (e) {
+  } catch {
     return err('Internal server error', 500);
   }
 });

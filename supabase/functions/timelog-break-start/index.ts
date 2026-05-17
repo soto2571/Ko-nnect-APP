@@ -1,5 +1,6 @@
 import { corsHeaders, cors, err } from '../_shared/cors.ts';
 import { getServiceClient, getUserClient } from '../_shared/supabase.ts';
+import { sendPushToOwners, fmtTime } from '../_shared/push.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -29,8 +30,17 @@ Deno.serve(async (req) => {
     }).eq('logId', logId).select().single();
     if (error) return err(error.message, 500);
 
+    const { data: biz } = await sb.from('businesses')
+      .select('"notifyBreak"').eq('businessId', log.businessId).single();
+
+    if (biz?.notifyBreak) {
+      const { data: emp } = await sb.from('users').select('"firstName","lastName"').eq('userId', user.id).single();
+      const name = emp ? `${emp.firstName} ${emp.lastName}` : 'Un empleado';
+      await sendPushToOwners(sb, log.businessId, name, `Inicio break a las ${fmtTime(now)}`);
+    }
+
     return cors({ success: true, data });
-  } catch (e) {
+  } catch {
     return err('Internal server error', 500);
   }
 });

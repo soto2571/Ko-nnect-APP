@@ -167,6 +167,11 @@ export default function SettingsScreen() {
   const [autoClockOut, setAutoClockOut]           = useState(business?.autoClockOut ?? false);
   const [autoClockOutMinutes, setAutoClockOutMinutes] = useState(business?.autoClockOutMinutes ?? 30);
   const [schedulingWeeks, setSchedulingWeeks]     = useState(business?.schedulingWeeks ?? 6);
+  const [notifyClockIn,  setNotifyClockIn]  = useState(business?.notifyClockIn  ?? true);
+  const [notifyBreak,    setNotifyBreak]    = useState(business?.notifyBreak    ?? false);
+  const [notifyClockOut, setNotifyClockOut] = useState(business?.notifyClockOut ?? true);
+  const [notifyLate,     setNotifyLate]     = useState(business?.notifyLate     ?? true);
+  const [notifyNoShow,   setNotifyNoShow]   = useState(business?.notifyNoShow   ?? true);
   const [geofenceEnabled, setGeofenceEnabled] = useState(business?.geofenceEnabled ?? false);
   const [geofenceLat, setGeofenceLat]         = useState(business?.geofenceLat ?? null as number | null);
   const [geofenceLng, setGeofenceLng]         = useState(business?.geofenceLng ?? null as number | null);
@@ -264,6 +269,7 @@ export default function SettingsScreen() {
         geofenceLng: geofenceEnabled ? geofenceLng : null,
         geofenceRadiusM,
         geofencePin: geofenceEnabled && geofencePin.length >= 4 ? geofencePin : null,
+        notifyClockIn, notifyBreak, notifyClockOut, notifyLate, notifyNoShow,
       };
       if (isNew) {
         updated = await api.createBusiness(payload);
@@ -785,7 +791,30 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 6 — Change Password (not for Google users) */}
+        {/* 6 — Push Notifications */}
+        <View style={s.card}>
+          <Text style={s.cardLabel}>Notificaciones</Text>
+          <Text style={[s.hintText, { marginBottom: 4 }]}>Recibe alertas en tu telefono cuando tus empleados ponchen.</Text>
+          {[
+            { label: 'Entrada al turno',     value: notifyClockIn,  set: setNotifyClockIn },
+            { label: 'Inicio y fin de break',value: notifyBreak,    set: setNotifyBreak },
+            { label: 'Salida del turno',      value: notifyClockOut, set: setNotifyClockOut },
+            { label: 'Llego tarde (+5 min)',  value: notifyLate,     set: setNotifyLate },
+            { label: 'No marco entrada',      value: notifyNoShow,   set: setNotifyNoShow },
+          ].map(({ label, value, set }) => (
+            <View key={label} style={s.notifRow}>
+              <Text style={s.notifLabel}>{label}</Text>
+              <Switch
+                value={value}
+                onValueChange={set}
+                trackColor={{ false: '#E5E7EB', true: color }}
+                thumbColor="#fff"
+              />
+            </View>
+          ))}
+        </View>
+
+        {/* 7 — Change Password (not for Google users) */}
         {!isGoogleUser && (
           <View style={s.card}>
             <Text style={s.cardLabel}>Cambiar Contraseña</Text>
@@ -954,6 +983,11 @@ const s = StyleSheet.create({
   accountRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   accountValue: { fontSize: 14, fontWeight: '500', color: '#374151' },
 
+  notifRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  notifLabel: { fontSize: 14, color: '#374151', fontWeight: '500', flex: 1 },
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4,
     padding: 12, borderRadius: 12, backgroundColor: '#FEF2F2',

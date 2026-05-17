@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { PasswordField, passwordValid } from '@/components/PasswordField';
@@ -75,6 +75,21 @@ export default function EmployeeProfileScreen() {
   const [periodOffset, setPeriodOffset] = useState(0);
   const [periodLogs, setPeriodLogs]     = useState<TimeLog[]>([]);
   const [logsLoading, setLogsLoading]   = useState(false);
+
+  const [notifyShiftReminder,   setNotifyShiftReminder]   = useState(user?.notifyShiftReminder   ?? false);
+  const [notifyClockOutReminder, setNotifyClockOutReminder] = useState(user?.notifyClockOutReminder ?? false);
+  const [savingNotif, setSavingNotif] = useState(false);
+
+  const handleSaveNotifications = async () => {
+    setSavingNotif(true);
+    try {
+      await api.updateMyNotifications({ notifyShiftReminder, notifyClockOutReminder });
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    } finally {
+      setSavingNotif(false);
+    }
+  };
 
   const [showPw, setShowPw]       = useState(false);
   const [newPw, setNewPw]         = useState('');
@@ -243,6 +258,36 @@ export default function EmployeeProfileScreen() {
           )}
         </TouchableOpacity>}
 
+        {/* Notifications opt-in */}
+        <View style={[s.card, { alignItems: 'stretch', padding: 20, gap: 0 }]}>
+          <Text style={[s.sectionTitle, { marginBottom: 4 }]}>Notificaciones</Text>
+          <Text style={s.notifHint}>Activa recordatorios opcionales para tus turnos.</Text>
+          {[
+            { label: 'Recordatorio 30 min antes del turno', value: notifyShiftReminder,    set: setNotifyShiftReminder },
+            { label: 'Recordatorio de marcar salida',       value: notifyClockOutReminder, set: setNotifyClockOutReminder },
+          ].map(({ label, value, set }) => (
+            <View key={label} style={s.notifRow}>
+              <Text style={s.notifLabel}>{label}</Text>
+              <Switch
+                value={value}
+                onValueChange={set}
+                trackColor={{ false: '#E5E7EB', true: color }}
+                thumbColor="#fff"
+              />
+            </View>
+          ))}
+          <TouchableOpacity
+            style={[s.pwBtn, { backgroundColor: color, marginTop: 12 }]}
+            onPress={handleSaveNotifications}
+            disabled={savingNotif}
+          >
+            {savingNotif
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={s.pwBtnText}>Guardar preferencias</Text>
+            }
+          </TouchableOpacity>
+        </View>
+
         {/* Logout */}
         <TouchableOpacity style={s.logoutBtn} onPress={logout}>
           <Ionicons name="log-out-outline" size={17} color="#EF4444" />
@@ -336,6 +381,13 @@ const s = StyleSheet.create({
 
   pwBtn: { borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
   pwBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  notifHint: { fontSize: 12, color: '#9CA3AF', marginBottom: 8 },
+  notifRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  notifLabel: { fontSize: 14, color: '#374151', fontWeight: '500', flex: 1, paddingRight: 8 },
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 14, borderRadius: 16,
