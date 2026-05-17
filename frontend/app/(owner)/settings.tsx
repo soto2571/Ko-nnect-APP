@@ -171,7 +171,6 @@ export default function SettingsScreen() {
   const [notifyBreak,    setNotifyBreak]    = useState(business?.notifyBreak    ?? false);
   const [notifyClockOut, setNotifyClockOut] = useState(business?.notifyClockOut ?? true);
   const [notifyLate,     setNotifyLate]     = useState(business?.notifyLate     ?? true);
-  const [notifyNoShow,   setNotifyNoShow]   = useState(business?.notifyNoShow   ?? true);
   const [geofenceEnabled, setGeofenceEnabled] = useState(business?.geofenceEnabled ?? false);
   const [geofenceLat, setGeofenceLat]         = useState(business?.geofenceLat ?? null as number | null);
   const [geofenceLng, setGeofenceLng]         = useState(business?.geofenceLng ?? null as number | null);
@@ -269,7 +268,7 @@ export default function SettingsScreen() {
         geofenceLng: geofenceEnabled ? geofenceLng : null,
         geofenceRadiusM,
         geofencePin: geofenceEnabled && geofencePin.length >= 4 ? geofencePin : null,
-        notifyClockIn, notifyBreak, notifyClockOut, notifyLate, notifyNoShow,
+        notifyClockIn, notifyBreak, notifyClockOut, notifyLate,
       };
       if (isNew) {
         updated = await api.createBusiness(payload);
@@ -796,11 +795,10 @@ export default function SettingsScreen() {
           <Text style={s.cardLabel}>Notificaciones</Text>
           <Text style={[s.hintText, { marginBottom: 4 }]}>Recibe alertas en tu telefono cuando tus empleados ponchen.</Text>
           {[
-            { label: 'Entrada al turno',     value: notifyClockIn,  set: setNotifyClockIn },
-            { label: 'Inicio y fin de break',value: notifyBreak,    set: setNotifyBreak },
+            { label: 'Entrada al turno',      value: notifyClockIn,  set: setNotifyClockIn },
+            { label: 'Inicio y fin de break', value: notifyBreak,    set: setNotifyBreak },
             { label: 'Salida del turno',      value: notifyClockOut, set: setNotifyClockOut },
-            { label: 'Llego tarde (+5 min)',  value: notifyLate,     set: setNotifyLate },
-            { label: 'No marco entrada',      value: notifyNoShow,   set: setNotifyNoShow },
+            { label: 'Llego tarde (+5 min)',   value: notifyLate,     set: setNotifyLate },
           ].map(({ label, value, set }) => (
             <View key={label} style={s.notifRow}>
               <Text style={s.notifLabel}>{label}</Text>

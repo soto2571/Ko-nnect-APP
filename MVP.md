@@ -82,16 +82,14 @@ Reemplaza papel, Excel y WhatsApp. UI en español.
 ## En progreso
 
 ### Push notifications
-- [ ] Instalar expo-notifications
-- [ ] Pedir permiso de notificaciones al login
-- [ ] Guardar token del dispositivo en base de datos
-- [ ] Edge function push-token-save
-- [ ] Notificar al dueno: clock-in, break, regreso de break, clock-out
-- [ ] Notificar al dueno: empleado llego tarde
-- [ ] Notificar al dueno: empleado no llego (pg_cron cada 5 min)
-- [ ] Settings del dueno: toggles por tipo de notificacion
-- [ ] Perfil del empleado: opt-in de recordatorios (inicio de turno, recordatorio de salida)
-- [ ] Flag noShowNotified en shifts para no repetir la notificacion
+- [x] Instalar expo-notifications
+- [x] Pedir permiso de notificaciones al login
+- [x] Guardar token del dispositivo en base de datos (push-token-save)
+- [x] Notificar al dueno: clock-in, break, regreso de break, clock-out
+- [x] Notificar al dueno: empleado llego tarde (+5 min, detectado en clock-in)
+- [x] Settings del dueno: 4 toggles (entrada, break, salida, llego tarde)
+- [x] Perfil del empleado: opt-in de recordatorios (inicio de turno, recordatorio de salida)
+- [ ] No marco entrada — requiere cron job, diferido para post-launch
 
 ---
 
