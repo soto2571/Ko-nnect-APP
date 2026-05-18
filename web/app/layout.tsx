@@ -6,8 +6,8 @@ import './globals.css';
 const geist = Geist({ variable: '--font-geist', subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "Ko-nnecta' | Panel del Negocio",
-  description: 'Turnos sin complique',
+  title: "Ko-nnecta' — Turnos para tu negocio",
+  description: 'Crea turnos, controla entradas y salidas, y mantén a tu equipo al día — todo desde el celular.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
