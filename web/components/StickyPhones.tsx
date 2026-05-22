@@ -26,8 +26,8 @@ export function StickyPhones() {
     const measure = () => {
       const funciones = document.getElementById('funciones');
       if (funciones) {
-        // Stop near the end of the features section (90% through it)
-        stopAt = Math.max(0, funciones.offsetTop + funciones.offsetHeight * 0.9 - window.innerHeight * 0.5);
+        // Stop at the very bottom of the features section
+        stopAt = Math.max(0, funciones.offsetTop + funciones.offsetHeight - window.innerHeight * 0.15);
       }
     };
 
@@ -110,7 +110,7 @@ export function StickyPhones() {
           height={1000}
           priority
           className="object-contain"
-          style={{ height: 1015, width: 'auto' }}
+          style={{ height: 1035, width: 'auto' }}
         />
       </div>
     </>
