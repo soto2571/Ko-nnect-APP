@@ -275,13 +275,13 @@ export default function LandingPage() {
           {/* Bento Grid — 4 cols desktop, 2 tablet, 1 mobile */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-            {/* Card 1 — Nómina (featured, 2×2) — brand color, matches web app FAB/primary button */}
+            {/* Card 1 — Nómina (featured, 2×2) — dark */}
             <div
               className="sm:col-span-2 lg:col-span-2 lg:row-span-2 p-7 flex flex-col justify-between cursor-default"
               style={{
-                backgroundColor: BRAND,
+                backgroundColor: '#111827',
                 borderRadius: 20,
-                boxShadow: `0 8px 28px ${BRAND}55`,
+                boxShadow: '0 8px 28px rgba(0,0,0,0.25)',
                 minHeight: 260,
                 transition: 'all 0.15s',
               }}
@@ -387,16 +387,16 @@ export default function LandingPage() {
                 </div>
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Turnos</span>
               </div>
-              {/* Mini week strip — exact web app day header style */}
+              {/* Mini week strip */}
               <div className="flex gap-2 mb-3">
                 {[['Lu', true], ['Ma', true], ['Mi', true], ['Ju', false], ['Vi', false]].map(([d, active]) => (
-                  <div key={String(d)} className="flex-1 py-2 text-center" style={{
+                  <div key={String(d)} className="flex-1 py-2.5 text-center" style={{
                     borderRadius: 14,
                     backgroundColor: active ? `${BRAND}12` : 'rgba(0,0,0,0.04)',
                     border: active ? `1px solid ${BRAND}30` : '1px solid rgba(0,0,0,0.06)',
                   }}>
                     <p style={{ fontSize: 11, fontWeight: 700, color: active ? BRAND : '#9CA3AF' }}>{d}</p>
-                    <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>{active ? '6P' : '—'}</p>
+                    <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: active ? BRAND : 'transparent', margin: '4px auto 0' }} />
                   </div>
                 ))}
               </div>
@@ -434,24 +434,23 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Card 6 — Multi-platform — dark card matches web app modal/overlay style */}
+            {/* Card 6 — Multi-platform — brand red */}
             <div
               className="p-5 flex flex-col justify-between cursor-default hover:-translate-y-0.5"
               style={{
-                backgroundColor: '#111827',
+                backgroundColor: BRAND,
                 borderRadius: 20,
-                border: '1px solid rgba(255,255,255,0.07)',
-                boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
+                boxShadow: `0 4px 24px ${BRAND}40`,
                 minHeight: 180,
                 transition: 'all 0.15s',
               }}
             >
-              <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
                 <DevicesIcon />
               </div>
               <div>
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: 'white' }}>App + Web</h3>
-                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Celular y computadora, todo sincronizado.</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 2 }}>Celular y computadora, todo sincronizado.</p>
               </div>
             </div>
 
