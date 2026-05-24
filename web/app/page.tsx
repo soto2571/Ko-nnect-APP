@@ -647,7 +647,6 @@ export default function LandingPage() {
               {[
                 'Tú defines el radio exacto desde el mapa',
                 'Validación GPS en tiempo real, al momento de marcar',
-                'PIN de acceso para empleados que no concedieron permisos de ubicación',
                 'Si está fuera del área, la entrada queda bloqueada automáticamente',
               ].map(item => (
                 <li key={item} className="flex items-start gap-3 text-slate-300 text-sm">
