@@ -367,9 +367,9 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Card 4 — Turnos (2×1 wide) — glassmorphism */}
+            {/* Card 4 — Turnos (2×1 wide) — mini calendar mockup */}
             <div
-              className="sm:col-span-2 lg:col-span-2 p-5 flex flex-col justify-between cursor-default hover:-translate-y-0.5"
+              className="sm:col-span-2 lg:col-span-2 p-5 cursor-default hover:-translate-y-0.5"
               style={{
                 backgroundColor: 'rgba(255,255,255,0.88)',
                 backdropFilter: 'blur(12px)',
@@ -381,28 +381,61 @@ export default function LandingPage() {
                 transition: 'all 0.15s',
               }}
             >
-              <div className="flex items-center gap-2 mb-3">
-                <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: `${BRAND}14`, color: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <CalendarIcon />
-                </div>
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Turnos</span>
-              </div>
-              {/* Mini week strip */}
-              <div className="flex gap-2 mb-3">
-                {[['Lu', true], ['Ma', true], ['Mi', true], ['Ju', false], ['Vi', false]].map(([d, active]) => (
-                  <div key={String(d)} className="flex-1 py-2.5 text-center" style={{
-                    borderRadius: 14,
-                    backgroundColor: active ? `${BRAND}12` : 'rgba(0,0,0,0.04)',
-                    border: active ? `1px solid ${BRAND}30` : '1px solid rgba(0,0,0,0.06)',
-                  }}>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: active ? BRAND : '#9CA3AF' }}>{d}</p>
-                    <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: active ? BRAND : 'transparent', margin: '4px auto 0' }} />
+              {/* Header row */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: `${BRAND}14`, color: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CalendarIcon />
                   </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>Mayo 2026</span>
+                </div>
+                {/* Time badge */}
+                <span style={{ fontSize: 11, fontWeight: 600, color: BRAND, backgroundColor: `${BRAND}10`, borderRadius: 8, padding: '3px 8px' }}>8:00 AM → 4:00 PM</span>
+              </div>
+
+              {/* Day headers */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+                {['DO','LU','MA','MI','JU','VI','SA'].map(d => (
+                  <div key={d} style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#9CA3AF', paddingBottom: 2 }}>{d}</div>
                 ))}
               </div>
-              <div>
-                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Turnos en segundos</h3>
-                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Crea, asigna y repite. Detecta conflictos antes de publicar.</p>
+
+              {/* Calendar grid — Mayo 2026: starts Friday (col 6) */}
+              {(() => {
+                // May 2026: 1st = Friday (index 5 in DO-SA grid), 31 days
+                const SELECTED = new Set([24, 26, 28]);
+                const TODAY = 24;
+                const cells: (number | null)[] = [null, null, null, null, null, 1, 2];
+                for (let d = 3; d <= 31; d++) cells.push(d);
+                // pad to full rows
+                while (cells.length % 7 !== 0) cells.push(null);
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+                    {cells.map((day, i) => {
+                      if (!day) return <div key={i} />;
+                      const sel = SELECTED.has(day);
+                      const today = day === TODAY;
+                      return (
+                        <div key={i} style={{
+                          textAlign: 'center',
+                          fontSize: 11,
+                          fontWeight: sel ? 700 : 400,
+                          color: sel ? 'white' : today ? BRAND : '#374151',
+                          backgroundColor: sel ? BRAND : today ? `${BRAND}12` : 'transparent',
+                          borderRadius: 7,
+                          padding: '3px 0',
+                          lineHeight: 1.4,
+                        }}>{day}</div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Footer */}
+              <div className="flex items-center justify-between mt-3">
+                <h3 style={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>Programa con un toque</h3>
+                <span style={{ fontSize: 11, color: BRAND, fontWeight: 600 }}>3 días seleccionados</span>
               </div>
             </div>
 
