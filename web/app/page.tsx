@@ -367,7 +367,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Card 4 — Turnos (2×1 wide) — mini calendar mockup */}
+            {/* Card 4 — Turnos (2×1 wide) — mini calendar + employee + time selection */}
             <div
               className="sm:col-span-2 lg:col-span-2 p-5 cursor-default hover:-translate-y-0.5"
               style={{
@@ -381,61 +381,103 @@ export default function LandingPage() {
                 transition: 'all 0.15s',
               }}
             >
-              {/* Header row */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: `${BRAND}14`, color: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <CalendarIcon />
+              {/* Two-column layout: calendar left, employee+time right */}
+              <div className="flex gap-4">
+
+                {/* Left — mini calendar */}
+                <div style={{ flex: '1 1 0' }}>
+                  {/* Month header */}
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <div style={{ width: 22, height: 22, borderRadius: 7, backgroundColor: `${BRAND}14`, color: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <CalendarIcon />
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>Mayo 2026</span>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>Mayo 2026</span>
+                  {/* Day headers */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, marginBottom: 2 }}>
+                    {['D','L','M','M','J','V','S'].map((d, i) => (
+                      <div key={i} style={{ textAlign: 'center', fontSize: 8, fontWeight: 700, color: '#9CA3AF' }}>{d}</div>
+                    ))}
+                  </div>
+                  {/* Calendar grid */}
+                  {(() => {
+                    const SELECTED = new Set([24, 26, 28]);
+                    const cells: (number | null)[] = [null, null, null, null, null, 1, 2];
+                    for (let d = 3; d <= 31; d++) cells.push(d);
+                    while (cells.length % 7 !== 0) cells.push(null);
+                    return (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 }}>
+                        {cells.map((day, i) => {
+                          const sel = day !== null && SELECTED.has(day);
+                          return (
+                            <div key={i} style={{
+                              textAlign: 'center',
+                              fontSize: 9.5,
+                              fontWeight: sel ? 700 : 400,
+                              color: sel ? 'white' : day ? '#374151' : 'transparent',
+                              backgroundColor: sel ? BRAND : 'transparent',
+                              borderRadius: 5,
+                              padding: '2px 0',
+                              lineHeight: 1.5,
+                            }}>{day ?? '·'}</div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                  {/* Selected count */}
+                  <p style={{ fontSize: 10, color: BRAND, fontWeight: 600, marginTop: 6 }}>3 días seleccionados</p>
                 </div>
-                {/* Time badge */}
-                <span style={{ fontSize: 11, fontWeight: 600, color: BRAND, backgroundColor: `${BRAND}10`, borderRadius: 8, padding: '3px 8px' }}>8:00 AM → 4:00 PM</span>
-              </div>
 
-              {/* Day headers */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
-                {['DO','LU','MA','MI','JU','VI','SA'].map(d => (
-                  <div key={d} style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#9CA3AF', paddingBottom: 2 }}>{d}</div>
-                ))}
-              </div>
-
-              {/* Calendar grid — Mayo 2026: starts Friday (col 6) */}
-              {(() => {
-                // May 2026: 1st = Friday (index 5 in DO-SA grid), 31 days
-                const SELECTED = new Set([24, 26, 28]);
-                const TODAY = 24;
-                const cells: (number | null)[] = [null, null, null, null, null, 1, 2];
-                for (let d = 3; d <= 31; d++) cells.push(d);
-                // pad to full rows
-                while (cells.length % 7 !== 0) cells.push(null);
-                return (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-                    {cells.map((day, i) => {
-                      if (!day) return <div key={i} />;
-                      const sel = SELECTED.has(day);
-                      const today = day === TODAY;
-                      return (
-                        <div key={i} style={{
-                          textAlign: 'center',
-                          fontSize: 11,
-                          fontWeight: sel ? 700 : 400,
-                          color: sel ? 'white' : today ? BRAND : '#374151',
-                          backgroundColor: sel ? BRAND : today ? `${BRAND}12` : 'transparent',
-                          borderRadius: 7,
-                          padding: '3px 0',
-                          lineHeight: 1.4,
-                        }}>{day}</div>
-                      );
-                    })}
+                {/* Right — employee chip + time slots */}
+                <div style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* Employee selected */}
+                  <div>
+                    <p style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>Empleado</p>
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 7,
+                      backgroundColor: `${BRAND}10`, borderRadius: 10, padding: '5px 10px',
+                      border: `1px solid ${BRAND}30`,
+                    }}>
+                      {/* Avatar initials */}
+                      <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, color: 'white' }}>CR</span>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: BRAND }}>Carlos Rivera</span>
+                      {/* Checkmark */}
+                      <svg viewBox="0 0 16 16" fill="none" style={{ width: 12, height: 12, color: BRAND }}>
+                        <path d="M3 8l3.5 3.5 6.5-7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
                   </div>
-                );
-              })()}
 
-              {/* Footer */}
-              <div className="flex items-center justify-between mt-3">
-                <h3 style={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>Programa con un toque</h3>
-                <span style={{ fontSize: 11, color: BRAND, fontWeight: 600 }}>3 días seleccionados</span>
+                  {/* Time slot picker */}
+                  <div>
+                    <p style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>Horario</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {[
+                        { label: '7:00 AM → 3:00 PM', selected: false },
+                        { label: '8:00 AM → 4:00 PM', selected: true },
+                        { label: '12:00 PM → 8:00 PM', selected: false },
+                      ].map(({ label, selected }) => (
+                        <div key={label} style={{
+                          fontSize: 11, fontWeight: selected ? 700 : 500,
+                          color: selected ? 'white' : '#6B7280',
+                          backgroundColor: selected ? BRAND : 'rgba(0,0,0,0.04)',
+                          borderRadius: 9,
+                          padding: '5px 10px',
+                          border: selected ? `1px solid ${BRAND}` : '1px solid rgba(0,0,0,0.06)',
+                        }}>{label}</div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer text */}
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>Crea y asigna turnos en segundos</h3>
+                <p style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>Elige empleado, fechas y horario. Ko-nnecta' detecta conflictos antes de publicar.</p>
               </div>
             </div>
 
