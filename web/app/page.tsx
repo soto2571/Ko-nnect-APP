@@ -118,12 +118,6 @@ const features = [
   },
 ];
 
-const steps = [
-  { num: '1', title: 'Crea tu cuenta', desc: 'Regístrate con tu email en menos de 2 minutos.' },
-  { num: '2', title: 'Configura tu negocio', desc: 'Ponle nombre, elige tu color y configura el período de pago.' },
-  { num: '3', title: 'Agrega tus empleados', desc: 'El app genera las credenciales automáticamente. Solo cópiaselas.' },
-  { num: '4', title: 'Crea el primer turno', desc: 'Asígnalo, repítelo los días que necesites. Listo.' },
-];
 
 const pricingFeatures = [
   'Hasta 15 empleados',
@@ -138,7 +132,7 @@ const pricingFeatures = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white text-gray-900" style={{ fontFamily: 'var(--font-geist)' }}>
+    <div className="min-h-screen bg-white text-gray-900" style={{ fontFamily: 'var(--font-geist)', overflowX: 'hidden' }}>
 
       {/* ── Floating Glassmorphism Navbar ── */}
       <nav className="fixed z-50" style={{
@@ -153,10 +147,10 @@ export default function LandingPage() {
         <div className="px-5 h-14 flex items-center justify-between gap-4">
           {/* Section links */}
           <div className="flex items-center gap-0.5">
-            <a href="#funciones" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-black/5">Funciones</a>
-            <a href="#geofence" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-black/5">Geofence</a>
-            <a href="#comenzar" className="hidden sm:block text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-black/5">Cómo empezar</a>
-            <a href="#precios" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-black/5">Precios</a>
+            <a href="#funciones" className="text-sm font-semibold transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-red-50" style={{ color: BRAND }}>Funciones</a>
+            <a href="#geofence" className="text-sm font-semibold transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-red-50" style={{ color: BRAND }}>Geofence</a>
+            <a href="#comenzar" className="hidden sm:block text-sm font-semibold transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-red-50" style={{ color: BRAND }}>Cómo empezar</a>
+            <a href="#precios" className="text-sm font-semibold transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-red-50" style={{ color: BRAND }}>Precios</a>
           </div>
           {/* Auth CTAs */}
           <div className="flex items-center gap-2 shrink-0">
@@ -265,173 +259,329 @@ export default function LandingPage() {
 
       </section>
 
-      {/* ── Features Storyline ── */}
-      {/* padding-top clears the phone overflow (260px bottom + ~520px visible phone bottom portion) */}
-      <section id="funciones" className="bg-white" style={{ paddingTop: 320, paddingBottom: 96, position: 'relative', zIndex: 0 }}>
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+      {/* ── Features Bento Grid ── */}
+      {/* Background matches the web app's AnimatedBackground gradient */}
+      <section id="funciones" className="relative bg-white" style={{ paddingTop: 320, paddingBottom: 96, zIndex: 0 }}>
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4" style={{ color: '#111827', letterSpacing: '-0.5px' }}>
               Todo lo que necesitas para manejar tu equipo
             </h2>
-            <p className="text-gray-500 text-lg max-w-xl mx-auto">
+            <p className="text-lg max-w-xl mx-auto" style={{ color: '#6B7280' }}>
               De la nómina al horario, sin hojas de cálculo ni grupos de WhatsApp.
             </p>
           </div>
 
-          {/* Timeline container */}
-          <div className="relative">
-            {/* Vertical dotted line — starts after first icon, ends before last */}
+          {/* Bento Grid — 4 cols desktop, 2 tablet, 1 mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+            {/* Card 1 — Nómina (featured, 2×2) — brand color, matches web app FAB/primary button */}
             <div
-              className="absolute left-6 top-6 bottom-6 w-0"
-              style={{ borderLeft: `2px dashed ${BRAND}35` }}
-            />
-
-            <div className="space-y-2">
-              {features.map((f) => (
-                <div key={f.title} className="relative flex gap-6 group">
-
-                  {/* Icon node — sits on the dotted line */}
-                  <div className="relative shrink-0 flex flex-col items-center" style={{ width: 48 }}>
-                    <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center z-10 transition-all duration-200 group-hover:scale-105"
-                      style={{
-                        backgroundColor: 'white',
-                        border: `2px solid ${BRAND}30`,
-                        color: BRAND,
-                        boxShadow: `0 2px 12px ${BRAND}15`,
-                      }}
-                    >
-                      {f.icon}
-                    </div>
-                  </div>
-
-                  {/* Content card */}
-                  <div
-                    className="flex-1 mb-2 p-6 rounded-2xl transition-all duration-200 group-hover:shadow-md cursor-default"
-                    style={{ background: '#fafafa', border: '1px solid #f0f0f0' }}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span
-                        className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: `${BRAND}10`, color: BRAND }}
-                      >
-                        {f.tag}
-                      </span>
-                    </div>
-                    <h3 className="text-base font-bold text-gray-900 mb-1.5">{f.title}</h3>
-                    <p className="text-gray-500 text-sm leading-relaxed">{f.description}</p>
-                  </div>
-
+              className="sm:col-span-2 lg:col-span-2 lg:row-span-2 p-7 flex flex-col justify-between cursor-default"
+              style={{
+                backgroundColor: BRAND,
+                borderRadius: 20,
+                boxShadow: `0 8px 28px ${BRAND}55`,
+                minHeight: 260,
+                transition: 'all 0.15s',
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Finanzas</span>
+                <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                  <DollarIcon />
                 </div>
-              ))}
+              </div>
+              {/* Mini payroll rows — exact style of web app's employee rows */}
+              <div className="my-4 space-y-2">
+                {[['Ana García', '42h', '$672'], ['Luis Pérez', '38h', '$608'], ['María Rosa', '40h', '$640']].map(([name, hrs, pay]) => (
+                  <div key={name} className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 12 }}>
+                    <span style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>{name}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: 500 }}>{hrs}</span>
+                    <span style={{ color: 'white', fontSize: 13, fontWeight: 800 }}>{pay}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <h3 style={{ color: 'white', fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px', marginBottom: 4 }}>Nómina exacta al instante</h3>
+                <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, lineHeight: 1.6 }}>Horas por empleado, sin calculadoras. Listo para imprimir y pagar.</p>
+              </div>
             </div>
+
+            {/* Card 2 — Tiempo Real — glassmorphism white, exact web app card style */}
+            <div
+              className="p-5 flex flex-col justify-between cursor-default hover:-translate-y-0.5"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.88)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                borderRadius: 20,
+                border: '1px solid rgba(255,255,255,0.7)',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.07)',
+                minHeight: 200,
+                transition: 'all 0.15s',
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span style={{ fontSize: 10, fontWeight: 700, color: BRAND, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tiempo Real</span>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10B981', boxShadow: '0 0 6px #10B98180' }} />
+              </div>
+              <div className="space-y-2 flex-1">
+                {[['DO', 'En turno', true], ['AG', 'En break', false]].map(([init, status, active]) => (
+                  <div key={String(init)} className="flex items-center gap-2 px-2 py-1.5" style={{ backgroundColor: '#F9FAFB', borderRadius: 10 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: active ? BRAND : '#9CA3AF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{init}</div>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{status}</span>
+                    <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', backgroundColor: active ? '#10B981' : '#F59E0B' }} />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3">
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>¿Quién está en turno?</h3>
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>De un vistazo, sin llamar.</p>
+              </div>
+            </div>
+
+            {/* Card 3 — Alertas — brand tint, matches web app warning/alert style */}
+            <div
+              className="p-5 flex flex-col justify-between cursor-default hover:-translate-y-0.5"
+              style={{
+                backgroundColor: `${BRAND}08`,
+                borderRadius: 20,
+                border: `1px solid ${BRAND}25`,
+                boxShadow: `0 4px 24px ${BRAND}10`,
+                minHeight: 200,
+                transition: 'all 0.15s',
+              }}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: `${BRAND}14`, color: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ClockAlertIcon />
+              </div>
+              <div>
+                {/* Alert badge — exact web app notification style */}
+                <div className="px-3 py-2 mb-3" style={{ backgroundColor: `${BRAND}12`, borderRadius: 10, border: `1px solid ${BRAND}20` }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: BRAND }}>Luis llegó 12 min tarde</p>
+                  <p style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>Hoy, 9:12 AM</p>
+                </div>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Alertas de tardanza</h3>
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Te notificamos al instante.</p>
+              </div>
+            </div>
+
+            {/* Card 4 — Turnos (2×1 wide) — glassmorphism */}
+            <div
+              className="sm:col-span-2 lg:col-span-2 p-5 flex flex-col justify-between cursor-default hover:-translate-y-0.5"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.88)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                borderRadius: 20,
+                border: '1px solid rgba(255,255,255,0.7)',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.07)',
+                minHeight: 180,
+                transition: 'all 0.15s',
+              }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: `${BRAND}14`, color: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CalendarIcon />
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Turnos</span>
+              </div>
+              {/* Mini week strip — exact web app day header style */}
+              <div className="flex gap-2 mb-3">
+                {[['Lu', true], ['Ma', true], ['Mi', true], ['Ju', false], ['Vi', false]].map(([d, active]) => (
+                  <div key={String(d)} className="flex-1 py-2 text-center" style={{
+                    borderRadius: 14,
+                    backgroundColor: active ? `${BRAND}12` : 'rgba(0,0,0,0.04)',
+                    border: active ? `1px solid ${BRAND}30` : '1px solid rgba(0,0,0,0.06)',
+                  }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: active ? BRAND : '#9CA3AF' }}>{d}</p>
+                    <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>{active ? '6P' : '—'}</p>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Turnos en segundos</h3>
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Crea, asigna y repite. Detecta conflictos antes de publicar.</p>
+              </div>
+            </div>
+
+            {/* Card 5 — Personalización — glassmorphism */}
+            <div
+              className="p-5 flex flex-col justify-between cursor-default hover:-translate-y-0.5"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.88)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                borderRadius: 20,
+                border: '1px solid rgba(255,255,255,0.7)',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.07)',
+                minHeight: 180,
+                transition: 'all 0.15s',
+              }}
+            >
+              <div className="flex gap-1.5 mb-3">
+                {[BRAND, '#6366f1', '#0ea5e9', '#22c55e', '#f59e0b'].map(c => (
+                  <div key={c} style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: c, border: '2px solid white', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
+                ))}
+              </div>
+              <div>
+                <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: `${BRAND}14`, color: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                  <BuildingIcon />
+                </div>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Tu color de marca</h3>
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>El app se adapta a tu negocio.</p>
+              </div>
+            </div>
+
+            {/* Card 6 — Multi-platform — dark card matches web app modal/overlay style */}
+            <div
+              className="p-5 flex flex-col justify-between cursor-default hover:-translate-y-0.5"
+              style={{
+                backgroundColor: '#111827',
+                borderRadius: 20,
+                border: '1px solid rgba(255,255,255,0.07)',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
+                minHeight: 180,
+                transition: 'all 0.15s',
+              }}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                <DevicesIcon />
+              </div>
+              <div>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: 'white' }}>App + Web</h3>
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Celular y computadora, todo sincronizado.</p>
+              </div>
+            </div>
+
+            {/* Card 7 — Reportes (2×1 wide) — dark */}
+            <div
+              className="sm:col-span-2 lg:col-span-2 p-5 flex items-center gap-5 cursor-default hover:-translate-y-0.5"
+              style={{
+                backgroundColor: '#111827',
+                borderRadius: 20,
+                border: '1px solid rgba(255,255,255,0.07)',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
+                minHeight: 100,
+                transition: 'all 0.15s',
+              }}
+            >
+              <div style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: `${BRAND}25`, color: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <PrintIcon />
+              </div>
+              <div className="flex-1">
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: 'white', marginBottom: 4 }}>Imprime la nómina lista para pagar</h3>
+                <p style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.5 }}>Totales por empleado, por período. Sin hojas de cálculo.</p>
+              </div>
+              {/* Mini bar chart — exact web app stat style */}
+              <div className="hidden sm:flex items-end gap-1 shrink-0">
+                {[50, 70, 38, 90, 60, 45, 75].map((h, i) => (
+                  <div key={i} style={{ width: 10, height: h * 0.55, borderRadius: '3px 3px 0 0', backgroundColor: i === 3 ? BRAND : 'rgba(255,255,255,0.12)' }} />
+                ))}
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
 
       {/* ── Geofence Section ── */}
-      <section id="geofence" className="py-24" style={{ background: 'linear-gradient(160deg, #fff5f7 0%, #ffffff 60%)' }}>
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="flex flex-col lg:flex-row gap-12 items-center">
+      <section id="geofence" className="relative overflow-hidden" style={{ minHeight: 560 }}>
 
-            {/* Map mockup */}
-            <div className="w-full lg:w-1/2 flex justify-center">
-              <div className="relative w-72 h-72 sm:w-80 sm:h-80">
-                {/* Map background */}
-                <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-2xl" style={{
-                  background: 'linear-gradient(135deg, #e8f4e8 0%, #d4edda 30%, #c8e6c9 60%, #dcedc8 100%)',
-                  border: '1px solid rgba(0,0,0,0.08)',
-                }}>
-                  {/* Grid lines (streets) */}
-                  <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 320 320">
-                    {/* Horizontal roads */}
-                    <line x1="0" y1="80"  x2="320" y2="80"  stroke="#999" strokeWidth="6" />
-                    <line x1="0" y1="160" x2="320" y2="160" stroke="#999" strokeWidth="4" />
-                    <line x1="0" y1="240" x2="320" y2="240" stroke="#999" strokeWidth="6" />
-                    {/* Vertical roads */}
-                    <line x1="80"  y1="0" x2="80"  y2="320" stroke="#999" strokeWidth="4" />
-                    <line x1="160" y1="0" x2="160" y2="320" stroke="#999" strokeWidth="6" />
-                    <line x1="240" y1="0" x2="240" y2="320" stroke="#999" strokeWidth="4" />
-                    {/* Blocks */}
-                    <rect x="90"  y="90"  width="60" height="60" rx="4" fill="#c8e6b0" opacity="0.6" />
-                    <rect x="170" y="90"  width="60" height="60" rx="4" fill="#b2dfdb" opacity="0.6" />
-                    <rect x="90"  y="170" width="60" height="60" rx="4" fill="#dcedc8" opacity="0.6" />
-                    <rect x="170" y="170" width="60" height="60" rx="4" fill="#c8e6b0" opacity="0.6" />
-                  </svg>
+        {/* Full-bleed map background */}
+        <div className="absolute inset-0" style={{ background: '#0f172a' }}>
+          <svg className="absolute inset-0 w-full h-full opacity-25" viewBox="0 0 1200 560" preserveAspectRatio="xMidYMid slice">
+            {/* Street grid */}
+            <line x1="0" y1="100" x2="1200" y2="100" stroke="#334155" strokeWidth="18" />
+            <line x1="0" y1="220" x2="1200" y2="220" stroke="#334155" strokeWidth="10" />
+            <line x1="0" y1="340" x2="1200" y2="340" stroke="#334155" strokeWidth="18" />
+            <line x1="0" y1="460" x2="1200" y2="460" stroke="#334155" strokeWidth="10" />
+            <line x1="150" y1="0" x2="150" y2="560" stroke="#334155" strokeWidth="10" />
+            <line x1="350" y1="0" x2="350" y2="560" stroke="#334155" strokeWidth="18" />
+            <line x1="580" y1="0" x2="580" y2="560" stroke="#334155" strokeWidth="10" />
+            <line x1="780" y1="0" x2="780" y2="560" stroke="#334155" strokeWidth="18" />
+            <line x1="980" y1="0" x2="980" y2="560" stroke="#334155" strokeWidth="10" />
+            <line x1="1100" y1="0" x2="1100" y2="560" stroke="#334155" strokeWidth="10" />
+            {/* Blocks */}
+            <rect x="160" y="110" width="180" height="100" rx="6" fill="#1e293b" />
+            <rect x="160" y="230" width="80" height="100" rx="6" fill="#1e293b" />
+            <rect x="260" y="230" width="80" height="100" rx="6" fill="#1e293b" />
+            <rect x="360" y="110" width="200" height="100" rx="6" fill="#1e293b" />
+            <rect x="360" y="230" width="90" height="100" rx="6" fill="#1e293b" />
+            <rect x="590" y="110" width="80" height="100" rx="6" fill="#1e293b" />
+            <rect x="590" y="230" width="180" height="100" rx="6" fill="#1e293b" />
+            <rect x="790" y="110" width="80" height="100" rx="6" fill="#1e293b" />
+            <rect x="790" y="230" width="180" height="100" rx="6" fill="#1e293b" />
+            <rect x="990" y="110" width="100" height="220" rx="6" fill="#1e293b" />
+            <rect x="160" y="350" width="180" height="100" rx="6" fill="#1e293b" />
+            <rect x="360" y="350" width="200" height="100" rx="6" fill="#1e293b" />
+            <rect x="590" y="350" width="80" height="100" rx="6" fill="#1e293b" />
+            <rect x="790" y="350" width="180" height="100" rx="6" fill="#1e293b" />
+          </svg>
 
-                  {/* Geofence circle */}
-                  <div className="absolute" style={{
-                    top: '50%', left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: 160, height: 160,
-                    borderRadius: '50%',
-                    border: `3px solid ${BRAND}`,
-                    backgroundColor: `${BRAND}15`,
-                    boxShadow: `0 0 0 8px ${BRAND}08`,
-                  }} />
+          {/* Geofence glow — centered left of text */}
+          <div className="absolute" style={{
+            top: '50%', left: '28%',
+            transform: 'translate(-50%, -50%)',
+            width: 260, height: 260,
+            borderRadius: '50%',
+            border: `2px solid ${BRAND}`,
+            background: `radial-gradient(circle, ${BRAND}22 0%, transparent 70%)`,
+            boxShadow: `0 0 0 20px ${BRAND}08, 0 0 80px ${BRAND}30`,
+          }} />
 
-                  {/* Center pin */}
-                  <div className="absolute" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -100%)' }}>
-                    <div className="flex flex-col items-center">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-lg" style={{ backgroundColor: BRAND }}>
-                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                          <path fillRule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-2.083 3.218-4.688 3.218-7.327C19.5 6.157 16.035 2.25 12 2.25S4.5 6.157 4.5 10c0 2.64 1.274 5.244 3.218 7.327a19.58 19.58 0 0 0 2.683 2.282 16.975 16.975 0 0 0 1.14.742ZM12 13.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div className="w-2 h-2 rounded-full mt-0.5" style={{ backgroundColor: BRAND }} />
-                    </div>
-                  </div>
-
-                  {/* Employee dots inside */}
-                  <div className="absolute w-4 h-4 rounded-full border-2 border-white shadow" style={{ backgroundColor: '#22c55e', top: '38%', left: '44%' }} />
-                  <div className="absolute w-4 h-4 rounded-full border-2 border-white shadow" style={{ backgroundColor: '#22c55e', top: '55%', left: '56%' }} />
-                  {/* Employee dot outside */}
-                  <div className="absolute w-4 h-4 rounded-full border-2 border-white shadow" style={{ backgroundColor: '#f59e0b', top: '20%', left: '70%' }} />
-                </div>
-
-                {/* Legend */}
-                <div className="absolute -bottom-12 left-0 right-0 flex justify-center gap-4 text-xs text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" /> Dentro del área
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400" /> Fuera del área
-                  </span>
-                </div>
-              </div>
+          {/* Business pin */}
+          <div className="absolute flex flex-col items-center" style={{ top: 'calc(50% - 24px)', left: 'calc(28% - 8px)', transform: 'translate(-50%, -100%)' }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-xl" style={{ background: BRAND, boxShadow: `0 0 20px ${BRAND}80` }}>
+              <MapPinIcon />
             </div>
+            <div className="w-2 h-2 rounded-full mt-0.5" style={{ background: BRAND }} />
+          </div>
 
-            {/* Text */}
-            <div className="w-full lg:w-1/2 lg:pl-8 mt-14 lg:mt-0">
-              <div
-                className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wider"
-                style={{ backgroundColor: `${BRAND}12`, color: BRAND }}
-              >
-                <MapPinIcon />
-                Geofence
-              </div>
-              <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-                Tus empleados solo pueden marcar entrada desde tu negocio
-              </h2>
-              <p className="text-gray-500 leading-relaxed mb-6">
-                Define un radio alrededor de tu negocio en el mapa. Cuando un empleado intenta marcar entrada, el app verifica que esté dentro del área. Si no está, no puede marcar.
-              </p>
-              <p className="text-gray-500 leading-relaxed mb-6">
-                Si el empleado no tiene GPS disponible, puede usar el PIN de respaldo que tú configuras.
-              </p>
-              <ul className="space-y-3">
-                {[
-                  'Configuras el radio en el mapa, tú decides el tamaño del área',
-                  'El app valida la ubicación en tiempo real',
-                  'PIN de respaldo para casos sin señal',
-                  'Logs de cada entrada con hora exacta',
-                ].map(item => (
-                  <li key={item} className="flex items-start gap-3 text-gray-700 text-sm">
-                    <span className="mt-0.5" style={{ color: BRAND }}><CheckIcon /></span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
+          {/* Employee dots */}
+          <div className="absolute w-5 h-5 rounded-full border-2 border-white shadow-lg flex items-center justify-center" style={{ background: '#22c55e', top: '42%', left: '24%', boxShadow: '0 0 10px #22c55e88' }} />
+          <div className="absolute w-5 h-5 rounded-full border-2 border-white shadow-lg" style={{ background: '#22c55e', top: '56%', left: '31%', boxShadow: '0 0 10px #22c55e88' }} />
+          <div className="absolute w-5 h-5 rounded-full border-2 border-white shadow-lg" style={{ background: '#22c55e', top: '48%', left: '26%', boxShadow: '0 0 10px #22c55e88' }} />
+          <div className="absolute w-5 h-5 rounded-full border-2 border-white shadow-lg" style={{ background: '#f59e0b', top: '30%', left: '48%', boxShadow: '0 0 10px #f59e0b88' }} />
+
+          {/* Dark overlay on right half for text readability */}
+          <div className="absolute inset-y-0 right-0 w-full lg:w-1/2" style={{ background: 'linear-gradient(to right, transparent, #0f172a 40%)' }} />
+        </div>
+
+        {/* Content */}
+        <div className="relative max-w-6xl mx-auto px-6 py-24 flex justify-end">
+          <div className="w-full lg:w-1/2 lg:pl-12">
+            <div
+              className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-5 uppercase tracking-wider"
+              style={{ backgroundColor: `${BRAND}25`, color: BRAND, border: `1px solid ${BRAND}40` }}
+            >
+              <MapPinIcon />
+              Geofence
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 leading-tight">
+              Solo pueden marcar entrada desde tu negocio
+            </h2>
+            <p className="text-slate-400 leading-relaxed mb-6">
+              Define el radio en el mapa. Cuando un empleado marca entrada, el app verifica su ubicación en tiempo real. Si está fuera del área, no puede marcar.
+            </p>
+            <ul className="space-y-3 mb-8">
+              {[
+                'Tú defines el radio — chico o grande, como quieras',
+                'Validación GPS en tiempo real, al momento de marcar',
+                'PIN de respaldo para casos sin señal',
+                'Log de cada entrada con hora exacta',
+              ].map(item => (
+                <li key={item} className="flex items-start gap-3 text-slate-300 text-sm">
+                  <span className="mt-0.5 shrink-0" style={{ color: BRAND }}><CheckIcon /></span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+            {/* Legend */}
+            <div className="flex gap-4 text-xs text-slate-400">
+              <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-400" /> Dentro del área</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400" /> Fuera del área</span>
             </div>
           </div>
         </div>
@@ -439,38 +589,71 @@ export default function LandingPage() {
 
       {/* ── Getting Started ── */}
       <section id="comenzar" className="bg-white py-24">
-        <div className="max-w-5xl mx-auto px-6">
+        <div className="max-w-3xl mx-auto px-6">
           <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wider" style={{ backgroundColor: `${BRAND}10`, color: BRAND }}>
+              Setup
+            </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               Estás listo en menos de 10 minutos
             </h2>
-            <p className="text-gray-500 text-lg max-w-xl mx-auto">
-              Sin configuraciones complicadas. Sin necesitar un técnico.
+            <p className="text-gray-500 text-lg max-w-lg mx-auto">
+              Sin técnicos. Sin configuraciones raras. Tú solo.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {steps.map((step, i) => (
-              <div key={step.num} className="relative">
-                {/* Connector line */}
-                {i < steps.length - 1 && (
-                  <div className="hidden lg:block absolute top-7 left-full w-full h-0.5 z-0" style={{ backgroundColor: `${BRAND}20`, transform: 'translateX(-50%)' }} />
-                )}
-                <div
-                  className="relative z-10 p-6 rounded-2xl h-full"
-                  style={{ background: '#fafafa', border: '1px solid #f0f0f0' }}
-                >
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-black mb-4"
-                    style={{ backgroundColor: BRAND, boxShadow: `0 4px 14px ${BRAND}35` }}
-                  >
-                    {step.num}
+          {/* Vertical timeline */}
+          <div className="relative">
+            {/* Connecting line */}
+            <div className="absolute left-7 top-8 bottom-8 w-0.5" style={{ background: `linear-gradient(to bottom, ${BRAND}, ${BRAND}20)` }} />
+
+            <div className="space-y-6">
+              {[
+                {
+                  num: '1', title: 'Crea tu cuenta', time: '2 min',
+                  desc: 'Regístrate con tu email. No necesitas tarjeta de crédito, no hay contratos. Empiezas gratis desde el primer día.',
+                  detail: 'Recibes acceso inmediato al dashboard web y puedes descargar la app móvil.',
+                },
+                {
+                  num: '2', title: 'Configura tu negocio', time: '3 min',
+                  desc: 'Ponle el nombre de tu negocio, elige tu color de marca y configura el período de pago (semanal o quincenal).',
+                  detail: 'También defines el radio de geofence en el mapa — cuántos metros alrededor de tu local.',
+                },
+                {
+                  num: '3', title: 'Agrega tus empleados', time: '2 min',
+                  desc: 'Escribe nombre y apellido. El app genera el email y contraseña automáticamente — tú solo cópiaselos.',
+                  detail: 'No tienes que crear cuentas de Google ni nada por el estilo. Todo pasa dentro de Ko-nnecta\'.',
+                },
+                {
+                  num: '4', title: 'Primer turno creado', time: '1 min',
+                  desc: 'Crea el turno, asígnalo al empleado, repítelo los días que necesites. Tu equipo ve sus turnos en la app al instante.',
+                  detail: 'Cuando lleguen a trabajar marcan entrada desde el celular — con GPS o con PIN si no hay señal.',
+                },
+              ].map((step, i) => (
+                <div key={step.num} className="relative flex gap-6">
+                  {/* Step bubble */}
+                  <div className="relative shrink-0 flex flex-col items-center" style={{ width: 56 }}>
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-black z-10 shadow-lg"
+                      style={{ background: BRAND, boxShadow: `0 4px 20px ${BRAND}40` }}
+                    >
+                      {step.num}
+                    </div>
                   </div>
-                  <h3 className="font-bold text-gray-900 mb-2">{step.title}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed">{step.desc}</p>
+                  {/* Card */}
+                  <div className="flex-1 pb-2">
+                    <div className="p-6 rounded-2xl" style={{ background: '#fafafa', border: '1px solid #f0f0f0' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-bold text-gray-900 text-base">{step.title}</h3>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: `${BRAND}10`, color: BRAND }}>~{step.time}</span>
+                      </div>
+                      <p className="text-gray-700 text-sm leading-relaxed mb-2">{step.desc}</p>
+                      <p className="text-gray-400 text-xs leading-relaxed">{step.detail}</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           <div className="text-center mt-12">
@@ -481,7 +664,7 @@ export default function LandingPage() {
             >
               Crear mi cuenta gratis
             </Link>
-            <p className="mt-3 text-sm text-gray-400">Sin tarjeta de crédito. Sin contratos.</p>
+            <p className="mt-3 text-sm text-gray-400">Sin tarjeta de crédito · Sin contratos · Gratis durante el beta</p>
           </div>
         </div>
       </section>
@@ -535,17 +718,55 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="bg-white py-10" style={{ borderTop: '1px solid #f0f0f0' }}>
-        <div className="max-w-6xl mx-auto px-6 flex flex-col items-center gap-4">
-          <Image src="/logo.png" alt="Ko-nnecta'" width={180} height={56} className="object-contain opacity-90" />
-          <p className="text-sm text-gray-400">Hecho en Puerto Rico 🇵🇷</p>
-          <div className="flex items-center gap-6 text-sm">
-            <Link href="/login" className="text-gray-400 hover:text-gray-700 transition-colors duration-200 cursor-pointer">Iniciar sesión</Link>
-            <span className="text-gray-200">|</span>
-            <Link href="/signup" className="text-gray-400 hover:text-gray-700 transition-colors duration-200 cursor-pointer">Crear cuenta</Link>
+      <footer style={{ backgroundColor: '#0a0205', borderTop: `1px solid ${BRAND}30` }}>
+        <div className="max-w-6xl mx-auto px-6 pt-14 pb-8">
+          {/* Top row */}
+          <div className="flex flex-col lg:flex-row items-center lg:items-start justify-between gap-10 mb-10">
+
+            {/* Brand */}
+            <div className="flex flex-col items-center lg:items-start gap-3">
+              <Image src="/konnectaBigBlack.png" alt="Ko-nnecta'" width={200} height={62} className="object-contain" />
+              <p style={{ fontSize: 13, color: '#6B7280' }}>La app de turnos para tu equipo.</p>
+              <p style={{ fontSize: 13, color: '#4B5563' }}>Hecho en Puerto Rico 🇵🇷</p>
+            </div>
+
+            {/* Links */}
+            <div className="flex gap-12">
+              <div className="flex flex-col gap-3">
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Producto</p>
+                <a href="#funciones" style={{ fontSize: 13, color: '#6B7280' }} className="hover:text-white transition-colors duration-150 cursor-pointer">Funciones</a>
+                <a href="#geofence" style={{ fontSize: 13, color: '#6B7280' }} className="hover:text-white transition-colors duration-150 cursor-pointer">Geofence</a>
+                <a href="#precios" style={{ fontSize: 13, color: '#6B7280' }} className="hover:text-white transition-colors duration-150 cursor-pointer">Precios</a>
+              </div>
+              <div className="flex flex-col gap-3">
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cuenta</p>
+                <Link href="/login" style={{ fontSize: 13, color: '#6B7280' }} className="hover:text-white transition-colors duration-150 cursor-pointer">Iniciar sesión</Link>
+                <Link href="/signup" style={{ fontSize: 13, color: '#6B7280' }} className="hover:text-white transition-colors duration-150 cursor-pointer">Crear cuenta</Link>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="flex flex-col items-center lg:items-end gap-3">
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center text-white font-bold text-sm px-6 py-3 rounded-xl cursor-pointer transition-all duration-150 hover:opacity-90"
+                style={{ backgroundColor: BRAND, boxShadow: `0 4px 14px ${BRAND}40`, fontSize: 14, fontWeight: 700 }}
+              >
+                Empezar gratis →
+              </Link>
+              <p style={{ fontSize: 11, color: '#4B5563' }}>Sin tarjeta · Sin contratos</p>
+              <p style={{ fontSize: 11, color: '#4B5563' }}>App Store &amp; Google Play — próximamente</p>
+            </div>
           </div>
-          <p className="text-xs text-gray-300">© 2025 Ko-nnecta&apos;. Todos los derechos reservados.</p>
-          <p className="text-xs text-gray-300">App Store y Google Play — próximamente</p>
+
+          {/* Divider */}
+          <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.07)', marginBottom: 20 }} />
+
+          {/* Bottom row */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p style={{ fontSize: 12, color: '#4B5563' }}>© 2025 Ko-nnecta&apos;. Todos los derechos reservados.</p>
+            <p style={{ fontSize: 12, color: BRAND, fontWeight: 600 }}>Beta gratuita — Puerto Rico</p>
+          </div>
         </div>
       </footer>
 

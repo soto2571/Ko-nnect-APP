@@ -26,8 +26,8 @@ export function StickyPhones() {
     const measure = () => {
       const funciones = document.getElementById('funciones');
       if (funciones) {
-        // Stop at the very bottom of the features section
-        stopAt = Math.max(0, funciones.offsetTop + funciones.offsetHeight - window.innerHeight * 0.15);
+        // Stop when the features section title scrolls into view
+        stopAt = Math.max(0, funciones.offsetTop - window.innerHeight * 0.75);
       }
     };
 
