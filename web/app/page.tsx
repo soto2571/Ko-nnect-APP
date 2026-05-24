@@ -645,10 +645,10 @@ export default function LandingPage() {
             </p>
             <ul className="space-y-3 mb-8">
               {[
-                'Tú defines el radio — chico o grande, como quieras',
+                'Tú defines el radio exacto desde el mapa',
                 'Validación GPS en tiempo real, al momento de marcar',
-                'PIN de respaldo para casos sin señal',
-                'Log de cada entrada con hora exacta',
+                'PIN de acceso para empleados que no concedieron permisos de ubicación',
+                'Si está fuera del área, la entrada queda bloqueada automáticamente',
               ].map(item => (
                 <li key={item} className="flex items-start gap-3 text-slate-300 text-sm">
                   <span className="mt-0.5 shrink-0" style={{ color: BRAND }}><CheckIcon /></span>
