@@ -145,16 +145,20 @@ export default function LandingPage() {
         boxShadow: '0 4px 32px rgba(0,0,0,0.10), 0 1px 0 rgba(255,255,255,0.9) inset',
       }}>
         <div className="px-5 h-14 flex items-center justify-between gap-4">
-          {/* Section links */}
-          <div className="flex items-center gap-0.5">
+          {/* Logo — always visible */}
+          <a href="#hero" className="shrink-0 cursor-pointer">
+            <Image src="/logo.png" alt="Ko-nnecta'" width={110} height={34} className="object-contain" />
+          </a>
+          {/* Section links — hidden on mobile */}
+          <div className="hidden md:flex items-center gap-0.5">
             <a href="#funciones" className="text-sm font-semibold transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-red-50" style={{ color: BRAND }}>Funciones</a>
             <a href="#geofence" className="text-sm font-semibold transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-red-50" style={{ color: BRAND }}>Geofence</a>
-            <a href="#comenzar" className="hidden sm:block text-sm font-semibold transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-red-50" style={{ color: BRAND }}>Cómo empezar</a>
+            <a href="#comenzar" className="text-sm font-semibold transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-red-50" style={{ color: BRAND }}>Cómo empezar</a>
             <a href="#precios" className="text-sm font-semibold transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-red-50" style={{ color: BRAND }}>Precios</a>
           </div>
           {/* Auth CTAs */}
           <div className="flex items-center gap-2 shrink-0">
-            <Link href="/login" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-black/5">
+            <Link href="/login" className="hidden md:block text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors duration-150 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-black/5">
               Iniciar sesión
             </Link>
             <Link
@@ -220,8 +224,8 @@ export default function LandingPage() {
             <span style={{ color: BRAND }}>Ko-nnecta&apos; a tu equipo.</span>
           </h1>
           <p className="text-lg text-gray-500 leading-relaxed mb-8 max-w-md">
-            Crea turnos, controla entradas y salidas, y mantén a tu equipo al día
-            — todo desde el celular o tu computadora.
+            Programa horarios, controla entradas con geofence GPS, y genera tu nómina en segundos.
+            Para pequeños negocios en Puerto Rico que todavía dependen del papel o WhatsApp.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
@@ -265,10 +269,10 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4" style={{ color: '#111827', letterSpacing: '-0.5px' }}>
-              Todo lo que necesitas para manejar tu equipo
+              Del turno al pago — todo en un solo lugar
             </h2>
             <p className="text-lg max-w-xl mx-auto" style={{ color: '#6B7280' }}>
-              De la nómina al horario, sin hojas de cálculo ni grupos de WhatsApp.
+              Sin hojas de cálculo, sin grupos de WhatsApp, sin llamadas para saber quién trabaja hoy.
             </p>
           </div>
 
@@ -337,7 +341,7 @@ export default function LandingPage() {
               </div>
               <div className="mt-3">
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>¿Quién está en turno?</h3>
-                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>De un vistazo, sin llamar.</p>
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Ve quién está trabajando ahora mismo, sin tener que llamar a nadie.</p>
               </div>
             </div>
 
@@ -363,7 +367,7 @@ export default function LandingPage() {
                   <p style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>Hoy, 9:12 AM</p>
                 </div>
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Alertas de tardanza</h3>
-                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Te notificamos al instante.</p>
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Sabes al instante si alguien llega tarde, sin estar pendiente al reloj.</p>
               </div>
             </div>
 
@@ -505,7 +509,7 @@ export default function LandingPage() {
                   <BuildingIcon />
                 </div>
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Tu color de marca</h3>
-                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>El app se adapta a tu negocio.</p>
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>La app toma el color de tu negocio — tus empleados lo sienten como propio.</p>
               </div>
             </div>
 
@@ -525,7 +529,7 @@ export default function LandingPage() {
               </div>
               <div>
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: 'white' }}>App + Web</h3>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 2 }}>Celular y computadora, todo sincronizado.</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 2 }}>Maneja todo desde el celular o la computadora. Siempre sincronizado.</p>
               </div>
             </div>
 
@@ -800,7 +804,7 @@ export default function LandingPage() {
             {/* Brand */}
             <div className="flex flex-col items-center lg:items-start gap-3">
               <Image src="/konnectaBigBlack.png" alt="Ko-nnecta'" width={200} height={62} className="object-contain" />
-              <p style={{ fontSize: 13, color: '#6B7280' }}>La app de turnos para tu equipo.</p>
+              <p style={{ fontSize: 13, color: '#6B7280' }}>Turnos, timeclock GPS y nómina — todo en una sola app.</p>
               <p style={{ fontSize: 13, color: '#4B5563' }}>Hecho en Puerto Rico 🇵🇷</p>
             </div>
 
@@ -838,7 +842,7 @@ export default function LandingPage() {
 
           {/* Bottom row */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-            <p style={{ fontSize: 12, color: '#4B5563' }}>© 2025 Ko-nnecta&apos;. Todos los derechos reservados.</p>
+            <p style={{ fontSize: 12, color: '#4B5563' }}>© 2026 Ko-nnecta&apos;. Todos los derechos reservados.</p>
             <p style={{ fontSize: 12, color: BRAND, fontWeight: 600 }}>Beta gratuita — Puerto Rico</p>
           </div>
         </div>
