@@ -866,7 +866,7 @@ function WeekGrid({ dates, shifts, employees, activeLogs, color, setModal }: {
   color: string; setModal: (s: ModalState) => void;
 }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10, minWidth: 700 }}>
+    <div className="week-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10, minWidth: 700 }}>
       {dates.map(date => {
         const today     = isToday(date);
         const past      = isPast(date);
@@ -874,9 +874,9 @@ function WeekGrid({ dates, shifts, employees, activeLogs, color, setModal }: {
         const dateStr   = toDateStr(date);
 
         return (
-          <div key={dateStr} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div key={dateStr} className="week-day" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {/* Day header */}
-            <div style={{
+            <div className="week-day-header" style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               padding: '10px 4px', borderRadius: 18, textAlign: 'center',
               ...(today
@@ -886,16 +886,16 @@ function WeekGrid({ dates, shifts, employees, activeLogs, color, setModal }: {
                   : { backgroundColor: 'rgba(255,255,255,0.85)', border: '1px solid rgba(0,0,0,0.09)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }
               ),
             }}>
-              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.3px', color: today ? 'rgba(255,255,255,0.75)' : past ? '#9CA3AF' : '#6B7280', lineHeight: 1.2 }}>
-                {DAY_NAMES[date.getDay()]}
+              <span className="day-name" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.3px', color: today ? 'rgba(255,255,255,0.75)' : past ? '#9CA3AF' : '#6B7280', lineHeight: 1.2 }}>
+                {DAY_SHORT[date.getDay()]}
               </span>
-              <span style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.15, marginTop: 2, color: today ? '#fff' : past ? '#D1D5DB' : '#111827' }}>
+              <span className="day-num" style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.15, marginTop: 2, color: today ? '#fff' : past ? '#D1D5DB' : '#111827' }}>
                 {date.getDate()}
               </span>
             </div>
 
             {/* Shifts */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="week-day-shifts" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {dayShifts.map(shift => (
                 <ShiftCard key={shift.shiftId} shift={shift} employees={employees} activeLogs={activeLogs} color={color}
                   onClick={() => setModal({ mode: 'edit', shift })} />
@@ -1119,7 +1119,7 @@ export default function DashboardPage() {
   }, [shifts, statusFilter, empFilter, activeLogs, employees]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div className="dash-page" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
       {/* ── Top bar ── */}
       <div className="dash-toolbar" style={{
@@ -1248,14 +1248,14 @@ export default function DashboardPage() {
       )}
 
       {/* ── Body ── */}
-      <div style={{
+      <div className="dash-body" style={{
         flex: 1, minHeight: 0,
         overflowY: 'auto',
         overflowX: 'auto',
         padding: '20px 24px 100px',
       }}>
         {(authLoading || loading) ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10, minWidth: 700 }}>
+          <div className="cal-scroll"><div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10, minWidth: 700 }}>
             {Array.from({ length: 7 }).map((_, col) => (
               <div key={col} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {/* Day header */}
@@ -1278,7 +1278,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             ))}
-          </div>
+          </div></div>
         ) : !business ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 160, color: '#9CA3AF', fontSize: 14 }}>
             No se encontró el negocio. Recarga la página.
@@ -1286,7 +1286,9 @@ export default function DashboardPage() {
         ) : viewMode === 'week' ? (
           <WeekGrid dates={currentWeekDates} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
         ) : (
-          <MonthView weeks={monthGrid.weeks} month={monthGrid.month} startDay={startDay} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
+          <div className="cal-scroll">
+            <MonthView weeks={monthGrid.weeks} month={monthGrid.month} startDay={startDay} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
+          </div>
         )}
       </div>
 
@@ -1309,10 +1311,25 @@ export default function DashboardPage() {
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         .drum-scroll::-webkit-scrollbar { display: none; }
         @media (max-width: 767px) {
+          /* Toolbar */
           .dash-toolbar { padding: 8px 12px !important; flex-wrap: wrap; gap: 6px !important; }
           .dash-toolbar-right { display: none !important; }
-          .dash-nav-label { min-width: 100px !important; font-size: 11px !important; padding: 0 6px !important; }
-          .dash-filter-bar { overflow-x: auto !important; padding: 6px 12px !important; flex-wrap: nowrap !important; }
+          .dash-nav-label { min-width: 90px !important; font-size: 11px !important; padding: 0 5px !important; }
+          /* Filter bar */
+          .dash-filter-bar { overflow-x: auto !important; padding: 6px 12px !important; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; }
+          /* Page root: let main scroll naturally (no fixed-height flex column) */
+          .dash-page { height: auto !important; }
+          /* Body: don't create a nested scroll container; just flow */
+          .dash-body { flex: none !important; min-height: auto !important; overflow: visible !important; padding: 12px 12px 100px !important; }
+          /* Horizontal scroll wrapper for the calendar */
+          .cal-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+          /* Weekly view → vertical day list */
+          .week-grid { display: flex !important; flex-direction: column !important; min-width: unset !important; gap: 10px !important; }
+          .week-day  { display: flex !important; flex-direction: row !important; align-items: flex-start !important; gap: 10px !important; }
+          .week-day-header { width: 56px !important; flex-shrink: 0 !important; padding: 8px 4px !important; border-radius: 12px !important; }
+          .week-day-header .day-name { font-size: 9px !important; }
+          .week-day-header .day-num  { font-size: 18px !important; }
+          .week-day-shifts { flex: 1 !important; padding-top: 2px !important; }
         }
       `}</style>
 

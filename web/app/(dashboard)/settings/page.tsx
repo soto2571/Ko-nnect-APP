@@ -77,7 +77,7 @@ function CardHead({ title, subtitle, danger = false }: { title: string; subtitle
 
 function CardBody({ children, cols }: { children: React.ReactNode; cols?: string }) {
   return (
-    <div style={{
+    <div className={cols ? 'card-body-grid' : undefined} style={{
       padding: '18px 20px',
       display: cols ? 'grid' : 'flex',
       gridTemplateColumns: cols,
@@ -211,7 +211,7 @@ function Pills<T extends string>({ options, value, onChange, color }: {
 
 function DayPills({ value, onChange, color }: { value: number; onChange: (i: number) => void; color: string }) {
   return (
-    <div style={{ display: 'inline-flex', border: '1.5px solid #E2E8F0', borderRadius: 9, overflow: 'hidden' }}>
+    <div className="day-pills" style={{ display: 'inline-flex', border: '1.5px solid #E2E8F0', borderRadius: 9, overflow: 'hidden' }}>
       {DAYS.map((d, i) => {
         const active = value === i;
         return (
@@ -531,7 +531,15 @@ export default function SettingsPage() {
 
   return (
     <>
-    <style>{`@media (max-width: 767px) { .page-content { padding: 16px 16px 100px !important; } }`}</style>
+    <style>{`
+      @media (max-width: 767px) {
+        .page-content { padding: 16px 16px 100px !important; }
+        .settings-grid { grid-template-columns: 1fr !important; }
+        .card-body-grid { grid-template-columns: 1fr !important; }
+        .day-pills { display: flex !important; width: 100% !important; }
+        .day-pills button { flex: 1 !important; width: auto !important; min-width: 0 !important; }
+      }
+    `}</style>
     <div className="page-content" style={{ padding: '32px 36px 100px', maxWidth: 960, margin: '0 auto' }}>
 
       {/* Page header */}
@@ -545,7 +553,7 @@ export default function SettingsPage() {
       </div>
 
       {/* 2-column grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <div className="settings-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
 
         {/* ─── Negocio (half) ─── */}
         <Card>
@@ -826,8 +834,8 @@ export default function SettingsPage() {
           </CardBody>
         </Card>
 
-        {/* ─── Cuenta (half) ─── */}
-        <Card>
+        {/* ─── Cuenta (full) ─── */}
+        <Card full>
           <CardHead title="Cuenta" subtitle="Información de tu usuario" />
           <CardBody>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
