@@ -861,17 +861,27 @@ function ShiftModal({ state, employees, shifts: allShifts, color, businessId, on
 }
 
 // ── Week view grid ────────────────────────────────────────────────────────────
+const WEEK_MAX = 3;
+
 function WeekGrid({ dates, shifts, employees, activeLogs, color, setModal }: {
   dates: Date[]; shifts: Shift[]; employees: Employee[]; activeLogs: TimeLog[];
   color: string; setModal: (s: ModalState) => void;
 }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleDay = (key: string) => setExpanded(prev => {
+    const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next;
+  });
+
   return (
     <div className="week-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10, minWidth: 700 }}>
       {dates.map(date => {
-        const today     = isToday(date);
-        const past      = isPast(date);
-        const dayShifts = shifts.filter(s => isSameDay(new Date(s.startTime), date));
-        const dateStr   = toDateStr(date);
+        const today      = isToday(date);
+        const past       = isPast(date);
+        const dayShifts  = shifts.filter(s => isSameDay(new Date(s.startTime), date));
+        const dateStr    = toDateStr(date);
+        const isExp      = expanded.has(dateStr);
+        const visible    = isExp ? dayShifts : dayShifts.slice(0, WEEK_MAX);
+        const hiddenCount = dayShifts.length - WEEK_MAX;
 
         return (
           <div key={dateStr} className="week-day" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -896,10 +906,26 @@ function WeekGrid({ dates, shifts, employees, activeLogs, color, setModal }: {
 
             {/* Shifts */}
             <div className="week-day-shifts" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {dayShifts.map(shift => (
+              {visible.map(shift => (
                 <ShiftCard key={shift.shiftId} shift={shift} employees={employees} activeLogs={activeLogs} color={color}
                   onClick={() => setModal({ mode: 'edit', shift })} />
               ))}
+              {!isExp && hiddenCount > 0 && (
+                <button onClick={() => toggleDay(dateStr)} style={{
+                  width: '100%', padding: '5px 0', borderRadius: 9, border: `1.5px solid ${color}30`,
+                  backgroundColor: `${color}08`, color, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                }}>
+                  +{hiddenCount} más
+                </button>
+              )}
+              {isExp && dayShifts.length > WEEK_MAX && (
+                <button onClick={() => toggleDay(dateStr)} style={{
+                  width: '100%', padding: '5px 0', borderRadius: 9, border: '1.5px solid #E5E7EB',
+                  backgroundColor: '#F9FAFB', color: '#6B7280', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                }}>
+                  Ver menos
+                </button>
+              )}
               {dayShifts.length === 0 && !past && (
                 <button onClick={() => setModal({ mode: 'create', date: dateStr })}
                   style={{ width: '100%', height: 36, borderRadius: 12, border: '1.5px dashed rgba(0,0,0,0.1)', backgroundColor: 'transparent', color: '#CBD5E1', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -931,7 +957,7 @@ function MonthView({ weeks, month, startDay, shifts, employees, activeLogs, colo
   const orderedDays = Array.from({ length: 7 }, (_, i) => DAY_SHORT[(startDay + i) % 7]);
 
   return (
-    <div style={{ minWidth: 680 }}>
+    <div style={{ minWidth: 900 }}>
       {/* Day-name header — ordered by business startDay */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 5, marginBottom: 5 }}>
         {orderedDays.map((d, i) => (
@@ -973,8 +999,8 @@ function MonthView({ weeks, month, startDay, shifts, employees, activeLogs, colo
                       : `1.5px solid ${!inMonth ? '#DDE0E6' : '#D1D5DB'}`,
                     borderRadius: 12, padding: '6px 5px',
                     display: 'flex', flexDirection: 'column',
-                    height: isExp ? 'auto' : 160,
-                    minHeight: isExp ? 160 : undefined,
+                    height: isExp ? 'auto' : 190,
+                    minHeight: isExp ? 190 : undefined,
                     overflow: isExp ? 'visible' : 'hidden',
                     boxShadow: today
                       ? `0 3px 14px ${color}22`
@@ -1332,6 +1358,8 @@ export default function DashboardPage() {
           .week-day-header .day-name { font-size: 9px !important; }
           .week-day-header .day-num  { font-size: 18px !important; }
           .week-day-shifts { flex: 1 !important; padding-top: 2px !important; }
+          .week-day { border-bottom: 1px solid rgba(0,0,0,0.07) !important; padding-bottom: 12px !important; }
+          .week-day:last-child { border-bottom: none !important; padding-bottom: 0 !important; }
         }
       `}</style>
 
