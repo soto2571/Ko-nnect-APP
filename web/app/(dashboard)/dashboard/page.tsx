@@ -973,7 +973,9 @@ function MonthView({ weeks, month, startDay, shifts, employees, activeLogs, colo
                       : `1.5px solid ${!inMonth ? '#DDE0E6' : '#D1D5DB'}`,
                     borderRadius: 12, padding: '6px 5px',
                     display: 'flex', flexDirection: 'column',
-                    minHeight: 120,
+                    height: isExp ? 'auto' : 160,
+                    minHeight: isExp ? 160 : undefined,
+                    overflow: isExp ? 'visible' : 'hidden',
                     boxShadow: today
                       ? `0 3px 14px ${color}22`
                       : inMonth && !past ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
@@ -1284,9 +1286,7 @@ export default function DashboardPage() {
             No se encontró el negocio. Recarga la página.
           </div>
         ) : viewMode === 'week' ? (
-          <div className="cal-scroll">
-            <WeekGrid dates={currentWeekDates} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
-          </div>
+          <WeekGrid dates={currentWeekDates} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
         ) : (
           <div className="cal-scroll">
             <MonthView weeks={monthGrid.weeks} month={monthGrid.month} startDay={startDay} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
@@ -1323,8 +1323,15 @@ export default function DashboardPage() {
           .dash-page { height: auto !important; }
           /* Body: don't create a nested scroll container; just flow */
           .dash-body { flex: none !important; min-height: auto !important; overflow: visible !important; padding: 12px 12px 100px !important; }
-          /* Horizontal scroll wrapper for both week and month views */
+          /* Horizontal scroll wrapper for month view */
           .cal-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+          /* Weekly view → vertical day list */
+          .week-grid { display: flex !important; flex-direction: column !important; min-width: unset !important; gap: 10px !important; }
+          .week-day  { display: flex !important; flex-direction: row !important; align-items: flex-start !important; gap: 10px !important; }
+          .week-day-header { width: 56px !important; flex-shrink: 0 !important; padding: 8px 4px !important; border-radius: 12px !important; }
+          .week-day-header .day-name { font-size: 9px !important; }
+          .week-day-header .day-num  { font-size: 18px !important; }
+          .week-day-shifts { flex: 1 !important; padding-top: 2px !important; }
         }
       `}</style>
 
