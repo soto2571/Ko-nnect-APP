@@ -73,7 +73,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const initials = user ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() : '';
 
-  // Don't flash dashboard content while redirecting
   if (loading || !user || !business) {
     return (
       <div className="flex h-screen overflow-hidden items-center justify-center" style={{ backgroundColor: '#fff8f9' }}>
@@ -86,11 +85,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden">
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+
+        /* Mobile: FAB lives above bottom nav */
+        @media (max-width: 767px) {
+          .page-fab   { bottom: 84px !important; right: 16px !important; }
+          .save-bar   { left: 0 !important; bottom: 64px !important; }
+        }
+      `}</style>
+
       <AnimatedBackground color={color} />
 
-      {/* ── Sidebar ── */}
+      {/* ── Desktop sidebar (hidden on mobile) ── */}
       <aside
-        className="w-60 shrink-0 flex flex-col z-10"
+        className="hidden md:flex w-60 shrink-0 flex-col z-10"
         style={{
           background: 'rgba(255,255,255,0.82)',
           backdropFilter: 'blur(24px)',
@@ -157,10 +166,83 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* ── Main ── */}
-      <main className="flex-1 overflow-y-auto z-0">
+      {/* ── Mobile top header (hidden on desktop) ── */}
+      <header
+        className="md:hidden fixed top-0 left-0 right-0 z-20 flex items-center justify-between px-4"
+        style={{
+          height: 56,
+          background: 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(0,0,0,0.07)',
+          boxShadow: '0 1px 12px rgba(0,0,0,0.06)',
+        }}
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Image src="/logo-small.png" alt="Ko-nnecta'" width={90} height={28} className="object-contain shrink-0" />
+          {business && (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+              <p className="text-xs font-semibold text-gray-500 truncate max-w-[120px]">{business.name}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black"
+            style={{ backgroundColor: color }}
+          >
+            {initials}
+          </div>
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-red-500"
+            style={{ backgroundColor: '#FEF2F2' }}
+          >
+            <IconLogout size={13} />
+            Salir
+          </button>
+        </div>
+      </header>
+
+      {/* ── Main content ── */}
+      <main className="flex-1 overflow-y-auto z-0 md:pt-0 pt-14 pb-16 md:pb-0">
         {children}
       </main>
+
+      {/* ── Mobile bottom nav (hidden on desktop) ── */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-20 flex"
+        style={{
+          height: 64,
+          background: 'rgba(255,255,255,0.95)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderTop: '1px solid rgba(0,0,0,0.08)',
+          boxShadow: '0 -4px 20px rgba(0,0,0,0.06)',
+        }}
+      >
+        {NAV.map(({ href, label, Icon }) => {
+          const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
+          return (
+            <Link
+              key={href}
+              href={href}
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-all"
+              style={{ color: active ? color : '#9CA3AF' }}
+            >
+              <div
+                className="flex items-center justify-center w-8 h-8 rounded-xl transition-all"
+                style={{ backgroundColor: active ? `${color}15` : 'transparent' }}
+              >
+                <Icon size={20} />
+              </div>
+              <span className="text-[10px] font-semibold leading-none">{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

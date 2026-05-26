@@ -530,7 +530,9 @@ export default function SettingsPage() {
   };
 
   return (
-    <div style={{ padding: '32px 36px 100px', maxWidth: 960, margin: '0 auto' }}>
+    <>
+    <style>{`@media (max-width: 767px) { .page-content { padding: 16px 16px 100px !important; } }`}</style>
+    <div className="page-content" style={{ padding: '32px 36px 100px', maxWidth: 960, margin: '0 auto' }}>
 
       {/* Page header */}
       <div style={{ marginBottom: 28 }}>
@@ -905,7 +907,7 @@ export default function SettingsPage() {
       </div>
 
       {/* ── Fixed save bar ── */}
-      <div style={{
+      <div className="save-bar" style={{
         position: 'fixed', bottom: 0, left: 240, right: 0, zIndex: 20,
         backgroundColor: 'rgba(255,255,255,0.95)',
         backdropFilter: 'blur(12px)',
@@ -988,5 +990,6 @@ export default function SettingsPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

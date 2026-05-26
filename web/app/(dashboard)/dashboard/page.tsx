@@ -1122,7 +1122,7 @@ export default function DashboardPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
       {/* ── Top bar ── */}
-      <div style={{
+      <div className="dash-toolbar" style={{
         flexShrink: 0, padding: '10px 24px',
         display: 'flex', alignItems: 'center',
         background: 'rgba(255,255,255,0.88)',
@@ -1170,7 +1170,7 @@ export default function DashboardPage() {
               onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#fff')}
               onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
             ><IconChevronLeft /></button>
-            <span style={{ fontSize: 13, fontWeight: 800, color: '#111827', padding: '0 12px', whiteSpace: 'nowrap', minWidth: 170, textAlign: 'center' }}>
+            <span className="dash-nav-label" style={{ fontSize: 13, fontWeight: 800, color: '#111827', padding: '0 12px', whiteSpace: 'nowrap', minWidth: 170, textAlign: 'center' }}>
               {navLabel}
             </span>
             <button
@@ -1185,7 +1185,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right — stats */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="dash-toolbar-right" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
           {clockedIn > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, backgroundColor: '#10B98115', color: '#10B981', border: '1px solid #10B98128' }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#10B981', display: 'inline-block', animation: 'pulse 2s infinite' }} />
@@ -1202,7 +1202,7 @@ export default function DashboardPage() {
 
       {/* ── Filter bar ── */}
       {employees.length > 0 && (
-        <div style={{
+        <div className="dash-filter-bar" style={{
           flexShrink: 0, padding: '7px 24px', display: 'flex', alignItems: 'center', gap: 8,
           background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
           borderBottom: '1px solid rgba(0,0,0,0.05)',
@@ -1294,6 +1294,7 @@ export default function DashboardPage() {
       {business && (
         <button
           onClick={() => setModal({ mode: 'create', date: todayStr })}
+          className="page-fab"
           style={{ position: 'fixed', bottom: 32, right: 32, zIndex: 40, display: 'flex', alignItems: 'center', gap: 10, padding: '14px 22px', borderRadius: 20, border: 'none', backgroundColor: color, color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: `0 8px 28px ${color}55`, transition: 'transform 0.15s, box-shadow 0.15s' }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.04)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 36px ${color}70`; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 28px ${color}55`; }}
@@ -1307,6 +1308,12 @@ export default function DashboardPage() {
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         .drum-scroll::-webkit-scrollbar { display: none; }
+        @media (max-width: 767px) {
+          .dash-toolbar { padding: 8px 12px !important; flex-wrap: wrap; gap: 6px !important; }
+          .dash-toolbar-right { display: none !important; }
+          .dash-nav-label { min-width: 100px !important; font-size: 11px !important; padding: 0 6px !important; }
+          .dash-filter-bar { overflow-x: auto !important; padding: 6px 12px !important; flex-wrap: nowrap !important; }
+        }
       `}</style>
 
       {modal && business && (

@@ -864,9 +864,10 @@ export default function TimeclockPage() {
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         .drum-scroll::-webkit-scrollbar { display: none; }
+        @media (max-width: 767px) { .page-content { padding: 16px 16px 32px !important; } }
       `}</style>
 
-      <div style={{ padding: '32px 36px', maxWidth: 900, margin: '0 auto' }}>
+      <div className="page-content" style={{ padding: '32px 36px', maxWidth: 900, margin: '0 auto' }}>
 
         {/* ── Header ── */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, gap: 16 }}>

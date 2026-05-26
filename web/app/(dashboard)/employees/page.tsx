@@ -559,9 +559,12 @@ export default function EmployeesPage() {
 
   return (
     <>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 767px) { .page-content { padding: 16px 16px 32px !important; } }
+      `}</style>
 
-      <div style={{ padding: '32px 36px', maxWidth: 900, margin: '0 auto' }}>
+      <div className="page-content" style={{ padding: '32px 36px', maxWidth: 900, margin: '0 auto' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
