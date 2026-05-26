@@ -1284,7 +1284,9 @@ export default function DashboardPage() {
             No se encontró el negocio. Recarga la página.
           </div>
         ) : viewMode === 'week' ? (
-          <WeekGrid dates={currentWeekDates} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
+          <div className="cal-scroll">
+            <WeekGrid dates={currentWeekDates} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
+          </div>
         ) : (
           <div className="cal-scroll">
             <MonthView weeks={monthGrid.weeks} month={monthGrid.month} startDay={startDay} shifts={filteredShifts} employees={employees} activeLogs={activeLogs} color={color} setModal={setModal} />
@@ -1321,15 +1323,8 @@ export default function DashboardPage() {
           .dash-page { height: auto !important; }
           /* Body: don't create a nested scroll container; just flow */
           .dash-body { flex: none !important; min-height: auto !important; overflow: visible !important; padding: 12px 12px 100px !important; }
-          /* Horizontal scroll wrapper for the calendar */
+          /* Horizontal scroll wrapper for both week and month views */
           .cal-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
-          /* Weekly view → vertical day list */
-          .week-grid { display: flex !important; flex-direction: column !important; min-width: unset !important; gap: 10px !important; }
-          .week-day  { display: flex !important; flex-direction: row !important; align-items: flex-start !important; gap: 10px !important; }
-          .week-day-header { width: 56px !important; flex-shrink: 0 !important; padding: 8px 4px !important; border-radius: 12px !important; }
-          .week-day-header .day-name { font-size: 9px !important; }
-          .week-day-header .day-num  { font-size: 18px !important; }
-          .week-day-shifts { flex: 1 !important; padding-top: 2px !important; }
         }
       `}</style>
 
