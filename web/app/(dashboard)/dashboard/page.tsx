@@ -989,66 +989,82 @@ function MonthView({ weeks, month, startDay, shifts, employees, activeLogs, colo
                 const visible   = isExp ? dayShifts : dayShifts.slice(0, MONTH_MAX);
                 const hidden    = dayShifts.length - MONTH_MAX;
 
+                // Strip colours
+                const stripBg = today ? color
+                  : !inMonth ? '#EAECF0'
+                  : past     ? '#F0F2F5'
+                  :            `${color}22`;
+                const numColor = today ? '#fff'
+                  : !inMonth  ? '#A0A8B4'
+                  : past      ? '#9CA3AF'
+                  :              color;
+
                 return (
                   <div key={dateStr} style={{
-                    backgroundColor: today
-                      ? `${color}12`
-                      : !inMonth ? '#F4F5F7' : past ? '#F9FAFB' : '#FFFFFF',
+                    backgroundColor: !inMonth ? '#F6F7F9' : past ? '#FAFBFC' : '#FFFFFF',
                     border: today
-                      ? `2px solid ${color}45`
-                      : `1.5px solid ${!inMonth ? '#DDE0E6' : '#D1D5DB'}`,
-                    borderRadius: 12, padding: '6px 5px',
+                      ? `2px solid ${color}`
+                      : `1.5px solid ${!inMonth ? '#DDE0E6' : '#E2E6EB'}`,
+                    borderRadius: 12,
                     display: 'flex', flexDirection: 'column',
                     height: isExp ? 'auto' : 190,
                     minHeight: isExp ? 190 : undefined,
-                    overflow: isExp ? 'visible' : 'hidden',
+                    overflow: 'hidden',
                     boxShadow: today
-                      ? `0 3px 14px ${color}22`
-                      : inMonth && !past ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
+                      ? `0 3px 14px ${color}30`
+                      : inMonth && !past ? '0 1px 4px rgba(0,0,0,0.05)' : 'none',
                   }}>
-                    {/* Date number — right-aligned */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 3, flexShrink: 0 }}>
+                    {/* ── Coloured header strip ── */}
+                    <div style={{
+                      backgroundColor: stripBg,
+                      padding: '5px 7px',
+                      display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+                      flexShrink: 0,
+                    }}>
                       <span style={{
                         fontSize: 13, fontWeight: 800, lineHeight: 1,
-                        color: today ? '#fff' : !inMonth ? '#A0A8B4' : past ? '#BEC5CF' : '#1F2937',
-                        width: 24, height: 24, borderRadius: 12,
-                        backgroundColor: today ? color : 'transparent',
+                        color: numColor,
+                        width: 22, height: 22, borderRadius: 11,
+                        backgroundColor: today ? 'rgba(255,255,255,0.25)' : 'transparent',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         {date.getDate()}
                       </span>
                     </div>
 
-                    {/* Shifts — capped at MONTH_MAX, always visible */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0, opacity: !inMonth ? 0.65 : 1 }}>
-                      {visible.map(shift => (
-                        <ShiftCardMini key={shift.shiftId} shift={shift} employees={employees} activeLogs={activeLogs} color={color}
-                          onClick={() => setModal({ mode: 'edit', shift })} />
-                      ))}
+                    {/* ── Content area ── */}
+                    <div style={{ padding: '4px 5px 5px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                      {/* Shifts — capped at MONTH_MAX */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0, opacity: !inMonth ? 0.6 : 1 }}>
+                        {visible.map(shift => (
+                          <ShiftCardMini key={shift.shiftId} shift={shift} employees={employees} activeLogs={activeLogs} color={color}
+                            onClick={() => setModal({ mode: 'edit', shift })} />
+                        ))}
+                      </div>
+
+                      {/* +N más / Menos */}
+                      {!isExp && hidden > 0 && (
+                        <button onClick={() => toggleDay(dateStr)} style={{ fontSize: 9, fontWeight: 700, color: inMonth ? color : '#9CA3AF', background: inMonth ? `${color}12` : '#F3F4F6', border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 3, flexShrink: 0 }}>
+                          +{hidden} más
+                        </button>
+                      )}
+                      {isExp && dayShifts.length > MONTH_MAX && (
+                        <button onClick={() => toggleDay(dateStr)} style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', background: '#F3F4F6', border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 3, flexShrink: 0 }}>
+                          Menos
+                        </button>
+                      )}
+
+                      {/* Add button — in-month future empty days only */}
+                      {inMonth && dayShifts.length === 0 && !past && (
+                        <button onClick={() => setModal({ mode: 'create', date: dateStr })}
+                          style={{ flex: 1, minHeight: 20, border: '1.5px dashed #D1D5DB', backgroundColor: 'transparent', color: '#C4C9D4', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 4, transition: 'border-color 150ms, color 150ms' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = color+'60'; (e.currentTarget as HTMLElement).style.color = color; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#D1D5DB'; (e.currentTarget as HTMLElement).style.color = '#C4C9D4'; }}
+                        >
+                          <IconPlus size={11} />
+                        </button>
+                      )}
                     </div>
-
-                    {/* +N más / Menos — always rendered after the list, never clipped */}
-                    {!isExp && hidden > 0 && (
-                      <button onClick={() => toggleDay(dateStr)} style={{ fontSize: 9, fontWeight: 700, color: inMonth ? color : '#9CA3AF', background: inMonth ? `${color}12` : '#F3F4F6', border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 3, flexShrink: 0 }}>
-                        +{hidden} más
-                      </button>
-                    )}
-                    {isExp && dayShifts.length > MONTH_MAX && (
-                      <button onClick={() => toggleDay(dateStr)} style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', background: '#F3F4F6', border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 3, flexShrink: 0 }}>
-                        Menos
-                      </button>
-                    )}
-
-                    {/* Add button — in-month future empty days only */}
-                    {inMonth && dayShifts.length === 0 && !past && (
-                      <button onClick={() => setModal({ mode: 'create', date: dateStr })}
-                        style={{ flex: 1, minHeight: 20, border: '1.5px dashed #D1D5DB', backgroundColor: 'transparent', color: '#C4C9D4', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 4, transition: 'border-color 150ms, color 150ms' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = color+'60'; (e.currentTarget as HTMLElement).style.color = color; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#D1D5DB'; (e.currentTarget as HTMLElement).style.color = '#C4C9D4'; }}
-                      >
-                        <IconPlus size={11} />
-                      </button>
-                    )}
                   </div>
                 );
               })}
