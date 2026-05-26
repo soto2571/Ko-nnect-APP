@@ -116,9 +116,9 @@ async function request<T>(
   const { query: _q, ...fetchOptions } = options;
   const res = await fetch(url, { ...fetchOptions, headers });
 
-  // On 401, try refreshing the session and retry once.
+  // On 401: if we sent a token, try refreshing; if not, it's a public endpoint error (e.g. wrong credentials).
   if (res.status === 401) {
-    if (_canRetry) {
+    if (token && _canRetry) {
       try {
         const { data } = await supabase.auth.refreshSession();
         if (data.session?.access_token) {
@@ -127,10 +127,15 @@ async function request<T>(
           return request(functionName, options, false);
         }
       } catch {}
+      // Had a token but refresh failed — session is unrecoverable.
+      _onAuthFailure?.();
+      throw new AuthSessionExpired();
     }
-    // Refresh failed (or already retried) — session is unrecoverable.
-    _onAuthFailure?.();
-    throw new AuthSessionExpired();
+    // No token was sent (public endpoint like auth-login) — parse the actual error.
+    const errText = await res.text();
+    let errJson: any;
+    try { errJson = JSON.parse(errText); } catch {}
+    throw new Error(errJson?.message || 'No autorizado.');
   }
 
   // Parse body — if the server returned HTML (gateway error), surface a friendly message

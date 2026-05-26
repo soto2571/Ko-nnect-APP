@@ -2,11 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ActivityIndicator, Alert, ScrollView, Switch, Modal, KeyboardAvoidingView, Platform,
-  Dimensions, FlatList, PanResponder, Animated,
+  Dimensions, FlatList, PanResponder, Animated, Linking, AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { type Region } from 'react-native-maps';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -171,6 +172,7 @@ export default function SettingsScreen() {
   const [notifyBreak,    setNotifyBreak]    = useState(business?.notifyBreak    ?? false);
   const [notifyClockOut, setNotifyClockOut] = useState(business?.notifyClockOut ?? true);
   const [notifyLate,     setNotifyLate]     = useState(business?.notifyLate     ?? true);
+  const [pushPermission, setPushPermission] = useState<string>('undetermined');
   const [geofenceEnabled, setGeofenceEnabled] = useState(business?.geofenceEnabled ?? false);
   const [geofenceLat, setGeofenceLat]         = useState(business?.geofenceLat ?? null as number | null);
   const [geofenceLng, setGeofenceLng]         = useState(business?.geofenceLng ?? null as number | null);
@@ -222,6 +224,16 @@ export default function SettingsScreen() {
   const [deletingBiz, setDeletingBiz] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  useEffect(() => {
+    Notifications.getPermissionsAsync().then(({ status }) => setPushPermission(status));
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        Notifications.getPermissionsAsync().then(({ status }) => setPushPermission(status));
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (business) {
@@ -770,7 +782,43 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* 5 — Account */}
+        {/* 5 — Push Notifications */}
+        <View style={s.card}>
+          <Text style={s.cardLabel}>Notificaciones</Text>
+          <Text style={[s.hintText, { marginBottom: 8 }]}>Recibe alertas en tu telefono cuando tus empleados ponchen.</Text>
+          {pushPermission !== 'granted' && (
+            <View style={s.permissionBanner}>
+              <Ionicons name="notifications-off-outline" size={18} color="#B45309" style={{ marginRight: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.permissionBannerText}>
+                  Las notificaciones estan desactivadas en este dispositivo. Activalas en Ajustes para recibir alertas.
+                </Text>
+                <TouchableOpacity onPress={() => Linking.openSettings()} style={s.permissionBtn}>
+                  <Text style={s.permissionBtnText}>Abrir Ajustes</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+          {[
+            { label: 'Entrada al turno',      value: notifyClockIn,  set: setNotifyClockIn },
+            { label: 'Inicio y fin de break', value: notifyBreak,    set: setNotifyBreak },
+            { label: 'Salida del turno',      value: notifyClockOut, set: setNotifyClockOut },
+            { label: 'Llego tarde (+5 min)',   value: notifyLate,     set: setNotifyLate },
+          ].map(({ label, value, set }) => (
+            <View key={label} style={s.notifRow}>
+              <Text style={[s.notifLabel, pushPermission !== 'granted' && { color: '#D1D5DB' }]}>{label}</Text>
+              <Switch
+                value={pushPermission === 'granted' ? value : false}
+                onValueChange={pushPermission === 'granted' ? set : undefined}
+                disabled={pushPermission !== 'granted'}
+                trackColor={{ false: '#E5E7EB', true: color }}
+                thumbColor="#fff"
+              />
+            </View>
+          ))}
+        </View>
+
+        {/* 6 — Account */}
         <View style={s.card}>
           <Text style={s.cardLabel}>Cuenta</Text>
 
@@ -788,28 +836,6 @@ export default function SettingsScreen() {
             <Ionicons name="log-out-outline" size={17} color="#EF4444" />
             <Text style={s.logoutText}>Cerrar Sesión</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* 6 — Push Notifications */}
-        <View style={s.card}>
-          <Text style={s.cardLabel}>Notificaciones</Text>
-          <Text style={[s.hintText, { marginBottom: 4 }]}>Recibe alertas en tu telefono cuando tus empleados ponchen.</Text>
-          {[
-            { label: 'Entrada al turno',      value: notifyClockIn,  set: setNotifyClockIn },
-            { label: 'Inicio y fin de break', value: notifyBreak,    set: setNotifyBreak },
-            { label: 'Salida del turno',      value: notifyClockOut, set: setNotifyClockOut },
-            { label: 'Llego tarde (+5 min)',   value: notifyLate,     set: setNotifyLate },
-          ].map(({ label, value, set }) => (
-            <View key={label} style={s.notifRow}>
-              <Text style={s.notifLabel}>{label}</Text>
-              <Switch
-                value={value}
-                onValueChange={set}
-                trackColor={{ false: '#E5E7EB', true: color }}
-                thumbColor="#fff"
-              />
-            </View>
-          ))}
         </View>
 
         {/* 7 — Change Password (not for Google users) */}
@@ -986,6 +1012,13 @@ const s = StyleSheet.create({
     paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
   notifLabel: { fontSize: 14, color: '#374151', fontWeight: '500', flex: 1 },
+  permissionBanner: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12, marginBottom: 12,
+  },
+  permissionBannerText: { fontSize: 13, color: '#92400E', lineHeight: 18 },
+  permissionBtn: { marginTop: 8, alignSelf: 'flex-start' },
+  permissionBtnText: { fontSize: 13, fontWeight: '700', color: '#B45309', textDecorationLine: 'underline' },
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4,
     padding: 12, borderRadius: 12, backgroundColor: '#FEF2F2',

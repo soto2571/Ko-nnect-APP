@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch, Linking, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { PasswordField, passwordValid } from '@/components/PasswordField';
 import { StatusBar } from 'expo-status-bar';
@@ -79,6 +80,7 @@ export default function EmployeeProfileScreen() {
   const [notifyShiftReminder,   setNotifyShiftReminder]   = useState(user?.notifyShiftReminder   ?? false);
   const [notifyClockOutReminder, setNotifyClockOutReminder] = useState(user?.notifyClockOutReminder ?? false);
   const [savingNotif, setSavingNotif] = useState(false);
+  const [pushPermission, setPushPermission] = useState<string>('undetermined');
 
   const handleSaveNotifications = async () => {
     setSavingNotif(true);
@@ -106,6 +108,16 @@ export default function EmployeeProfileScreen() {
     } catch { setPeriodLogs([]); }
     finally { setLogsLoading(false); }
   }, [business]);
+
+  useEffect(() => {
+    Notifications.getPermissionsAsync().then(({ status }) => setPushPermission(status));
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        Notifications.getPermissionsAsync().then(({ status }) => setPushPermission(status));
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     loadPeriodLogs(periodOffset);
@@ -262,15 +274,29 @@ export default function EmployeeProfileScreen() {
         <View style={[s.card, { alignItems: 'stretch', padding: 20, gap: 0 }]}>
           <Text style={[s.sectionTitle, { marginBottom: 4 }]}>Notificaciones</Text>
           <Text style={s.notifHint}>Activa recordatorios opcionales para tus turnos.</Text>
+          {pushPermission !== 'granted' && (
+            <View style={s.permissionBanner}>
+              <Ionicons name="notifications-off-outline" size={18} color="#B45309" style={{ marginRight: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.permissionBannerText}>
+                  Las notificaciones estan desactivadas. Activalas en Ajustes para recibir recordatorios.
+                </Text>
+                <TouchableOpacity onPress={() => Linking.openSettings()} style={s.permissionBtn}>
+                  <Text style={s.permissionBtnText}>Abrir Ajustes</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
           {[
             { label: 'Recordatorio 30 min antes del turno', value: notifyShiftReminder,    set: setNotifyShiftReminder },
             { label: 'Recordatorio de marcar salida',       value: notifyClockOutReminder, set: setNotifyClockOutReminder },
           ].map(({ label, value, set }) => (
             <View key={label} style={s.notifRow}>
-              <Text style={s.notifLabel}>{label}</Text>
+              <Text style={[s.notifLabel, pushPermission !== 'granted' && { color: '#D1D5DB' }]}>{label}</Text>
               <Switch
-                value={value}
-                onValueChange={set}
+                value={pushPermission === 'granted' ? value : false}
+                onValueChange={pushPermission === 'granted' ? set : undefined}
+                disabled={pushPermission !== 'granted'}
                 trackColor={{ false: '#E5E7EB', true: color }}
                 thumbColor="#fff"
               />
@@ -388,6 +414,13 @@ const s = StyleSheet.create({
     paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
   notifLabel: { fontSize: 14, color: '#374151', fontWeight: '500', flex: 1, paddingRight: 8 },
+  permissionBanner: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12, marginBottom: 12,
+  },
+  permissionBannerText: { fontSize: 13, color: '#92400E', lineHeight: 18 },
+  permissionBtn: { marginTop: 8, alignSelf: 'flex-start' },
+  permissionBtnText: { fontSize: 13, fontWeight: '700', color: '#B45309', textDecorationLine: 'underline' },
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 14, borderRadius: 16,

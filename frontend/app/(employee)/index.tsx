@@ -3,11 +3,12 @@ import { useFocusEffect } from 'expo-router';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, Alert, RefreshControl, Animated, Pressable,
-  Modal, TextInput, KeyboardAvoidingView, Platform,
+  Modal, TextInput, KeyboardAvoidingView, Platform, Linking, AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -520,6 +521,8 @@ export default function MyShiftsScreen() {
   const [timeLog, setTimeLog]           = useState<TimeLog | null>(null);
   const [clockLoading, setClockLoading] = useState(false);
   const [pastExpanded, setPastExpanded]   = useState(false);
+  const [locationPermission, setLocationPermission] = useState<string>('undetermined');
+  const [pushPermission, setPushPermission]         = useState<string>('undetermined');
 
   // PIN modal state — shown when location permission is denied and geofence is on
   const [pinModal, setPinModal] = useState<{ action: 'in' | 'out'; shiftId?: string; businessId?: string } | null>(null);
@@ -551,6 +554,20 @@ export default function MyShiftsScreen() {
   }, []);
 
 useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const checkPerms = async () => {
+      const loc   = await Location.getForegroundPermissionsAsync();
+      const notif = await Notifications.getPermissionsAsync();
+      setLocationPermission(loc.status);
+      setPushPermission(notif.status);
+    };
+    checkPerms();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') checkPerms();
+    });
+    return () => sub.remove();
+  }, []);
 
   useFocusEffect(useCallback(() => { setWeekOffset(0); }, []));
 
@@ -841,6 +858,28 @@ useEffect(() => { load(); }, [load]);
           ListHeaderComponent={
             weekOffset === 0 ? (
               <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4 }}>
+                {business?.geofenceEnabled && locationPermission !== 'granted' && (
+                  <View style={st.permBanner}>
+                    <Ionicons name="location-outline" size={18} color="#B45309" style={{ marginRight: 8, marginTop: 1 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={st.permBannerText}>Ubicacion desactivada. Sin acceso no podras marcar entrada — usa el PIN de respaldo o activa la ubicacion.</Text>
+                      <TouchableOpacity onPress={() => Linking.openSettings()} style={st.permBtn}>
+                        <Text style={st.permBtnText}>Abrir Ajustes</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+                {pushPermission !== 'granted' && (
+                  <View style={st.permBanner}>
+                    <Ionicons name="notifications-off-outline" size={18} color="#B45309" style={{ marginRight: 8, marginTop: 1 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={st.permBannerText}>Notificaciones desactivadas. No recibiras recordatorios de tus turnos.</Text>
+                      <TouchableOpacity onPress={() => Linking.openSettings()} style={st.permBtn}>
+                        <Text style={st.permBtnText}>Abrir Ajustes</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
                 {todayShift ? (
                   <TodayClockCard
                     shift={todayShift} log={timeLog}
@@ -1070,6 +1109,14 @@ const st = StyleSheet.create({
     borderWidth: 1, borderColor: '#E5E7EB',
   },
   noTodayText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+
+  permBanner: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    backgroundColor: '#FEF3C7', borderRadius: 12, padding: 12, marginBottom: 10,
+  },
+  permBannerText: { fontSize: 13, color: '#92400E', lineHeight: 18 },
+  permBtn: { marginTop: 6, alignSelf: 'flex-start' },
+  permBtnText: { fontSize: 13, fontWeight: '700', color: '#B45309', textDecorationLine: 'underline' },
 
   tomorrowCard: {
     backgroundColor: '#fff', borderRadius: 16, marginTop: 10,
